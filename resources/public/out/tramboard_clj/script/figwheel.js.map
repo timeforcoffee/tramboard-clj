@@ -1,0 +1,10 @@
+{"version":3,
+ "file":
+ "/Users/fterrier/Projects/tramboard-clj/resources/public/out/tramboard_clj/script/figwheel.js",
+ "sources":["figwheel.cljs"],
+ "lineCount":13,
+ "mappings":
+ ";AAAA;;;;;;AAIA,AAACA;AACD,2CAAA,uEAAA,kCAAA,pJAACC,gOAEkB,aAAA,AACE,OAACC;;AAEtB,AAACA",
+ "names":
+ ["cljs.core/enable-console-print!",
+  "figwheel.client/watch-and-reload", "tramboard-clj.script.tram/main"]}

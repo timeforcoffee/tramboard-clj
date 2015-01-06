@@ -1,0 +1,306 @@
+body {
+	padding-top: 10px;
+	padding-left: 10px;
+	padding-right: 10px;
+}
+
+.nav {
+	font-size: 12px;
+	width: 100%;
+	margin-right: 15px;
+}
+
+.nav > li > a {
+	display: inline-block;
+}
+
+.nav > li > span {
+	margin-right: 12px;
+}
+
+.glyphicon.glyphicon-share-alt {
+	-moz-transform: scale(-1, 1);
+	-webkit-transform: scale(-1, 1);
+	-o-transform: scale(-1, 1);
+	-ms-transform: scale(-1, 1);
+	transform: scale(-1, 1);
+}
+
+
+.tram-table {
+	display: table;
+	table-layout: fixed;
+	padding: 0;
+	margin-top: 4px;
+	width: 100%;
+}
+
+.tram-table td {
+	vertical-align: middle;
+	padding-bottom: 4px;
+}
+
+.number-cell {
+	width: 84px;
+}
+
+.number {
+	font-size: 3em;
+	font-weight: bold;
+	border-radius: 4px;
+	text-align: center;
+	color: black;
+	background: white;
+	border: 1px solid #ddd;	
+	display: inline-block;
+	width: 72px;
+	padding-bottom: 4px;
+	padding-top: 4px;
+}
+
+.station {
+	font-size: 1.8em;
+	word-wrap: break-word;
+}
+
+.night {
+	color: #fff100;
+	background-color: black;
+	border: none;
+}
+
+.small {
+	font-size: 2em;
+	padding: 14px 0 14px 0;
+}
+
+.number-2 {
+	color: white;
+	background-color: #e20a16;
+	border: none;
+}
+
+.number-3 {
+	color: white;
+	background-color: #00892f;
+	border: none;
+}
+
+.number-4 {
+	color: white;
+	background-color: #11296f;
+	border: none;
+}
+
+.number-5 {
+	color: white;
+	background-color: #734522;
+	border: none;
+}
+
+.number-6 {
+	color: white;
+	background-color: #ca7d3c;
+	border: none;
+}
+
+.number-7 {
+	color: white;
+	background-color: black;
+	border: none;
+}
+
+.number-8 {
+	color: black;
+	background-color: #8ab51f;
+	border: none;
+}
+
+.number-9 {
+	color: white;
+	background-color: #11296f;
+	border: none;
+}
+
+.number-10 {
+	color: white;
+	background-color: #e12472;
+	border: none;
+	padding-right: 4px;
+}
+
+.number-11 {
+	color: white;
+	background-color: #00892f;
+	border: none;
+}
+
+.number-12 {
+	color: black;
+	background-color: #5eb3db;
+	border: none;
+}
+
+.number-13 {
+	color: black;
+	background-color: #ffc100;
+	border: none;
+}
+
+.number-14 {
+	color: white;
+	background-color: #008dc5;
+	border: none;
+	padding-right: 4px;
+}
+
+.number-15 {
+	color: white;
+	background-color: #e20a16;
+	border: none;
+}
+
+.number-17 {
+	color: white;
+	background-color: #8e224d;
+	border: none;
+}
+
+.number-31 {
+	color: white;
+	background-color: #a5a2c6;
+	border: none;
+}
+
+.number-32 {
+	color: black;
+	background-color: #ccb2d1;
+	border: none;
+}
+
+.number-33 {
+	color: black;
+	background-color: #dad69c;
+	border: none;
+}
+
+.number-46 {
+	color: black;
+	background-color: #c1d59f;
+	border: none;
+}
+
+.number-69 {
+	color: white;
+	background-color: #c6a693;
+	border: none;
+}
+
+.number-72 {
+	color: black;
+	background-color: #c6a693;
+	border: none;
+}
+
+.number-80 {
+	color: black;
+	background-color: #cbcfb3;
+	border: none;
+}
+
+.time {
+	line-height: 72px;
+	padding-right: 0;
+	width: 96px;
+}
+
+.time div {
+	font-size: 4em;
+	font-weight: bold;
+	float: right;
+}
+
+.time img {
+	display: none;
+}
+
+.time00 img,
+.time-1-1 img,
+.time-1-2 img {
+	display: inline;
+	position: relative;
+	right: -6px;
+}
+
+.time00 div,
+.time-1-1 div,
+.time-1-2 div {
+	display: none;
+}
+
+.departure {
+	line-height: 72px;
+	font-size: 2.5em;
+	text-align: right;
+	width: 96px;
+}
+
+.departure .undelayed {
+	line-height: 0;
+}
+
+.undelayed {
+	font-size: 0.6em;
+	font-style: italic;
+}
+
+.settings {
+	margin-top: 4px;
+}
+
+
+@media (min-width: 768px) and (max-width: 992px) {
+	.multi-col .station {
+		font-size: 1.3em;
+	}
+
+	.multi-col .time {
+		width: 56px;
+	}
+
+	.multi-col .time div {
+		font-size: 3em;
+	}
+
+	.multi-col .departure {
+		font-size: 2em;
+		line-height: 56px;
+		width: 72px;
+	}
+}
+
+
+/* Station specific styles: 
+   Colors for Hirschi rows */
+#hirschi_to_city .tram-row-1, 
+#hirschi_to_city .tram-row0, 
+#hirschi_to_city .tram-row1, 
+#hirschi_to_city .tram-row2,
+#hirschi_to_city .tram-row3,
+#city_to_hirschi .tram-row-1, 
+#city_to_hirschi .tram-row0, 
+#city_to_hirschi .tram-row1, 
+#city_to_hirschi .tram-row2,
+#city_to_hirschi .tram-row3 {
+	background-color: rgba(255, 128, 128, 0.7);
+}
+
+#hirschi_to_city .tram-row4,
+#city_to_hirschi .tram-row4 {
+	background-color: rgba(255, 255, 0, 0.7);
+}
+
+#hirschi_to_city .tram-row5,
+#city_to_hirschi .tram-row5 {
+	background-color: rgba(0, 255, 0, 0.6);
+}
