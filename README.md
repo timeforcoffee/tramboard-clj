@@ -1,6 +1,6 @@
 # tramboard-clj
 
-FIXME
+A rewrite of the [Tramboard](https://github.com/fterrier/tramboard) using clojure and om
 
 ## Prerequisites
 
