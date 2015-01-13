@@ -224,17 +224,17 @@ body {
 	display: none;
 }
 
-.time00 img,
-.time-1-1 img,
-.time-1-2 img {
+.time0 img,
+.time-1 img,
+.time-2 img {
 	display: inline;
 	position: relative;
 	right: -6px;
 }
 
-.time00 div,
-.time-1-1 div,
-.time-1-2 div {
+.time0 div,
+.time-1 div,
+.time-2 div {
 	display: none;
 }
 
