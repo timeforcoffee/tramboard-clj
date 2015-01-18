@@ -16,18 +16,15 @@
                  [secretary "1.2.1"]
                  [cljs-uuid "0.0.4"]]
   
-  :plugins [[lein-ring "0.8.13"]
-            [lein-cljsbuild "1.0.3"]]
-  
+  :plugins [[lein-cljsbuild "1.0.3"]]
   :uberjar-name "tramboard-clj.jar"
-  :ring {:handler tramboard-clj.core.handler/app}
-  
   :cljsbuild {:builds {:app {:source-paths ["src"]}}}
   
   :profiles {:dev {:source-paths ["env/dev/src"]
-                   :dependencies [[javax.servlet/servlet-api "2.5"]
-                                  [figwheel "0.2.0-SNAPSHOT"]]
-                   :plugins [[lein-figwheel "0.2.0-SNAPSHOT"]]
+                   :dependencies [[figwheel "0.2.0-SNAPSHOT"]]
+                   :plugins [[lein-figwheel "0.2.0-SNAPSHOT"]
+                             [lein-ring "0.8.13"]]
+                   :ring {:handler tramboard-clj.core.handler/app}
                    :figwheel {:css-dirs ["resources/public/css"]}
                    :cljsbuild {:builds {:app {:source-paths ["env/dev/src"]
                                               :compiler {:output-to "resources/public/js/dev.js"
