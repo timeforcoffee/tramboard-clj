@@ -1,10 +1,11 @@
-(ns tramboard-clj.script.figwheel
+(ns tramboard-clj.script.main
   (:require [figwheel.client :as fw]
             [tramboard-clj.script.tram :as tram]
             [clojure.browser.repl :as repl]))
 
 (enable-console-print!)
 
+; TODO maybe wrap this in a (defmacro run-only-in-dev)
 (repl/connect "http://localhost:9000/repl")
 
 (fw/watch-and-reload

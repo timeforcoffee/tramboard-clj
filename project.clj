@@ -6,30 +6,41 @@
   :dependencies [[org.clojure/clojure "1.6.0"]
                  [compojure "1.3.1"]
                  [ring/ring-defaults "0.1.2"]
+                 [ring/ring-jetty-adapter "1.2.1"]
                  [org.clojure/clojurescript "0.0-2511"]
                  [org.om/om "0.8.0"]
                  [hiccup "1.0.0"]
                  [cljs-ajax "0.3.4"]
                  [org.clojure/core.async "0.1.346.0-17112a-alpha"]
                  [com.andrewmcveigh/cljs-time "0.3.0"]
-                 [secretary "1.2.1"]]
+                 [secretary "1.2.1"]
+                 [cljs-uuid "0.0.4"]]
   
   :plugins [[lein-ring "0.8.13"]
             [lein-cljsbuild "1.0.3"]]
   
+  :uberjar-name "tramboard-clj.jar"
   :ring {:handler tramboard-clj.core.handler/app}
   
-  :cljsbuild {
-              :builds [{:id "dev"
-                        :source-paths ["src"]
-                        :compiler {:output-to "resources/public/js/main.js"
-                                   :output-dir "resources/public/out"
-                                   :optimizations :none
-                                   :pretty-print true
-                                   :source-map true}}]}
+  :cljsbuild {:builds {:app {:source-paths ["src"]}}}
   
-  :profiles {:dev {:dependencies [[javax.servlet/servlet-api "2.5"]
-                                  [ring-mock "0.1.5"]
+  :profiles {:dev {:source-paths ["env/dev/src"]
+                   :dependencies [[javax.servlet/servlet-api "2.5"]
                                   [figwheel "0.2.0-SNAPSHOT"]]
                    :plugins [[lein-figwheel "0.2.0-SNAPSHOT"]]
-                   :figwheel {:css-dirs ["resources/public/css"]}}})
+                   :figwheel {:css-dirs ["resources/public/css"]}
+                   :cljsbuild {:builds {:app {:source-paths ["env/dev/src"]
+                                              :compiler {:output-to "resources/public/js/dev.js"
+                                                         :output-dir "resources/public/out"
+                                                         :optimizations :none
+                                                         :pretty-print true
+                                                         :source-map "resources/public/out.js.map"}}}}}
+             
+             :uberjar {:source-paths ["env/prod/src"]
+                       :hooks [leiningen.cljsbuild]
+                       :omit-source true
+                       :aot :all
+                       :cljsbuild {:builds {:app {:source-paths ["env/prod/src"]
+                                                  :compiler {:output-to "resources/public/js/main.js"
+                                                             :optimizations :advanced
+                                                             :pretty-print false}}}}}})

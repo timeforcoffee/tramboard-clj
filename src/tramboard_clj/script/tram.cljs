@@ -4,30 +4,32 @@
             [om.dom :as dom :include-macros true]
             [ajax.core :refer [GET POST]]
             [cljs.core.async :refer [put! chan <! close! timeout]]
+            [clojure.string :as str]
             [cljs-time.core :refer [minute hour in-minutes interval now after?]]
             [cljs-time.format :refer [parse unparse formatters formatter]]
             [secretary.core :as secretary :include-macros true :refer-macros [defroute]]
             [goog.events :as events]
-            [goog.history.EventType :as EventType])
+            [goog.history.EventType :as EventType]
+            [cljs-uuid.core :as uuid])
   
   (:import goog.History))
 
 (enable-console-print!)
 (secretary/set-config! :prefix "#")
 
-; TODO delete those when done
-(def mocks
-  {:views
-   [{:stations [{:keywords "" :stat {:name "Zürich, Hirschwiesenstrasse" :id "008591193"}}
-                {:keywords "" :stat {:name "Zürich, Milchbuck"           :id "008591276"}}] 
-     :name "Hirschi-City" 
-     :id "hirschi-city"}
-    ]
-   :additional-views 
-   [{:stations [{:keywords "" :stat {:name "Zürich, Hirschwiesenstrasse" :id "008591194"}}
-                {:keywords "" :stat {:name "Zürich, Milchbuck"           :id "008591275"}}] 
-     :name "Hirschi-City" 
-     :id "hirschi-city"}]})
+; ; TODO delete those when done
+; (def mocks
+;   {:views
+;    [{:stations [{:keywords "" :stat {:name "Zürich, Hirschwiesenstrasse" :id "008591193"}}
+;                 {:keywords "" :stat {:name "Zürich, Milchbuck"           :id "008591276"}}] 
+;      :name "Hirschi-City" 
+;      :id "hirschi-city"}
+;     ]
+;    :additional-views 
+;    [{:stations [{:keywords "" :stat {:name "Zürich, Hirschwiesenstrasse" :id "008591194"}}
+;                 {:keywords "" :stat {:name "Zürich, Milchbuck"           :id "008591275"}}] 
+;      :name "Hirschi-City" 
+;      :id "hirschi-city"}]})
 
 ; some global constants here
 (def history (History.))
@@ -37,22 +39,28 @@
 (def app-state
   (atom {
          ; views from local storage
-         :selected-views   []
+         :selected-views-ids   []
          :configured-views []
          ; navigation state
          :navigation {}}))
 
-; in those we set the state properly
-(defroute home "/home"     []   (js/console.log "Home"))
-(defroute view "/view/*id" [id] 
-  ; we change the navigation state
-  (js/console.log id))
+(def home-link "/home")
 
-;(defroute add  "/add"  [] (js/console.log "Adding"))
+(defroute home home-link []  
+  ; we change the navigation settings
+  (swap! app-state #(assoc % :selected-views-ids [])))
+
+(defroute view "/view/*ids" [ids]
+  (if 
+    (str/blank? ids) 
+    (doto history (.setToken home-link))
+    ; we change the navigation settings
+    (swap! app-state #(assoc % :selected-views-ids (str/split ids "/")))))
 
 ; fallback route will redirect to home
-(defroute "*" [] (doto history (.setToken (home))))
+(defroute "*" [] (doto history (.setToken home-link)))
 
+(defn uuid [] (uuid/make-random))
 
 (defn display-time [in-minutes]
   (if (< in-minutes 59) in-minutes ">59"))
@@ -60,10 +68,12 @@
 (defn arrival-row [arrival owner]
   (reify
     om/IWillMount 
-    (will-mount [_] (println "Mounting row"))
+    (will-mount [_] 
+                ; (println "Mounting row")
+                )
     om/IRender
     (render [this] 
-            (println "Rendering row")
+            ; (println "Rendering row")
             (dom/tr #js {:className "tram-row"}
                     (dom/td #js {:className "number-cell"} (dom/span #js {:className (str "number number-" (:number arrival))} (:number arrival)))
                     (dom/td #js {:className "station"} (:destination arrival))
@@ -88,8 +98,9 @@
   "Given a list of ids, returns the stationboard data from the server"
   (GET (str "http://localhost:8000/stationboard/" id) {:response-format :json
                                                        :keywords? true 
+                                                       ; :timeout 20
                                                        :handler (fn [data] (on-complete {:id id :data data}))
-                                                       :error-handler (fn [error] (on-error {:id id :error error}))}))
+                                                       :error-handler (fn [error] (on-error {:id id :data [] :error error}))}))
 
 (def hour-minute-formatter (formatter "HH:mm"))
 
@@ -123,7 +134,7 @@
               (format-to-hour-minute (:undelayed_departure entry)))}))
        (list)))
 
-(defn ids-from-views [views] 
+(defn station-ids-from-views [views] 
   (->> views
        (map :stations)
        (flatten)
@@ -132,15 +143,16 @@
        (set))
   )
 
-(defn execute-and-put-on-channel-after-timeout [fetch channel timeout-ms] 
-  (go (<! (timeout timeout-ms)) (fetch #(put! channel %) #(put! channel %))))
+(defn views-from-ids [ids views]
+  (->> ids
+       (map (fn [id] (first (filter #(= (:id %) id) views))))))
 
 (defn arrival-tables-view [app owner]
   "Takes as input a set of views (station id) and the size of the pane and renders the table views."
   (reify
     om/IInitState 
     (init-state [_] 
-                {:station-data {} :ids {} :control-chan (chan)})
+                {:station-data {} :ids #{} :control-chan (chan) :seq-id 0})
     om/IWillMount 
     (will-mount [_]
                 ; the is the control channel loop
@@ -149,27 +161,34 @@
                     (loop []
                       (when-some 
                         [control (<! control-chan)]
-                        (let [key (:key control) data (:data control)]
-                          (println (str "Got channel message with: " key ", " data))
+                        (let [key (:key control) 
+                              data (:data control) 
+                              msg-seq-id (:seq-id control) 
+                              current-seq-id (om/get-state owner :seq-id)]
+                          (println (str "Got channel message with: " key ", " (str (apply str (take 100 (str data))) "...")))
                           
                           (case key
                             "view-change"
-                            ; we reset everything
+                            ; we reset everything in a transaction
                             (do
                               (println (str "Setting up refresh loop for: " data))
                               
-                              (om/set-state! owner :ids          data)
-                              (om/set-state! owner :station-data {})
-                              ; we ask the channel to fetch the new data
-                              (doseq [id data]
-                                (go (<! (timeout 0)) (put! control-chan {:key "fetch" :data id}))))
+                              (let [new-seq-id (uuid)]
+                                (om/update-state! owner #(merge % {:ids data :station-data {} :seq-id new-seq-id}))
+                                ; we ask the channel to fetch the new data
+                                (doseq [id data]
+                                  (go (<! (timeout 0)) (put! control-chan {:key "fetch" :data id :seq-id new-seq-id})))))
                             "incoming-data"
                             (let [id (:id data) station-data (:data data)]
-                              (when (contains? (om/get-state owner :ids) id)
-                                (om/update-state! owner :station-data #(assoc-in % [id] station-data))
-                                (go (<! (timeout refresh-rate)) (put! control-chan {:key "fetch" :data id}))))
+                              (when (= current-seq-id msg-seq-id)
+                                ; here we should never assign to nil otherwise it seems Om does not
+                                ; propagate the changes any more
+                                (when (not (:error data))
+                                  (om/update-state! owner :station-data #(assoc % id station-data)))
+                                (go (<! (timeout refresh-rate)) (put! control-chan {:key "fetch" :data id :seq-id msg-seq-id}))))
+                            ; (println (om/get-state owner :station-data))
                             "fetch"
-                            (let [handle-data #(put! control-chan {:key "incoming-data" :data %})]
+                            (let [handle-data #(put! control-chan {:key "incoming-data" :data % :seq-id msg-seq-id})]
                               (fetch-stationboard-data data handle-data handle-data))
                             ))
                         (recur))))))
@@ -179,38 +198,49 @@
                   (close! (om/get-state owner :control-chan)))
     om/IWillReceiveProps
     (will-receive-props [_ next]
-                        (put! (om/get-state owner :control-chan) 
-                              {:key "view-change" :data (ids-from-views (:selected-views next))}))
+                        (let [station-ids (station-ids-from-views (views-from-ids (:selected-views-ids next) (:configured-views next)))]
+                          (put! (om/get-state owner :control-chan) {:key "view-change" :data station-ids})))
     om/IRenderState
     (render-state [this {:keys [station-data]}]
                   (println "Rendering arrival tables")
                   
-                  (dom/div nil
-                           (dom/span nil (apply str (ids-from-views (:selected-views app))))
-                           (apply dom/div #js {:className "row"} 
-                                  (map #(dom/div #js {:className "multi-col col-sm-6 col-md-6"} %)
-                                       (om/build-all arrival-table (arrivals-from-station-data station-data (:selected-views app) nil))))))))
+                  (let [arrivals (arrivals-from-station-data 
+                                   station-data 
+                                   (views-from-ids (:selected-views-ids app) (:configured-views app)) nil)]
+                    (dom/div nil
+                             (apply dom/div #js {:className "row"} 
+                                    (map #(dom/div #js {:className "multi-col col-sm-6 col-md-6"} %)
+                                         (om/build-all arrival-table arrivals))))))))
 
-(defn menu-item [configured-view owner]
+(defn create-view-suffix [linked-view-id selected-views-ids]
+  "Creates a link based on which views are selected"
+  (if (some #{linked-view-id} selected-views-ids)
+    (str/join "/" (remove #(= linked-view-id %) selected-views-ids))
+    (str/join "/" (conj selected-views-ids linked-view-id))))
+
+(defn menu-item [view-infos owner]
   "This is a link"
   (reify
     om/IRender
     (render [this]            
-            (let [linked-view (:configured-view configured-view)]
-              (dom/a #js {:href (view {:id (:id linked-view)})} (:name linked-view))))))
+            (let [linked-view (:configured-view view-infos) 
+                  selected-views-ids (:selected-views-ids view-infos)
+                  link (create-view-suffix (:id linked-view) selected-views-ids)]
+              ; TODO create the link based on what is selected
+              (dom/li #js {:className (when (some #{(:id linked-view)} (set selected-views-ids)) "active")}
+                      (dom/a #js {:href (view {:ids link})} (:name linked-view)))))))
 
 (defn menu-bar [app owner]
   "This displays all the links"
   (reify 
     om/IRender
     (render [this]
-            (apply dom/div nil
-                   (map  #(om/build menu-item {:configured-view % :selected-views (:selected-views app)}) 
+            (apply dom/ul #js {:className "nav nav-pills"}
+                   (map  #(om/build menu-item {:configured-view % :selected-views-ids (:selected-views-ids app)})
                         (:configured-views app))))))
 
-; TODO component over arrival-tables-view that reads local storage and takes care of routing
 (defn stationboard [app owner]
-  "Takes the app (contains all views, selected view) and renders the whole page"
+  "Takes the app (contains all views, selected view) and renders the whole page, knows what to display based on the routing."
   (reify
     om/IWillMount
     (will-mount [_]
@@ -221,10 +251,7 @@
     (render [this]
             (println "Rendering stationboard")
             
-            (dom/div nil
-                     ; this is to emulate navigation for now
-                     (dom/button
-                       #js {:onClick #(om/update! app :selected-views (:additional-views mocks))} "Replace stations")
+            (dom/div nil                     
                      (om/build menu-bar app)
                      (om/build arrival-tables-view app)))))
 
