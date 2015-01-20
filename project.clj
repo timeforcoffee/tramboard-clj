@@ -26,8 +26,7 @@
   :cljsbuild {:builds {:app {:source-paths ["src" ".lein-git-deps/om-autocomplete/src/"]}}}
   
   :profiles {:dev {:source-paths ["env/dev/src"]
-                   :dependencies [[figwheel "0.2.0-SNAPSHOT"]
-                                  [ankha "0.1.4"]]
+                   :dependencies [[figwheel "0.2.0-SNAPSHOT"]]
                    :plugins [[lein-figwheel "0.2.0-SNAPSHOT"]
                              [lein-ring "0.8.13"]]
                    :ring {:handler tramboard-clj.core.handler/app}
