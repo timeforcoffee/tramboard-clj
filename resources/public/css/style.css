@@ -10,6 +10,29 @@ body {
 	transform: scale(-1, 1);
 }
 
+.edit-form .form-control {
+	height: auto;
+}
+
+.edit-form .dropdown {
+	line-height: 36px;
+}
+
+.edit-form .btn {
+	margin-right: 4px;
+	padding-right: 6px;
+	margin-bottom: 2px;
+}
+
+.edit-form .btn .glyphicon {
+	margin-left: 6px;
+	top: 2px;
+}
+
+.edit-form input {
+	border: none;
+	margin-left: 6px;
+}
 
 .tram-table {
 	display: table;

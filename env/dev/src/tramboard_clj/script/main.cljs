@@ -12,7 +12,7 @@
     ankha/inspector tram/app-state {:target (js/document.getElementById "ankha")}))
 
 ; TODO maybe wrap this in a (defmacro run-only-in-dev)
-(repl/connect "http://localhost:9000/repl")
+;(repl/connect "http://localhost:9000/repl")
 
 (fw/watch-and-reload
   :websocket-url "ws://localhost:3449/figwheel-ws"
