@@ -28,7 +28,7 @@
 (defonce app-state
   (atom {
          ; views from local storage
-         :configured-views {}
+         :configured-views (sorted-map)
          ; navigation state
          :current-state {:state :uninitialized :params {}}}))
 
@@ -249,15 +249,6 @@
     (str/join "/" (remove #(= linked-view-id %) selected-views-ids))
     (str/join "/" (conj selected-views-ids linked-view-id))))
 
-; (defn stop-item [view owner]
-;   "This is a link"
-;   (reify
-;     om/IRender
-;     (render [this]            
-;             (println "Redering link")
-;             ; TODO create the link based on what is selected
-;             (dom/li #js {:className ""}
-;                     (dom/a #js {:href nil} (:name view))))))
 
 ; (defn transition-state [current-state action]
 ;   "This moves the application in the correct state after an action, it returns the next :current-state for the app state"
@@ -279,8 +270,7 @@
                                           (assoc 
                                             configured-views 
                                             view-id (assoc existing-view 
-                                                      :stops (if (not-any? #(= (:id %) (:id stop)) existing-stops) (conj existing-stops stop) existing-stops)))))
-                            ]
+                                                      :stops (if (not-any? #(= (:id %) (:id stop)) existing-stops) (conj existing-stops stop) existing-stops)))))]
                         (assoc s
                           :current-state new-state
                           :configured-views new-views))))
@@ -391,8 +381,7 @@
                        (dom/div #js {:className "row"}
                                 (dom/div #js {:className "col-md-12"}
                                          (om/build edit-pane {:current-view current-view :current-app app})
-                                         (om/build arrival-tables-view current-view)
-                                         )))))))
+                                         (om/build arrival-tables-view current-view))))))))
 
 (defn main []
   (om/root stationboard app-state
