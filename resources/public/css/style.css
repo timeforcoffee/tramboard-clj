@@ -1,21 +1,5 @@
 body {
-	padding-top: 10px;
-	padding-left: 10px;
-	padding-right: 10px;
-}
-
-.nav {
-	font-size: 12px;
-	width: 100%;
-	margin-right: 15px;
-}
-
-.nav > li > a {
-	display: inline-block;
-}
-
-.nav > li > span {
-	margin-right: 12px;
+	padding-top: 20px;
 }
 
 .glyphicon.glyphicon-share-alt {

@@ -10,52 +10,42 @@
             [secretary.core :as secretary :include-macros true :refer-macros [defroute]]
             [goog.events :as events]
             [goog.history.EventType :as EventType]
-            [cljs-uuid.core :as uuid])
+            [cljs-uuid.core :as uuid]
+            [arosequist.om-autocomplete :as ac]
+            [arosequist.om-autocomplete.bootstrap :as ac-bootstrap])
   
-  (:import goog.History))
+  (:import goog.History
+           [goog.net XhrIo]))
 
 (enable-console-print!)
 (secretary/set-config! :prefix "#")
-
-; ; TODO delete those when done
-; (def mocks
-;   {:views
-;    [{:stations [{:keywords "" :stat {:name "Zürich, Hirschwiesenstrasse" :id "008591193"}}
-;                 {:keywords "" :stat {:name "Zürich, Milchbuck"           :id "008591276"}}] 
-;      :name "Hirschi-City" 
-;      :id "hirschi-city"}
-;     ]
-;    :additional-views 
-;    [{:stations [{:keywords "" :stat {:name "Zürich, Hirschwiesenstrasse" :id "008591194"}}
-;                 {:keywords "" :stat {:name "Zürich, Milchbuck"           :id "008591275"}}] 
-;      :name "Hirschi-City" 
-;      :id "hirschi-city"}]})
 
 ; some global constants here
 (def history (History.))
 (def refresh-rate 10000)
 
 ; our app state
-(def app-state
+(defonce app-state
   (atom {
          ; views from local storage
-         :selected-views-ids   []
          :configured-views []
          ; navigation state
-         :navigation {}}))
+         :current-state {:state :uninitialized :params {}}}))
 
 (def home-link "/home")
 
 (defroute home home-link []  
+  (println "GOING HOME")
   ; we change the navigation settings
-  (swap! app-state #(assoc % :selected-views-ids [])))
+  ; (swap! app-state #(merge % {:current-state {:state :home}}))
+  )
 
-(defroute view "/view/*ids" [ids]
-  (if 
-    (str/blank? ids) 
-    (doto history (.setToken home-link))
-    ; we change the navigation settings
-    (swap! app-state #(assoc % :selected-views-ids (str/split ids "/")))))
+; (defroute view "/view/*ids" [ids]
+;   (if 
+;     (str/blank? ids) 
+;     (doto history (.setToken home-link))
+;     ; we change the navigation settings
+;     (swap! app-state #(assoc % :selected-views-ids (str/split ids "/")))))
 
 ; fallback route will redirect to home
 (defroute "*" [] (doto history (.setToken home-link)))
@@ -94,13 +84,20 @@
                               (om/build-all arrival-row arrivals))))))
 
 
-(defn fetch-stationboard-data [id on-complete on-error]
-  "Given a list of ids, returns the stationboard data from the server"
-  (GET (str "http://localhost:8000/stationboard/" id) {:response-format :json
-                                                       :keywords? true 
-                                                       ; :timeout 20
-                                                       :handler (fn [data] (on-complete {:id id :data data}))
-                                                       :error-handler (fn [error] (on-error {:id id :data [] :error error}))}))
+; TODO use XhrIo and channels as function parameters error-ch complete-ch cancel-ch
+(defn fetch-stationboard-data [stop-id complete-ch error-ch cancel-ch]
+  (let [xhr (XhrIo.)]
+    (.setTimeoutInterval xhr 10000)
+    (goog.events/listen 
+      xhr goog.net.EventType.SUCCESS
+      (fn [e] (put! complete-ch {:stop-id stop-id :data (js->clj (.getResponseJson xhr) :keywordize-keys true)})))
+    (goog.events/listen 
+      xhr goog.net.EventType.ERROR
+      (fn [e] (put! error-ch {:stop-id stop-id :data [] :error (.getLastError xhr)})))
+    (.send xhr (str "http://localhost:8000/stationboard/" stop-id) "GET")
+    (go
+      (<! cancel-ch) 
+      (.abort xhr))))
 
 (def hour-minute-formatter (formatter "HH:mm"))
 
@@ -134,83 +131,113 @@
               (format-to-hour-minute (:undelayed_departure entry)))}))
        (list)))
 
-(defn station-ids-from-views [views] 
-  (->> views
-       (map :stations)
-       (flatten)
-       (map :stat)
+(defn stops-ids-from-view [view] 
+  (->> view
+       (:stops)
        (map :id)
        (set))
   )
 
-(defn views-from-ids [ids views]
-  (->> ids
-       (map (fn [id] (first (filter #(= (:id %) id) views))))))
+(defn view-from-id [view-id views]
+  (first (filter #(= (:view-id %) view-id) views)))
+
+(defn get-view-id [app] 
+  (->> app
+       (:current-state)
+       (:params)
+       (:view-id)))
 
 (defn arrival-tables-view [app owner]
   "Takes as input a set of views (station id) and the size of the pane and renders the table views."
-  (reify
-    om/IInitState 
-    (init-state [_] 
-                {:station-data {} :ids #{} :control-chan (chan) :seq-id 0})
-    om/IWillMount 
-    (will-mount [_]
-                ; the is the control channel loop
-                (let [control-chan (om/get-state owner :control-chan)]
-                  (go
-                    (loop []
-                      (when-some 
-                        [control (<! control-chan)]
-                        (let [key (:key control) 
-                              data (:data control) 
-                              msg-seq-id (:seq-id control) 
-                              current-seq-id (om/get-state owner :seq-id)]
-                          (println (str "Got channel message with: " key ", " (str (apply str (take 100 (str data))) "...")))
-                          
-                          (case key
-                            "view-change"
-                            ; we reset everything in a transaction
-                            (do
-                              (println (str "Setting up refresh loop for: " data))
-                              
-                              (let [new-seq-id (uuid)]
-                                (om/update-state! owner #(merge % {:ids data :station-data {} :seq-id new-seq-id}))
+  (let [initialize 
+        (fn [current owner]  
+          (let [stop-ids (stops-ids-from-view (view-from-id (get-view-id current) (:configured-views current)))]
+            (println (str "Initializing arrival tables with stops: " stop-ids))
+            (when (not (empty? stop-ids)) (put! (om/get-state owner :view-change-ch) stop-ids))))]
+    (reify
+      om/IInitState 
+      (init-state [_] 
+                  {:station-data {} :ids #{} :channels {} :view-change-ch (chan)})
+      om/IWillMount 
+      (will-mount [_]
+                  ; the is the control channel loop
+                  (let [{:keys [view-change-ch]} (om/get-state owner)]
+                    (go
+                      (loop []
+                        (when-some 
+                          [stop-ids (<! view-change-ch)]
+                          (println (str "Got view-change message with stops: " stop-ids))
+                          (om/update-state! 
+                            owner
+                            (fn [state]
+                              (let [old-channels  (:channels state)
+                                    old-cancel-ch (:cancel-ch old-channels)
+                                    old-incoming-ch (:incoming-ch old-channels)
+                                    old-fetch-ch (:fetch-ch old-channels)
+                                    new-cancel-ch (chan)
+                                    new-incoming-ch (chan)
+                                    new-fetch-ch (chan)]
+                                (when old-cancel-ch (close! old-cancel-ch))
+                                (when old-incoming-ch (close! old-incoming-ch))
+                                (when old-fetch-ch (close! old-fetch-ch))
+                                ; we initialize the incoming channel loop
+                                (go
+                                  (loop []
+                                    (when-some 
+                                      [{:keys [data stop-id error]} (<! new-incoming-ch)]
+                                      (println (str "Received data for stop: " stop-id ", data: " data ", error: " error))
+                                      (when (not error)
+                                        (om/update-state! owner :station-data #(assoc % stop-id data)))
+                                      (go (<! (timeout refresh-rate))
+                                          (put! new-fetch-ch stop-id))
+                                      (recur))))
+                                ; we initialize the fetch loop
+                                (go
+                                  (loop []
+                                    (when-some 
+                                      [stop-id (<! new-fetch-ch)]
+                                      (println (str "Received fetch message for stop: " stop-id))
+                                      (fetch-stationboard-data stop-id new-incoming-ch new-incoming-ch new-cancel-ch)
+                                      (recur))))
+                                
                                 ; we ask the channel to fetch the new data
-                                (doseq [id data]
-                                  (go (<! (timeout 0)) (put! control-chan {:key "fetch" :data id :seq-id new-seq-id})))))
-                            "incoming-data"
-                            (let [id (:id data) station-data (:data data)]
-                              (when (= current-seq-id msg-seq-id)
-                                ; here we should never assign to nil otherwise it seems Om does not
-                                ; propagate the changes any more
-                                (when (not (:error data))
-                                  (om/update-state! owner :station-data #(assoc % id station-data)))
-                                (go (<! (timeout refresh-rate)) (put! control-chan {:key "fetch" :data id :seq-id msg-seq-id}))))
-                            ; (println (om/get-state owner :station-data))
-                            "fetch"
-                            (let [handle-data #(put! control-chan {:key "incoming-data" :data % :seq-id msg-seq-id})]
-                              (fetch-stationboard-data data handle-data handle-data))
-                            ))
-                        (recur))))))
-    om/IWillUnmount
-    (will-unmount [_]
-                  ; we kill the channel
-                  (close! (om/get-state owner :control-chan)))
-    om/IWillReceiveProps
-    (will-receive-props [_ next]
-                        (let [station-ids (station-ids-from-views (views-from-ids (:selected-views-ids next) (:configured-views next)))]
-                          (put! (om/get-state owner :control-chan) {:key "view-change" :data station-ids})))
-    om/IRenderState
-    (render-state [this {:keys [station-data]}]
-                  (println "Rendering arrival tables")
-                  
-                  (let [arrivals (arrivals-from-station-data 
-                                   station-data 
-                                   (views-from-ids (:selected-views-ids app) (:configured-views app)) nil)]
-                    (dom/div nil
-                             (apply dom/div #js {:className "row"} 
-                                    (map #(dom/div #js {:className "multi-col col-sm-6 col-md-6"} %)
-                                         (om/build-all arrival-table arrivals))))))))
+                                (doseq [stop-id stop-ids]
+                                  (println (str "Initializing fetch loop for: " stop-id))
+                                  (put! new-fetch-ch stop-id))
+                                
+                                (assoc (update-in state [:channels]
+                                                  #(assoc %
+                                                     :incoming-ch new-incoming-ch
+                                                     :cancel-ch new-cancel-ch
+                                                     :fetch-ch new-fetch-ch))
+                                  :ids stop-ids 
+                                  :station-data {}))))
+                          (println (om/get-state owner))
+                          (recur)))))
+                  (initialize app owner))
+      om/IWillReceiveProps
+      (will-receive-props [_ next]
+                          (initialize next owner))
+      om/IWillUnmount
+      (will-unmount [_]
+                    ; we kill the channel
+                    (let [{:keys [view-change-ch channels]} (om/get-state owner)]
+                      (close! (om/get-state owner :view-change-ch))
+                      (let [cancel-ch (:cancel-ch channels)
+                            incoming-ch (:incoming-ch channels)
+                            fetch-ch (:fetch-ch channels)]
+                        (when cancel-ch (close! cancel-ch))
+                        (when incoming-ch (close! incoming-ch))
+                        (when fetch-ch (close! fetch-ch)))))
+      om/IRenderState
+      (render-state [this {:keys [station-data]}]
+                    (let [arrivals (arrivals-from-station-data 
+                                     station-data 
+                                     (view-from-id (get-view-id app) (:configured-views app)) nil)]
+                      (dom/div nil
+                               (apply dom/div #js {:className "row"} 
+                                      (map #(dom/div #js {:className "multi-col col-sm-12 col-md-12"} %)
+                                           (om/build-all arrival-table arrivals)))))))))
 
 (defn create-view-suffix [linked-view-id selected-views-ids]
   "Creates a link based on which views are selected"
@@ -218,26 +245,113 @@
     (str/join "/" (remove #(= linked-view-id %) selected-views-ids))
     (str/join "/" (conj selected-views-ids linked-view-id))))
 
-(defn menu-item [view-infos owner]
+(defn stop-item [view owner]
   "This is a link"
   (reify
     om/IRender
     (render [this]            
-            (let [linked-view (:configured-view view-infos) 
-                  selected-views-ids (:selected-views-ids view-infos)
-                  link (create-view-suffix (:id linked-view) selected-views-ids)]
-              ; TODO create the link based on what is selected
-              (dom/li #js {:className (when (some #{(:id linked-view)} (set selected-views-ids)) "active")}
-                      (dom/a #js {:href (view {:ids link})} (:name linked-view)))))))
+            (println "Redering link")
+            ; TODO create the link based on what is selected
+            (dom/li #js {:className ""}
+                    (dom/a #js {:href nil} (:name view))))))
 
-(defn menu-bar [app owner]
+(defn stop-bar [app owner]
   "This displays all the links"
   (reify 
     om/IRender
     (render [this]
-            (apply dom/ul #js {:className "nav nav-pills"}
-                   (map  #(om/build menu-item {:configured-view % :selected-views-ids (:selected-views-ids app)})
-                        (:configured-views app))))))
+            (dom/div nil
+                     (dom/h3 nil "Trams / buses / trains departing from "
+                             (apply dom/ul #js {:className "nav nav-pills inline"}
+                                    (map  #(om/build stop-item %) (:stops (view-from-id (get-view-id app) (:configured-views app))))))))))
+
+; (defn transition-state [current-state action]
+;   "This moves the application in the correct state after an action, it returns the next :current-state for the app state"
+
+;   )
+
+(defn select-stop [app stop callback]
+  (om/transact! app (fn [{:keys [configured-views current-state] :as s}]
+                      (let [state (:state current-state)
+                            view-id (if (not= state :edit) (uuid) (:view-id (:params current-state)))
+                            new-state {:state :edit :params {:view-id view-id}}
+                            new-views (if (not= state :edit) 
+                                        (conj configured-views {:view-id view-id :stops [stop]}) 
+                                        (map #(if 
+                                                (= (:view-id %) view-id) 
+                                                (assoc % :stops (conj (:stops %) stop)) 
+                                                %) 
+                                             configured-views))]
+                        (assoc s
+                          :current-state new-state
+                          :configured-views new-views))))
+  
+  (when callback (callback (:configured-views app))))
+
+(defn loading []
+  (reify
+    om/IRender
+    (render [_]
+            (dom/li nil (dom/a nil "Loading...")))))
+
+(defn suggestions [value suggestions-ch cancel-ch]
+  (let [xhr (XhrIo.) abort-chan (chan)]
+    ; we introduce some timeout here
+    (go (<! (timeout 250)) (put! abort-chan false))
+    
+    (go (when-not (<! abort-chan)
+          (goog.events/listen 
+            xhr goog.net.EventType.SUCCESS
+            (fn [e] (put! suggestions-ch (:stations (js->clj (.getResponseJson xhr) :keywordize-keys true)))))
+          (goog.events/listen 
+            xhr goog.net.EventType.ERROR
+            (fn [e] (println "ERROR")))
+          (.send xhr (str "http://transport.opendata.ch/v1/locations?type=station&query=" value) "GET")))
+    (go
+      (<! cancel-ch) 
+      (do (put! abort-chan true) (.abort xhr)))))
+
+(defn autocomplete [app owner {:keys [input-id input-placeholder]}]
+  (reify
+    om/IInitState
+    (init-state [_]
+                {:result-ch (chan)})
+    om/IWillMount
+    (will-mount [_]
+                (let [result-ch (om/get-state owner :result-ch)]
+                  (go (loop []
+                        (let [[idx result] (<! result-ch)]
+                          ; TODO callback to save to local storage
+                          (select-stop app result nil)
+                          (recur))))))
+    om/IRenderState
+    (render-state [_ {:keys [result-ch]}]
+                  (om/build ac/autocomplete app
+                            {:opts
+                             {:container-view ac-bootstrap/container-view
+                              :container-view-opts {}
+                              :input-view ac-bootstrap/input-view
+                              :input-view-opts {:placeholder input-placeholder :id input-id}
+                              :results-view ac-bootstrap/results-view
+                              :results-view-opts {:loading-view loading
+                                                  :render-item ac-bootstrap/render-item
+                                                  :render-item-opts {:text-fn (fn [item _] (:name item))}}
+                              :result-ch result-ch
+                              :suggestions-fn suggestions}}))))
+
+(defn edit-pane [app owner]
+  "This shows the edit pane to add stops and stuff"
+  (reify
+    om/IRender
+    (render [this]
+            (dom/form #js {:className "form-horizontal col-md-12"}
+                      (dom/div #js {:className "form-group form-group-lg"}
+                               (dom/label #js {:className "control-label sr-only" :for "stopInput"} "Stop")
+                               (om/build autocomplete app {:opts {:input-id "stopInput" :input-placeholder "Enter a stop"}}))))))
+
+
+; <label for="exampleInputEmail1">Email address</label>
+; <input type="email" class="form-control" id="exampleInputEmail1" placeholder="Enter email">
 
 (defn stationboard [app owner]
   "Takes the app (contains all views, selected view) and renders the whole page, knows what to display based on the routing."
@@ -245,15 +359,21 @@
     om/IWillMount
     (will-mount [_]
                 ; here we get the infos from local storage and store them in the component state
-                (go
-                  (om/update! app :configured-views (js->clj (. js/JSON (parse (. js/localStorage (getItem "views")))) :keywordize-keys true))))
+                ; (go
+                ;   (om/update! app :configured-views (js->clj (. js/JSON (parse (. js/localStorage (getItem "views")))) :keywordize-keys true)))
+                )
     om/IRender
     (render [this]
             (println "Rendering stationboard")
+            (println (str "Current state: " (:state (:current-state app))))
             
-            (dom/div nil                     
-                     (om/build menu-bar app)
-                     (om/build arrival-tables-view app)))))
+            (dom/div #js {:className "container"}
+                     (dom/div #js {:className "row"}
+                              (dom/div #js {:className "col-md-12"}
+                                       (om/build edit-pane app)
+                                       (om/build stop-bar app)
+                                       (om/build arrival-tables-view app)
+                                       ))))))
 
 (defn main []
   (om/root stationboard app-state

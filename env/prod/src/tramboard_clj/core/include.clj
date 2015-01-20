@@ -2,5 +2,5 @@
   (:use [hiccup core page element]))
 
 (defn include-javascript [] 
-  [(include-js "http://fb.me/react-0.12.2.js")
+  [(include-js "//fb.me/react-0.12.2.js")
    (include-js "js/main.js")])

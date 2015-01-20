@@ -16,12 +16,18 @@
                  [secretary "1.2.1"]
                  [cljs-uuid "0.0.4"]]
   
-  :plugins [[lein-cljsbuild "1.0.3"]]
+  :plugins [[lein-cljsbuild "1.0.3"]
+            [lein-git-deps "0.0.2-SNAPSHOT"]]
+  
+  :git-dependencies [["https://github.com/fterrier/om-autocomplete.git"]]
+
   :uberjar-name "tramboard-clj.jar"
-  :cljsbuild {:builds {:app {:source-paths ["src"]}}}
+  
+  :cljsbuild {:builds {:app {:source-paths ["src" ".lein-git-deps/om-autocomplete/src/"]}}}
   
   :profiles {:dev {:source-paths ["env/dev/src"]
-                   :dependencies [[figwheel "0.2.0-SNAPSHOT"]]
+                   :dependencies [[figwheel "0.2.0-SNAPSHOT"]
+                                  [ankha "0.1.4"]]
                    :plugins [[lein-figwheel "0.2.0-SNAPSHOT"]
                              [lein-ring "0.8.13"]]
                    :ring {:handler tramboard-clj.core.handler/app}
