@@ -6,6 +6,7 @@
 
 (defroutes app-routes
   (GET "/" [] (index-page))
+  (GET "/stationboard/:id{[0-9]{9}}" [id] (station id))
   (route/resources "/")
   (route/not-found "Not Found"))
 
