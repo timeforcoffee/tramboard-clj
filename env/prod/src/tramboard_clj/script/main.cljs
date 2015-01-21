@@ -1,7 +1,11 @@
 (ns tramboard-clj.script.main
   (:require [tramboard-clj.script.tram :as tram]
-            [clojure.browser.repl :as repl]))
+            [om.core :as om :include-macros true]))
 
 (enable-console-print!)
 
-(tram/main)
+(defn main []
+  (om/root tram/stationboard tram/app-state
+           {:target (. js/document (getElementById "my-app"))}))
+
+(main)
