@@ -203,11 +203,11 @@
 (defn arrival-tables-view [{:keys [current-view current-state]} owner]
   "Takes as input a set of views (station id) and the size of the pane and renders the table views."
   (let [initialize
-        (fn [current owner]
+        (fn [current current-owner]
           (let [stop-ids (stops-ids-from-view current)]
-            (when (not= (set stop-ids) (set (om/get-state owner :ids)))
+            (when (not= (set stop-ids) (set (om/get-state current-owner :ids)))
               (println (str "Initializing arrival tables with stops: " stop-ids))
-              (put! (om/get-state owner :view-change-ch) stop-ids))))]
+              (put! (om/get-state current-owner :view-change-ch) stop-ids))))]
     (reify
       om/IInitState
       (init-state [_]
@@ -239,7 +239,7 @@
                                   (loop []
                                     (when-some
                                       [{:keys [data stop-id error]} (<! new-incoming-ch)]
-                                      (println (str "Received data for stop: " stop-id ", data: " data ", error: " error))
+                                      (println (str "Received data for stop: " stop-id ", data: " (take 10 (str data)) ", error: " error))
                                       (when (not error)
                                         (om/update-state! owner :station-data #(assoc % stop-id data)))
                                       (go (<! (timeout refresh-rate))
@@ -276,12 +276,12 @@
       om/IWillUnmount
       (will-unmount [_]
                     ; we kill the channel
-                    (let [{:keys [view-change-ch activity-ch channels]} (om/get-state owner)]
+                    (let [{:keys [view-change-ch activity-ch arrival-channels]} (om/get-state owner)]
                       (close! view-change-ch)
                       (close! activity-ch)
-                      (let [cancel-ch (:cancel-ch channels)
-                            incoming-ch (:incoming-ch channels)
-                            fetch-ch (:fetch-ch channels)]
+                      (let [cancel-ch (:cancel-ch arrival-channels)
+                            incoming-ch (:incoming-ch arrival-channels)
+                            fetch-ch (:fetch-ch arrival-channels)]
                         (when cancel-ch (close! cancel-ch))
                         (when incoming-ch (close! incoming-ch))
                         (when fetch-ch (close! fetch-ch)))))
@@ -391,8 +391,7 @@
             (dom/button #js {:className "btn btn-primary"
                              :type "button"
                              :onClick (fn [_]
-                                        (om/transact! current-view :stops (fn [stops] (remove #(= (:id %) (:id current-stop)) stops))))
-                             }
+                                        (om/transact! current-view :stops (fn [stops] (remove #(= (:id %) (:id current-stop)) stops))))}
                         (:name current-stop)
                         (dom/span #js {:className "glyphicon glyphicon-remove" :aria-hidden "true"})))))
 
