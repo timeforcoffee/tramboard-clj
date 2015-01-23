@@ -113,7 +113,7 @@
     (goog.events/listen
       xhr goog.net.EventType.ERROR
       (fn [e] (put! error-ch {:stop-id stop-id :data [] :error (.getLastError xhr)})))
-    (.send xhr (str "http://localhost:8000/stationboard/" stop-id) "GET")
+    (.send xhr (str "http://tramboard.herokuapp.com/stationboard/" stop-id) "GET")
     (go
       (<! cancel-ch)
       (.abort xhr))))
@@ -399,7 +399,7 @@
         (goog.events/listen
           xhr goog.net.EventType.ERROR
           (fn [e] (println "ERROR")))
-        (.send xhr (str "http://localhost:8000/stations/" value) "GET")))
+        (.send xhr (str "http://tramboard.herokuapp.com/stations/" value) "GET")))
     (go
       (<! cancel-ch)
       (do
