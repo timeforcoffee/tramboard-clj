@@ -11,10 +11,8 @@
 ;(repl/connect "http://localhost:9000/repl")
 
 (defn main []
-  (omdev/dev-component tram/stationboard tram/app-state
-                       {:target (.getElementById js/document "my-app")
-                        :tx-listen (fn [tx-data root-cursor]
-                                     (println "listener 1: " tx-data))}))
+  (om/root tram/stationboard tram/app-state
+           {:target (. js/document (getElementById "my-app"))}))
 
 (fw/watch-and-reload
   :websocket-url "ws://localhost:3449/figwheel-ws"

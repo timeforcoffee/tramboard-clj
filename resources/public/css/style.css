@@ -1,5 +1,5 @@
 body {
-	padding: 10px;
+	padding-top: 10px;
 }
 
 .glyphicon.glyphicon-share-alt {
@@ -50,10 +50,31 @@ body {
 	margin-top: 10px;
 }
 
-.menu-bar a {
+.menu-bar a, .menu-bar a:hover, .menu-bar a:visited {
 	outline: 0;
 	padding: 6px;
+	text-decoration: none;
 }
+
+.menu-bar a.glyphicon, .menu-bar a.glyphicon:visited,
+.menu-bar a .remove-filter-image, .menu-bar a:visited .remove-filter-image {
+	color: gray;
+}
+
+.menu-bar a.glyphicon:hover,
+.menu-bar a:hover .remove-filter-image {
+	color: #555;
+}
+
+.menu-bar .remove-filter-image {
+	font-size: 1.3em;
+}
+
+.menu-bar .remove-filter-text {
+	font-size: 1.3em;
+	margin-left: 8px;
+}
+
 
 .tram-table {
 	display: table;
@@ -68,26 +89,44 @@ body {
 	padding-bottom: 4px;
 }
 
+.exclude-link {
+	width: 16px;
+	text-align: center;
+	font-size: 1.3em;
+}
+
+.exclude-link a {
+	padding: 16px;
+	margin-left: -16px;
+}
+
+.exclude-link a, .exlude-link a:hover, .exlude-link a:hover {
+	text-decoration: none;
+	outline: 0;
+}
+
+.exclude-link a, .exclude-link a:visited {
+	color: gray;
+}
+
+.exclude-link a:hover {
+	color: #555;
+}
+
 .number-cell {
-	width: 84px;
+	margin-right: 8px;
 }
 
 .number-generic {
-	font-size: 3em;
-	font-weight: bold;
 	border-radius: 4px;
 	text-align: center;
 	color: black;
 	background: white;
 	border: 1px solid #ddd;
 	display: inline-block;
-	width: 72px;
-	padding-bottom: 4px;
-	padding-top: 4px;
 }
 
 .station {
-	font-size: 1.8em;
 	word-wrap: break-word;
 }
 
@@ -98,9 +137,51 @@ body {
 }
 
 .small {
+	/* TODO put this somewhere else */
 	font-size: 2em;
 	padding: 14px 0 14px 0;
 }
+
+.time {
+	padding-right: 0;
+}
+
+.time div {
+	/*font-weight: bold;*/
+	float: right;
+}
+
+.time img {
+	display: none;
+}
+
+.time0 img,
+.time-1 img,
+.time-2 img {
+	display: inline;
+	position: relative;
+	right: -6px;
+}
+
+.time0 div,
+.time-1 div,
+.time-2 div {
+	display: none;
+}
+
+.departure {
+	text-align: right;
+}
+
+.departure .undelayed {
+	line-height: 0;
+}
+
+.undelayed {
+	font-size: 0.6em;
+	font-style: italic;
+}
+
 
 .number-2 {
 	color: white;
@@ -154,7 +235,6 @@ body {
 	color: white;
 	background-color: #e12472;
 	border: none;
-	padding-right: 4px;
 }
 
 .number-11 {
@@ -179,7 +259,6 @@ body {
 	color: white;
 	background-color: #008dc5;
 	border: none;
-	padding-right: 4px;
 }
 
 .number-15 {
@@ -236,73 +315,156 @@ body {
 	border: none;
 }
 
+
+
+/* Those things change on smaller devices*/
+.stop-heading h2 {
+	font-size: 2.5em;
+}
+
+.menu-bar .glyphicon {
+	width: 74px;
+}
+
+.number-cell {
+	width: 84px;
+}
+
+.number-generic {
+	font-size: 3.5em;
+	font-weight: 600;
+	width: 72px;
+}
+
+.number-10, .number-14, .number-15, .number-17 {
+	padding-right: 4px;
+}
+
 .time {
 	line-height: 72px;
-	padding-right: 0;
 	width: 96px;
 }
 
 .time div {
-	font-size: 4em;
-	font-weight: bold;
-	float: right;
+	font-size: 3.5em;
+	font-weight: 600;
 }
 
-.time img {
-	display: none;
-}
-
-.time0 img,
-.time-1 img,
-.time-2 img {
-	display: inline;
-	position: relative;
-	right: -6px;
-}
-
-.time0 div,
-.time-1 div,
-.time-2 div {
-	display: none;
+.station {
+	font-size: 2.5em;
 }
 
 .departure {
-	line-height: 72px;
 	font-size: 2.5em;
-	text-align: right;
+	font-weight: 300;
 	width: 96px;
 }
 
-.departure .undelayed {
-	line-height: 0;
-}
-
-.undelayed {
-	font-size: 0.6em;
-	font-style: italic;
-}
-
-.settings {
-	margin-top: 4px;
-}
-
-
-@media (min-width: 768px) and (max-width: 992px) {
-	.multi-col .station {
-		font-size: 1.3em;
+@media (max-width: 767px) {
+	.container-fluid {
+		padding-left: 8px;
+		padding-right: 8px;
 	}
 
-	.multi-col .time {
-		width: 56px;
+	.stop-heading h2 {
+		font-size: 1.8em;
 	}
 
-	.multi-col .time div {
+	.menu-bar .glyphicon {
+		width: 58px;
+	}
+
+	.number-cell {
+		width: 68px;
+	}
+
+	.number-generic {
+		font-size: 3em;
+		width: 60px;
+	}
+
+	.station {
+		line-height: 30px;
+		font-size: 1.8em;
+	}
+
+	.time {
+		line-height: 62px;
+		width: 72px;
+	}
+
+	.time0 img,
+	.time-1 img,
+	.time-2 img {
+		width: 34px;
+		padding-right: 2px;
+	}
+
+	.time div {
 		font-size: 3em;
 	}
 
+	.departure {
+		font-size: 1.8em;
+		width: 74px;
+	}
+}
+
+@media (max-width: 469px) {
+	.stop-heading h2 {
+		font-size: 1.2em;
+	}
+
+	.menu-bar .glyphicon {
+		width: 38px;
+	}
+
+	.number-cell {
+		width: 48px;
+	}
+
+	.number-generic {
+		font-size: 2em;
+		width: 40px;
+		letter-spacing: -3px;
+	}
+
+	.number-10, .number-14, .number-15, .number-17 {
+		padding-right: 2px;
+	}
+
+
+	.station {
+		line-height: 20px;
+		font-size: 1.2em;
+	}
+
+	.time0 img,
+	.time-1 img,
+	.time-2 img {
+		width: 26px;
+		padding-right: 4px;
+	}
+
+	.time {
+		line-height: 44px;
+		width: 52px;
+	}
+
+	.time div {
+		font-size: 2em;
+	}
+
+	.departure {
+		font-size: 1.2em;
+		width: 50px;
+	}
+}
+
+@media (min-width: 768px) and (max-width: 992px) {
+
 	.multi-col .departure {
 		font-size: 2em;
-		line-height: 56px;
 		width: 72px;
 	}
 }

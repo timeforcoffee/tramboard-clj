@@ -3,10 +3,17 @@
         [tramboard-clj.core.include]
         [ring.util.json-response]))
 
+;<meta charset="utf-8">
+;<meta http-equiv="X-UA-Compatible" content="IE=edge">
+;<meta name="viewport" content="width=device-width, initial-scale=1">
+
 (defn index-page []
   (html5
     [:head
-     [:title "Hello World"]
+     [:meta {:charset "utf-8"}]
+     [:meta {:http-equiv "X-UA-Compatible" :content "IE=edge"}]
+     [:meta {:name "viewport" :content "width=device-width, initial-scale=1"}]
+     [:title "Tramboard"]
      (include-css "//netdna.bootstrapcdn.com/bootstrap/3.3.1/css/bootstrap.min.css")
      (include-css "/css/style.css")]
     (into
