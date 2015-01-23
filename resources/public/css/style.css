@@ -50,24 +50,34 @@ body {
 	margin-top: 10px;
 }
 
+.menu-bar .tooltip {
+	display: none;
+}
+
+.menu-bar a:hover .tooltip {
+	display: inline-block;
+}
+
 .menu-bar a, .menu-bar a:hover, .menu-bar a:visited {
 	outline: 0;
 	padding: 6px;
-	text-decoration: none;
 }
 
 .menu-bar a.glyphicon, .menu-bar a.glyphicon:visited,
 .menu-bar a .remove-filter-image, .menu-bar a:visited .remove-filter-image {
+	text-decoration: none;
 	color: gray;
 }
 
 .menu-bar a.glyphicon:hover,
 .menu-bar a:hover .remove-filter-image {
 	color: #555;
+	text-decoration: none;
 }
 
 .menu-bar .remove-filter-image {
 	font-size: 1.3em;
+	line-height: 23px;
 }
 
 .menu-bar .remove-filter-text {

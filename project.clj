@@ -49,5 +49,4 @@
                        :cljsbuild {:builds {:app {:source-paths ["env/prod/src"]
                                                   :compiler {:output-to "resources/public/js/main.js"
                                                              :optimizations :advanced
-                                                             :preamble ["react/react.min.js"]
                                                              :pretty-print false}}}}}})

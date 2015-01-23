@@ -63,6 +63,7 @@
                   destination (:destination arrival)]
               (dom/a #js {:href "#"
                           :className ""
+                          :title "Exclude destination"
                           :onClick (fn [e]
                                      (.preventDefault e)
                                      (om/transact! current-view [:stops stop-id]
@@ -211,13 +212,13 @@
                        (dom/div #js {:className "menu-bar"}
                                 (dom/a #js {:href "#"
                                             :className (str "glyphicon " (if expanded "glyphicon-resize-small" "glyphicon-resize-full"))
+                                            :title (if expanded "Exit fullscreen" "Fullscreen")
                                             :onClick (fn [e]
                                                        (.preventDefault e)
                                                        ; we change the state to hidden
                                                        (if expanded
                                                          (om/transact! current-state :params #(dissoc % :display ))
-                                                         (om/transact! current-state :params #(assoc % :display :expanded))))}
-                                       (dom/span #js {:style #js {:display "none"}} "(full screen)"))
+                                                         (om/transact! current-state :params #(assoc % :display :expanded))))})
                                 (when (not (empty? excluded-destinations))
                                   (dom/a #js {:href "#"
                                               :className "remove-filter"
