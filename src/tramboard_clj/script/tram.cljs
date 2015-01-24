@@ -18,10 +18,10 @@
            [goog.net XhrIo]))
 
 (enable-console-print!)
-(secretary/set-config! :prefix "#")
+;(secretary/set-config! :prefix "#")
 
 ; some global constants here
-(def history (History.))
+;(def history (History.))
 (def refresh-rate 10000)
 
 ; our app state
@@ -32,13 +32,13 @@
          ; navigation state
          :current-state {:state :uninitialized :params {}}}))
 
-(def home-link "/home")
+;(def home-link "/home")
 
-(defroute home home-link []
-  (println "GOING HOME")
-  ; we change the navigation settings
-  ; (swap! app-state #(merge % {:current-state {:state :home}}))
-  )
+;(defroute home home-link []
+;  (println "GOING HOME")
+; we change the navigation settings
+; (swap! app-state #(merge % {:current-state {:state :home}}))
+;  )
 
 ; (defroute view "/view/*ids" [ids]
 ;   (if
@@ -48,7 +48,7 @@
 ;     (swap! app-state #(assoc % :selected-views-ids (str/split ids "/")))))
 
 ; fallback route will redirect to home
-(defroute "*" [] (doto history (.setToken home-link)))
+;(defroute "*" [] (doto history (.setToken home-link)))
 
 (defn uuid [] (uuid/make-random))
 
@@ -360,7 +360,7 @@
 
 ;   )
 
-(defn select-stop [app stop callback]
+(defn select-stop [app stop]
   (om/transact! app (fn [{:keys [configured-views current-state] :as s}]
                       (let [state (:state current-state)
                             is-new-view (not= state :edit)
@@ -378,9 +378,7 @@
                                                     :stops (assoc existing-stops stop-id (merge existing-stop stop)))))]
                         (assoc s
                           :current-state new-state
-                          :configured-views new-views))))
-
-  (when callback (callback (:configured-views app))))
+                          :configured-views new-views)))))
 
 (defn loading [app owner]
   (reify
@@ -408,7 +406,7 @@
         (put! abort-chan true)
         (.abort xhr)))))
 
-(defn autocomplete [app owner {:keys [input-id input-placeholder input-ref]}]
+(defn autocomplete [app owner {:keys [input-id input-placeholder input-focus-ch]}]
   (reify
     om/IInitState
     (init-state [_]
@@ -419,7 +417,7 @@
                   (go (loop []
                         (let [[idx result] (<! result-ch)]
                           ; TODO callback to save to local storage
-                          (when (not (nil? result)) (select-stop app result nil))
+                          (when (not (nil? result)) (select-stop app result))
                           (recur))))))
     om/IRenderState
     (render-state [_ {:keys [result-ch]}]
@@ -428,7 +426,8 @@
                              {:container-view ac-bootstrap/container-view
                               :container-view-opts {}
                               :input-view ac-bootstrap/input-view
-                              :input-view-opts {:placeholder input-placeholder :id input-id :ref input-ref}
+                              :input-view-opts {:placeholder input-placeholder :id input-id}
+                              :input-focus-ch input-focus-ch
                               :results-view ac-bootstrap/results-view
                               :results-view-opts {:loading-view loading
                                                   :render-item ac-bootstrap/render-item
@@ -451,58 +450,68 @@
 (defn edit-pane [{:keys [current-app current-view]} owner]
   "This shows the edit pane to add stops and stuff"
   (reify
+    om/IInitState
+    (init-state [_]
+                {:input-focus-ch (chan)})
+    om/IWillMount
+    (will-mount  [_]
+                (go (put! (om/get-state owner :input-focus-ch) true))
+                )
+    om/IWillUnmount
+    (will-unmount [_]
+                  (let [{:keys [input-focus-ch]} (om/get-state owner)]
+                    (close! input-focus-ch)))
+    om/IRenderState
+    (render-state [_ {:keys [input-focus-ch]}]
+                  (let [display (get-in current-app [:current-state :params :display])]
+                    (dom/div (when (= :expanded display) #js {:style #js {:display "none"}})
+                             (dom/form #js {:className "edit-form"}
+                                       (dom/div #js {:className "form-group form-group-lg"}
+                                                (dom/label #js {:className "control-label sr-only" :for "stopInput"} "Stop")
+                                                (apply dom/span
+                                                       #js {:className "form-control"
+                                                            :ref "prout"
+                                                            :onClick (fn [e]
+                                                                       (.preventDefault e)
+                                                                       (put! input-focus-ch true))}
+                                                       (conj
+                                                         (vec (map #(om/build edit-remove-button {:current-stop (val %) :current-view current-view}) (:stops current-view)))
+                                                         (om/build autocomplete current-app {:opts {:input-id "stopInput" :input-placeholder "Enter a stop" :input-focus-ch input-focus-ch}}))))))))))
+
+
+; <label for="exampleInputEmail1">Email address</label>
+; <input type="email" class="form-control" id="exampleInputEmail1" placeholder="Enter email">
+
+(defn stationboard [{:keys [current-state] :as app} owner]
+  "Takes the app (contains all views, selected view) and renders the whole page, knows what to display based on the routing."
+  (reify
+    om/IWillMount
+    (will-mount [_]
+                ; here we get the infos from local storage and store them in the component state
+                ; (go
+                ;   (om/update! app :configured-views (js->clj (. js/JSON (parse (. js/localStorage (getItem "views")))) :keywordize-keys true)))
+                )
     om/IRender
     (render [this]
-            (let [display (get-in current-app [:current-state :params :display])]
-              (dom/div (when (= :expanded display) #js {:style #js {:display "none"}})
-                       (dom/form #js {:className "edit-form"}
-                                 (dom/div #js {:className "form-group form-group-lg"}
-                                          (dom/label #js {:className "control-label sr-only" :for "stopInput"} "Stop")
-                                          (apply dom/span
-                                                 #js {:className "form-control"
-                                                      :ref "prout"
-                                                      :onClick (fn [e]
-                                                                 (.preventDefault e)
-                                                                 (.focus (om/get-node owner "stopInput"))
-                                                                 (om/set-state! owner :force-rerender! true))}
-                                                 (conj
-                                                   (vec (map #(om/build edit-remove-button {:current-stop (val %) :current-view current-view}) (:stops current-view)))
-                                                   (om/build autocomplete current-app {:opts {:input-id "stopInput" :input-placeholder "Enter a stop" :input-ref "stopInput"}}))))))))))
+            (println "Rendering stationboard")
+            (println (str "Current state: " app))
+
+            (let [current-view (get (:configured-views app) (get-view-id app))]
+              (apply dom/div #js {:className "container-fluid"}
+                     (om/build edit-pane {:current-view current-view :current-app app})
+                     (when (not (empty? (:stops current-view)))
+                       [(om/build stop-heading {:current-view current-view :current-state current-state})
+                        (om/build arrival-tables-view {:current-view current-view :current-state current-state})]))))))
+
+(defn main []
+  (om/root stationboard app-state
+           {:target (. js/document (getElementById "my-app"))}))
 
 
-  ; <label for="exampleInputEmail1">Email address</label>
-  ; <input type="email" class="form-control" id="exampleInputEmail1" placeholder="Enter email">
+;(defn on-navigate [event]
+;  ;(refresh-navigation)
+;  (secretary/dispatch! (.-token event)))
 
-  (defn stationboard [{:keys [current-state] :as app} owner]
-    "Takes the app (contains all views, selected view) and renders the whole page, knows what to display based on the routing."
-    (reify
-      om/IWillMount
-      (will-mount [_]
-                  ; here we get the infos from local storage and store them in the component state
-                  ; (go
-                  ;   (om/update! app :configured-views (js->clj (. js/JSON (parse (. js/localStorage (getItem "views")))) :keywordize-keys true)))
-                  )
-      om/IRender
-      (render [this]
-              (println "Rendering stationboard")
-              (println (str "Current state: " app))
-
-              (let [current-view (get (:configured-views app) (get-view-id app))]
-                (apply dom/div #js {:className "container-fluid"}
-                       (om/build edit-pane {:current-view current-view :current-app app})
-                       (when (not (empty? (:stops current-view)))
-                         [(om/build stop-heading {:current-view current-view :current-state current-state})
-                          (om/build arrival-tables-view {:current-view current-view :current-state current-state})]))))))
-
-  (defn main []
-    (om/root stationboard app-state
-             {:target (. js/document (getElementById "my-app"))}))
-
-
-  (defn on-navigate [event]
-    ;(refresh-navigation)
-    (secretary/dispatch! (.-token event)))
-
-  (doto history
-    (goog.events/listen EventType/NAVIGATE on-navigate)
-    (.setEnabled true))
+;(doto history
+;  (goog.events/listen EventType/NAVIGATE on-navigate)
+;  (.setEnabled true))
