@@ -85,8 +85,10 @@
                   activity (:activity (:params current-state))]
               (dom/tr #js {:className "tram-row"}
                       (dom/td #js {:className "number-cell"} (dom/span #js {:className (str "number-generic number-" (:number arrival))} (:number arrival)))
-                      (when (or (not= :idle activity) (not= :expanded display)) (dom/td #js {:className "exclude-link"} (om/build exclude-destination-link app)))
-                      (dom/td #js {:className "station"} (:destination arrival))
+                      (dom/td #js {:className "station"}
+                              ; TODO unify the way to do this, sometimes it's hidden, sometimes the markup is not there
+                              (when (or (not= :idle activity) (not= :expanded display)) (dom/span #js {:className "exclude-link"} (om/build exclude-destination-link app)))
+                              (dom/span #js {:className "station-name"} (:destination arrival)))
                       (dom/td #js {:className "departure"}
                               (dom/div nil (:time arrival))
                               (dom/div #js {:className "undelayed"} (:undelayed-time arrival)))

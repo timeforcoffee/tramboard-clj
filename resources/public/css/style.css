@@ -40,6 +40,7 @@ body {
 }
 
 .stop-heading h2 {
+	font-size: 2.5em;
 	font-weight: 300;
 }
 
@@ -48,6 +49,8 @@ body {
 	padding: 4px 4px;
 	margin-bottom: 14px;
 	margin-top: 10px;
+	font-size: 	1.5em;
+	height: 2.4em;
 }
 
 .menu-bar .tooltip {
@@ -60,29 +63,38 @@ body {
 
 .menu-bar a, .menu-bar a:hover, .menu-bar a:visited {
 	outline: 0;
-	padding: 6px;
+	padding-left: 6px;
+	text-decoration: none;
+	display: table-cell;
+	line-height: 2em;
 }
 
 .menu-bar a.glyphicon, .menu-bar a.glyphicon:visited,
 .menu-bar a .remove-filter-image, .menu-bar a:visited .remove-filter-image {
-	text-decoration: none;
 	color: gray;
 }
 
 .menu-bar a.glyphicon:hover,
 .menu-bar a:hover .remove-filter-image {
 	color: #555;
-	text-decoration: none;
+}
+
+.menu-bar a:hover .remove-filter-text {
+	text-decoration: underline;
+}
+
+.menu-bar .remove-filter {
+	position: relative;
 }
 
 .menu-bar .remove-filter-image {
-	font-size: 1.3em;
-	line-height: 23px;
+	font-size: 1.4em;
 }
 
 .menu-bar .remove-filter-text {
-	font-size: 1.3em;
 	margin-left: 8px;
+	position: absolute;
+	width: 200px;
 }
 
 
@@ -95,19 +107,20 @@ body {
 }
 
 .tram-table td {
-	vertical-align: middle;
-	padding-bottom: 4px;
+	padding-bottom: 6px;
 }
 
 .exclude-link {
-	width: 16px;
+	width: 24px;
 	text-align: center;
-	font-size: 1.3em;
+	font-size: 0.85em;
 }
 
 .exclude-link a {
-	padding: 16px;
-	margin-left: -16px;
+	padding-left: 6px;
+	padding-right: 6px;
+	display: table-cell;
+	/* TODO change this, negative margin is a problem on the phone */
 }
 
 .exclude-link a, .exlude-link a:hover, .exlude-link a:hover {
@@ -123,10 +136,6 @@ body {
 	color: #555;
 }
 
-.number-cell {
-	margin-right: 8px;
-}
-
 .number-generic {
 	border-radius: 4px;
 	text-align: center;
@@ -134,9 +143,18 @@ body {
 	background: white;
 	border: 1px solid #ddd;
 	display: inline-block;
+	font-size: 3.5em;
+	font-weight: 600;
 }
 
 .station {
+	padding-left: 8px;
+	font-size: 2.2em;
+	/*display: table;*/
+}
+
+.station > span {
+	display: table-cell;
 	word-wrap: break-word;
 }
 
@@ -157,8 +175,8 @@ body {
 }
 
 .time div {
-	/*font-weight: bold;*/
 	float: right;
+	font-size: 3.5em;
 }
 
 .time img {
@@ -181,6 +199,8 @@ body {
 
 .departure {
 	text-align: right;
+	font-size: 2.2em;
+	font-weight: 300;
 }
 
 .departure .undelayed {
@@ -328,22 +348,21 @@ body {
 
 
 /* Those things change on smaller devices*/
-.stop-heading h2 {
-	font-size: 2.5em;
-}
 
 .menu-bar .glyphicon {
 	width: 74px;
 }
 
 .number-cell {
-	width: 84px;
+	width: 70px;
 }
 
 .number-generic {
-	font-size: 3.5em;
-	font-weight: 600;
-	width: 72px;
+	width: 70px;
+}
+
+.station-name {
+	line-height: 32px;
 }
 
 .number-10, .number-14, .number-15, .number-17 {
@@ -351,55 +370,44 @@ body {
 }
 
 .time {
-	line-height: 72px;
 	width: 96px;
 }
 
 .time div {
-	font-size: 3.5em;
 	font-weight: 600;
 }
 
-.station {
-	font-size: 2.5em;
-}
-
 .departure {
-	font-size: 2.5em;
-	font-weight: 300;
 	width: 96px;
 }
 
 @media (max-width: 767px) {
+	body {
+		font-size: 1.2em;
+	}
+
 	.container-fluid {
 		padding-left: 8px;
 		padding-right: 8px;
 	}
 
-	.stop-heading h2 {
-		font-size: 1.8em;
-	}
-
 	.menu-bar .glyphicon {
-		width: 58px;
+		width: 64px;
 	}
 
 	.number-cell {
-		width: 68px;
-	}
-
-	.number-generic {
-		font-size: 3em;
 		width: 60px;
 	}
 
-	.station {
-		line-height: 30px;
-		font-size: 1.8em;
+	.number-generic {
+		width: 60px;
+	}
+
+	.station-name {
+		line-height: 28px;
 	}
 
 	.time {
-		line-height: 62px;
 		width: 72px;
 	}
 
@@ -410,43 +418,35 @@ body {
 		padding-right: 2px;
 	}
 
-	.time div {
-		font-size: 3em;
-	}
-
 	.departure {
-		font-size: 1.8em;
 		width: 74px;
 	}
 }
 
 @media (max-width: 469px) {
-	.stop-heading h2 {
-		font-size: 1.2em;
+	body {
+		font-size: 0.8em;
 	}
 
 	.menu-bar .glyphicon {
-		width: 38px;
+		width: 44px;
 	}
 
 	.number-cell {
-		width: 48px;
+		width: 40px;
 	}
 
 	.number-generic {
-		font-size: 2em;
 		width: 40px;
 		letter-spacing: -3px;
 	}
 
-	.number-10, .number-14, .number-15, .number-17 {
-		padding-right: 2px;
+	.station-name {
+		line-height: 18px;
 	}
 
-
-	.station {
-		line-height: 20px;
-		font-size: 1.2em;
+	.number-10, .number-14, .number-15, .number-17 {
+		padding-right: 2px;
 	}
 
 	.time0 img,
@@ -457,28 +457,13 @@ body {
 	}
 
 	.time {
-		line-height: 44px;
 		width: 52px;
 	}
 
-	.time div {
-		font-size: 2em;
-	}
-
 	.departure {
-		font-size: 1.2em;
 		width: 50px;
 	}
 }
-
-@media (min-width: 768px) and (max-width: 992px) {
-
-	.multi-col .departure {
-		font-size: 2em;
-		width: 72px;
-	}
-}
-
 
 /* Station specific styles:
    Colors for Hirschi rows */
