@@ -65,7 +65,6 @@ body {
 	outline: 0;
 	padding-left: 6px;
 	text-decoration: none;
-	display: table-cell;
 	line-height: 2em;
 }
 
@@ -88,13 +87,14 @@ body {
 }
 
 .menu-bar .remove-filter-image {
-	font-size: 1.4em;
+	font-size: 1.2em;
 }
 
 .menu-bar .remove-filter-text {
 	margin-left: 8px;
 	position: absolute;
 	width: 200px;
+	top: -0.5em;
 }
 
 

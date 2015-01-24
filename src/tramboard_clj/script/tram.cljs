@@ -408,7 +408,7 @@
         (put! abort-chan true)
         (.abort xhr)))))
 
-(defn autocomplete [app owner {:keys [input-id input-placeholder]}]
+(defn autocomplete [app owner {:keys [input-id input-placeholder input-ref]}]
   (reify
     om/IInitState
     (init-state [_]
@@ -428,7 +428,7 @@
                              {:container-view ac-bootstrap/container-view
                               :container-view-opts {}
                               :input-view ac-bootstrap/input-view
-                              :input-view-opts {:placeholder input-placeholder :id input-id}
+                              :input-view-opts {:placeholder input-placeholder :id input-id :ref input-ref}
                               :results-view ac-bootstrap/results-view
                               :results-view-opts {:loading-view loading
                                                   :render-item ac-bootstrap/render-item
@@ -458,45 +458,51 @@
                        (dom/form #js {:className "edit-form"}
                                  (dom/div #js {:className "form-group form-group-lg"}
                                           (dom/label #js {:className "control-label sr-only" :for "stopInput"} "Stop")
-                                          (apply dom/span #js {:className "form-control"}
+                                          (apply dom/span
+                                                 #js {:className "form-control"
+                                                      :ref "prout"
+                                                      :onClick (fn [e]
+                                                                 (.preventDefault e)
+                                                                 (.focus (om/get-node owner "stopInput"))
+                                                                 (om/set-state! owner :force-rerender! true))}
                                                  (conj
                                                    (vec (map #(om/build edit-remove-button {:current-stop (val %) :current-view current-view}) (:stops current-view)))
-                                                   (om/build autocomplete current-app {:opts {:input-id "stopInput" :input-placeholder "Enter a stop"}}))))))))))
+                                                   (om/build autocomplete current-app {:opts {:input-id "stopInput" :input-placeholder "Enter a stop" :input-ref "stopInput"}}))))))))))
 
 
-; <label for="exampleInputEmail1">Email address</label>
-; <input type="email" class="form-control" id="exampleInputEmail1" placeholder="Enter email">
+  ; <label for="exampleInputEmail1">Email address</label>
+  ; <input type="email" class="form-control" id="exampleInputEmail1" placeholder="Enter email">
 
-(defn stationboard [{:keys [current-state] :as app} owner]
-  "Takes the app (contains all views, selected view) and renders the whole page, knows what to display based on the routing."
-  (reify
-    om/IWillMount
-    (will-mount [_]
-                ; here we get the infos from local storage and store them in the component state
-                ; (go
-                ;   (om/update! app :configured-views (js->clj (. js/JSON (parse (. js/localStorage (getItem "views")))) :keywordize-keys true)))
-                )
-    om/IRender
-    (render [this]
-            (println "Rendering stationboard")
-            (println (str "Current state: " app))
+  (defn stationboard [{:keys [current-state] :as app} owner]
+    "Takes the app (contains all views, selected view) and renders the whole page, knows what to display based on the routing."
+    (reify
+      om/IWillMount
+      (will-mount [_]
+                  ; here we get the infos from local storage and store them in the component state
+                  ; (go
+                  ;   (om/update! app :configured-views (js->clj (. js/JSON (parse (. js/localStorage (getItem "views")))) :keywordize-keys true)))
+                  )
+      om/IRender
+      (render [this]
+              (println "Rendering stationboard")
+              (println (str "Current state: " app))
 
-            (let [current-view (get (:configured-views app) (get-view-id app))]
-              (apply dom/div #js {:className "container-fluid"}
-                     (om/build edit-pane {:current-view current-view :current-app app})
-                     (when (not (empty? (:stops current-view)))
-                       [(om/build stop-heading {:current-view current-view :current-state current-state})
-                        (om/build arrival-tables-view {:current-view current-view :current-state current-state})]))))))
+              (let [current-view (get (:configured-views app) (get-view-id app))]
+                (apply dom/div #js {:className "container-fluid"}
+                       (om/build edit-pane {:current-view current-view :current-app app})
+                       (when (not (empty? (:stops current-view)))
+                         [(om/build stop-heading {:current-view current-view :current-state current-state})
+                          (om/build arrival-tables-view {:current-view current-view :current-state current-state})]))))))
 
-(defn main []
-  (om/root stationboard app-state
-           {:target (. js/document (getElementById "my-app"))}))
+  (defn main []
+    (om/root stationboard app-state
+             {:target (. js/document (getElementById "my-app"))}))
 
 
-(defn on-navigate [event]
-  ;(refresh-navigation)
-  (secretary/dispatch! (.-token event)))
+  (defn on-navigate [event]
+    ;(refresh-navigation)
+    (secretary/dispatch! (.-token event)))
 
-(doto history
-  (goog.events/listen EventType/NAVIGATE on-navigate)
-  (.setEnabled true))
+  (doto history
+    (goog.events/listen EventType/NAVIGATE on-navigate)
+    (.setEnabled true))
