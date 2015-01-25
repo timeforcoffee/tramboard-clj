@@ -5,9 +5,11 @@
 
   :dependencies [[cljs-ajax "0.3.4"]
                  [cljs-uuid "0.0.4"]
+                 [clj-time "0.9.0"]
                  [compojure "1.3.1"]
                  [com.andrewmcveigh/cljs-time "0.3.0"]
                  [hiccup "1.0.0"]
+                 [http-kit "2.1.18"]
                  [org.clojure/clojure "1.6.0"]
                  [org.clojure/clojurescript "0.0-2511"]
                  [org.clojure/core.async "0.1.346.0-17112a-alpha"]

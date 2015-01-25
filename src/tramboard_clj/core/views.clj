@@ -1,7 +1,9 @@
 (ns tramboard-clj.core.views
   (:use [hiccup core page element]
         [tramboard-clj.core.include]
-        [ring.util.json-response]))
+        [ring.util.json-response])
+  (:require [tramboard-clj.core.zvv :as zvv]))
+
 
 ;<meta charset="utf-8">
 ;<meta http-equiv="X-UA-Compatible" content="IE=edge">
@@ -21,8 +23,4 @@
       (include-javascript))))
 
 (defn station [id]
-  "return no data, for now"
-  (json-response []))
-
-;(defn station [id]
-;  (json-response {:foo (str "station_id" id)}))
+  (json-response (zvv/station id)))
