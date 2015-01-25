@@ -398,7 +398,7 @@
         (put! abort-chan true)
         (.abort xhr)))))
 
-(defn autocomplete [app owner {:keys [input-id input-placeholder]}]
+(defn autocomplete [app owner {:keys [input-id input-placeholder input-focus-ch]}]
   (reify
     om/IInitState
     (init-state [_]
@@ -412,14 +412,14 @@
                           (when (not (nil? result)) (select-stop app result))
                           (recur))))))
     om/IRenderState
-    (render-state [_ {:keys [result-ch input-focus-ch]}]
+    (render-state [_ {:keys [result-ch]}]
                   (om/build ac/autocomplete app
-                            {:init-state {:input-focus-ch input-focus-ch}
-                             :opts
+                            {:opts
                              {:container-view ac-bootstrap/container-view
                               :container-view-opts {}
                               :input-view ac-bootstrap/input-view
                               :input-view-opts {:placeholder input-placeholder :id input-id}
+                              :input-focus-ch input-focus-ch
                               :results-view ac-bootstrap/results-view
                               :results-view-opts {:loading-view loading
                                                   :render-item ac-bootstrap/render-item
@@ -468,7 +468,7 @@
                                                             (put! input-focus-ch true))}
                                             (conj
                                               (vec (map #(om/build edit-remove-button {:current-stop (val %) :current-view current-view}) (:stops current-view)))
-                                              (om/build autocomplete current-app {:init-state {:input-focus-ch input-focus-ch} :opts {:input-id "stopInput" :input-placeholder "Enter a stop"}}))))))))
+                                              (om/build autocomplete current-app {:opts {:input-id "stopInput" :input-placeholder "Enter a stop" :input-focus-ch input-focus-ch}}))))))))
 
 
 ; <label for="exampleInputEmail1">Email address</label>
