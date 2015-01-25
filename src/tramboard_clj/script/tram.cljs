@@ -81,13 +81,11 @@
     om/IRender
     (render [this]
             ; (println "Rendering row")
-            (let [display (:display (:params current-state))
-                  activity (:activity (:params current-state))]
+            (let []
               (dom/tr #js {:className "tram-row"}
                       (dom/td #js {:className "number-cell"} (dom/span #js {:className (str "number-generic number-" (:number arrival))} (:number arrival)))
                       (dom/td #js {:className "station"}
-                              ; TODO unify the way to do this, sometimes it's hidden, sometimes the markup is not there
-                              (when (or (not= :idle activity) (not= :expanded display)) (dom/span #js {:className "exclude-link"} (om/build exclude-destination-link app)))
+                              (dom/span #js {:className "exclude-link"} (om/build exclude-destination-link app))
                               (dom/span #js {:className "station-name"} (:destination arrival)))
                       (dom/td #js {:className "departure"}
                               (dom/div nil (:time arrival))
@@ -166,10 +164,8 @@
   (reify
     om/IRender
     (render [this]
-            (let [display (get-in current-state [:params :display])]
-              (dom/div (when (= :expanded display) #js {:style #js {:display "none"}})
-                       (dom/div #js {:className "stop-heading"}
-                                (dom/h2 nil "Trams / buses / trains departing from " (str/join " / " (map #(:name (val %)) (:stops current-view))))))))))
+            (dom/div #js {:className "stop-heading"}
+                     (dom/h2 nil "Trams / buses / trains departing from " (str/join " / " (map #(:name (val %)) (:stops current-view))))))))
 
 (defn menu-bar [{:keys [current-state current-view]} owner]
   (reify
@@ -207,33 +203,31 @@
                     (when hide-ch (close! hide-ch))))
     om/IRender
     (render [this]
-            (let [expanded (= :expanded (:display (:params current-state)))
-                  hidden (= :idle (:activity (:params current-state)))
-                  excluded-destinations (remove nil? (flatten (map #(:excluded-destinations (val %)) (:stops current-view))))]
-              (dom/div (when (and expanded hidden) #js {:style #js {:display "none"}})
-                       (dom/div #js {:className "menu-bar"}
-                                (dom/a #js {:href "#"
-                                            :className (str "glyphicon " (if expanded "glyphicon-resize-small" "glyphicon-resize-full"))
-                                            :title (if expanded "Exit fullscreen" "Fullscreen")
-                                            :onClick (fn [e]
-                                                       (.preventDefault e)
-                                                       ; we change the state to hidden
-                                                       (if expanded
-                                                         (om/transact! current-state :params #(dissoc % :display ))
-                                                         (om/transact! current-state :params #(assoc % :display :expanded))))})
-                                (when (not (empty? excluded-destinations))
-                                  (dom/a #js {:href "#"
-                                              :className "remove-filter"
-                                              :onClick (fn [e]
-                                                         (.preventDefault e)
-                                                         (om/transact! current-view
-                                                                       :stops
-                                                                       (fn [stops]
-                                                                         (let [new-stops-vector (map
-                                                                                                  #(vector (first %) (dissoc (second %) :excluded-destinations))
-                                                                                                  stops)]
-                                                                           (apply assoc stops (flatten new-stops-vector))))))}
-                                         (dom/span #js {:className "remove-filter-image"} "✖") (dom/span #js {:className "remove-filter-text"} "remove filters")))))))))
+            (let [excluded-destinations (remove nil? (flatten (map #(:excluded-destinations (val %)) (:stops current-view))))
+                  expanded (= :expanded (:display (:params current-state)))]
+              (dom/div #js {:className "menu-bar"}
+                       (dom/a #js {:href "#"
+                                   :className (str "glyphicon " (if expanded "glyphicon-resize-small" "glyphicon-resize-full"))
+                                   :title (if expanded "Exit fullscreen" "Fullscreen")
+                                   :onClick (fn [e]
+                                              (.preventDefault e)
+                                              ; we change the state to hidden
+                                              (if expanded
+                                                (om/transact! current-state :params #(dissoc % :display ))
+                                                (om/transact! current-state :params #(assoc % :display :expanded))))})
+                       (when (not (empty? excluded-destinations))
+                         (dom/a #js {:href "#"
+                                     :className "remove-filter"
+                                     :onClick (fn [e]
+                                                (.preventDefault e)
+                                                (om/transact! current-view
+                                                              :stops
+                                                              (fn [stops]
+                                                                (let [new-stops-vector (map
+                                                                                         #(vector (first %) (dissoc (second %) :excluded-destinations))
+                                                                                         stops)]
+                                                                  (apply assoc stops (flatten new-stops-vector))))))}
+                                (dom/span #js {:className "remove-filter-image"} "✖") (dom/span #js {:className "remove-filter-text"} "remove filters"))))))))
 
 (defn arrival-tables-view [{:keys [current-view current-state]} owner]
   "Takes as input a set of views (station id) and the size of the pane and renders the table views."
@@ -339,14 +333,12 @@
       (render-state [this {:keys [station-data activity-ch]}]
                     (let [arrivals (arrivals-from-station-data station-data current-view)
                           on-action (fn [e]
-                                      (.preventDefault e)
                                       (put! activity-ch true))]
                       (dom/div #js {:onClick on-action
                                     :onMouseMove on-action
                                     :onTouchStart on-action}
                                (om/build menu-bar {:current-state current-state :current-view current-view} {:init-state {:activity-ch activity-ch}})
-                               (dom/div nil
-                                        (om/build arrival-table {:arrivals arrivals :current-view current-view :current-state current-state}))))))))
+                               (om/build arrival-table {:arrivals arrivals :current-view current-view :current-state current-state})))))))
 
 ;(defn create-view-suffix [linked-view-id selected-views-ids]
 ;  "Creates a link based on which views are selected"
@@ -406,7 +398,7 @@
         (put! abort-chan true)
         (.abort xhr)))))
 
-(defn autocomplete [app owner {:keys [input-id input-placeholder input-focus-ch]}]
+(defn autocomplete [app owner {:keys [input-id input-placeholder]}]
   (reify
     om/IInitState
     (init-state [_]
@@ -420,14 +412,14 @@
                           (when (not (nil? result)) (select-stop app result))
                           (recur))))))
     om/IRenderState
-    (render-state [_ {:keys [result-ch]}]
+    (render-state [_ {:keys [result-ch input-focus-ch]}]
                   (om/build ac/autocomplete app
-                            {:opts
+                            {:init-state {:input-focus-ch input-focus-ch}
+                             :opts
                              {:container-view ac-bootstrap/container-view
                               :container-view-opts {}
                               :input-view ac-bootstrap/input-view
                               :input-view-opts {:placeholder input-placeholder :id input-id}
-                              :input-focus-ch input-focus-ch
                               :results-view ac-bootstrap/results-view
                               :results-view-opts {:loading-view loading
                                                   :render-item ac-bootstrap/render-item
@@ -439,13 +431,14 @@
   (reify
     om/IRender
     (render [this]
-            (dom/button #js {:className "btn btn-primary"
-                             :type "button"
-                             :onClick (fn [e]
-                                        (.preventDefault e)
-                                        (om/transact! current-view :stops (fn [stops] (dissoc stops (:id current-stop)))))}
-                        (:name current-stop)
-                        (dom/span #js {:className "glyphicon glyphicon-remove" :aria-hidden "true"})))))
+            (let [stop-id (:id current-stop)]
+              (dom/button #js {:className "btn btn-primary"
+                               :type "button"
+                               :onClick (fn [e]
+                                          (.preventDefault e)
+                                          (om/transact! current-view :stops (fn [stops] (dissoc stops stop-id))))}
+                          (:name current-stop)
+                          (dom/span #js {:className "glyphicon glyphicon-remove" :aria-hidden "true"}))))))
 
 (defn edit-pane [{:keys [current-app current-view]} owner]
   "This shows the edit pane to add stops and stuff"
@@ -455,7 +448,8 @@
                 {:input-focus-ch (chan)})
     om/IWillMount
     (will-mount  [_]
-                (go (put! (om/get-state owner :input-focus-ch) true))
+                ; this does not look good because it removes the placeholder text
+                ;(go (put! (om/get-state owner :input-focus-ch) true))
                 )
     om/IWillUnmount
     (will-unmount [_]
@@ -463,20 +457,18 @@
                     (close! input-focus-ch)))
     om/IRenderState
     (render-state [_ {:keys [input-focus-ch]}]
-                  (let [display (get-in current-app [:current-state :params :display])]
-                    (dom/div (when (= :expanded display) #js {:style #js {:display "none"}})
-                             (dom/form #js {:className "edit-form"}
-                                       (dom/div #js {:className "form-group form-group-lg"}
-                                                (dom/label #js {:className "control-label sr-only" :for "stopInput"} "Stop")
-                                                (apply dom/span
-                                                       #js {:className "form-control"
-                                                            :ref "prout"
-                                                            :onClick (fn [e]
-                                                                       (.preventDefault e)
-                                                                       (put! input-focus-ch true))}
-                                                       (conj
-                                                         (vec (map #(om/build edit-remove-button {:current-stop (val %) :current-view current-view}) (:stops current-view)))
-                                                         (om/build autocomplete current-app {:opts {:input-id "stopInput" :input-placeholder "Enter a stop" :input-focus-ch input-focus-ch}}))))))))))
+                  (dom/form #js {:className "edit-form"}
+                            (dom/div #js {:className "form-group form-group-lg"}
+                                     (dom/label #js {:className "control-label sr-only" :for "stopInput"} "Stop")
+                                     (apply dom/span
+                                            #js {:className "form-control"
+                                                 :ref "prout"
+                                                 :onClick (fn [e]
+                                                            (.preventDefault e)
+                                                            (put! input-focus-ch true))}
+                                            (conj
+                                              (vec (map #(om/build edit-remove-button {:current-stop (val %) :current-view current-view}) (:stops current-view)))
+                                              (om/build autocomplete current-app {:init-state {:input-focus-ch input-focus-ch} :opts {:input-id "stopInput" :input-placeholder "Enter a stop"}}))))))))
 
 
 ; <label for="exampleInputEmail1">Email address</label>
@@ -496,12 +488,15 @@
             (println "Rendering stationboard")
             (println (str "Current state: " app))
 
-            (let [current-view (get (:configured-views app) (get-view-id app))]
-              (apply dom/div #js {:className "container-fluid"}
-                     (om/build edit-pane {:current-view current-view :current-app app})
-                     (when (not (empty? (:stops current-view)))
-                       [(om/build stop-heading {:current-view current-view :current-state current-state})
-                        (om/build arrival-tables-view {:current-view current-view :current-state current-state})]))))))
+            (let [current-view (get (:configured-views app) (get-view-id app))
+                  display (:display (:params current-state))
+                  activity (:activity (:params current-state))]
+              (dom/div #js {:className "container-fluid"}
+                       (apply dom/div (clj->js {:className (str (when (= display :expanded) "display-expanded") " " (when (= activity :idle) "activity-idle"))})
+                              (om/build edit-pane {:current-view current-view :current-app app})
+                              (when (not (empty? (:stops current-view)))
+                                [(om/build stop-heading {:current-view current-view :current-state current-state})
+                                 (om/build arrival-tables-view {:current-view current-view :current-state current-state})])))))))
 
 (defn main []
   (om/root stationboard app-state
