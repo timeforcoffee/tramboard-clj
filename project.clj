@@ -37,6 +37,7 @@
                              [lein-ring "0.8.13"]
                              [lein-deps-tree "0.1.2"]
                              [lein-midje "3.1.3"]]
+                   :aliases {"autotest" ["midje" ":autotest"]}
                    :ring {:handler tramboard-clj.core.handler/app}
                    :figwheel {:css-dirs ["resources/public/css"]}
                    :cljsbuild {:builds {:app {:source-paths ["env/dev/src"]
