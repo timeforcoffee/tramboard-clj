@@ -34,16 +34,20 @@
      :to (zvv-journey "st")
      :departure {:scheduled (zvv-date-parser (zvv-journey "ti")) :realtime (zvv-date-parser (get-in zvv-journey ["rt" "dlt"]))}}))
 
-; TODO read id from response ?
 ; TODO tests (=> capture some data from zvv api)
-(defn transform-response [id response-body]
+(defn transform-response [response-body]
+  ;(spit "fixtures/zvv_responses/new.txt" (response-body))
   (let [unparsed (clojure.string/replace-first response-body "journeysObj = " "")
         data     (json/parse-string unparsed)
         journeys (data "journey")]
-    {:meta {:station_id id :station_name (data "stationName")} :departures (map departure journeys)}))
+    {:meta {:station_id (data "stationEvaId") :station_name (data "stationName")} :departures (map departure journeys)}))
 
 ; TODO error handling
 (defn station [id]
   (let [request-url (str base-url id)
         response    (http/get request-url)]
-        (transform-response id (:body @response))))
+    (transform-response (:body @response))))
+
+
+
+
