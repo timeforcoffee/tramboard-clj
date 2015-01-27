@@ -33,6 +33,7 @@ body {
 .edit-form input {
 	border: none;
 	margin-left: 6px;
+	outline: 0;
 }
 
 .stop-heading {
@@ -98,8 +99,6 @@ body {
 
 
 .tram-table {
-	display: table;
-	table-layout: fixed;
 	padding: 0;
 	margin-top: 4px;
 	width: 100%;
@@ -116,10 +115,8 @@ body {
 }
 
 .exclude-link a {
-	padding-left: 6px;
-	padding-right: 6px;
-	display: table-cell;
-	/* TODO change this, negative margin is a problem on the phone */
+	padding-left: 8px;
+	padding-right: 8px;
 }
 
 .exclude-link a, .exlude-link a:hover, .exlude-link a:hover {
@@ -147,7 +144,6 @@ body {
 }
 
 .station {
-	padding-left: 8px;
 	font-size: 2.2em;
 	/*display: table;*/
 }
@@ -344,12 +340,30 @@ body {
 	border: none;
 }
 
+/* display logic */
+.display-expanded .edit-form {
+	display: none;
+}
 
+.display-expanded .stop-heading {
+	display: none;
+}
+
+.display-expanded.activity-idle .menu-bar {
+	display: none;
+}
+
+.display-expanded.activity-idle .station {
+	padding-left: 8px;
+}
+
+.display-expanded.activity-idle .exclude-link {
+	display: none;
+}
 
 /* Those things change on smaller devices*/
-
 .menu-bar .glyphicon {
-	width: 74px;
+	width: 68px;
 }
 
 .number-cell {
@@ -391,7 +405,7 @@ body {
 	}
 
 	.menu-bar .glyphicon {
-		width: 64px;
+		width: 58px;
 	}
 
 	.number-cell {
@@ -428,7 +442,7 @@ body {
 	}
 
 	.menu-bar .glyphicon {
-		width: 44px;
+		width: 38px;
 	}
 
 	.number-cell {
