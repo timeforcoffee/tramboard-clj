@@ -31,10 +31,12 @@
 
   :profiles {:dev {:source-paths ["env/dev/src"]
                    :dependencies [[figwheel "0.2.0-SNAPSHOT"]
-                                  [omdev "0.1.3-SNAPSHOT"]]
+                                  [omdev "0.1.3-SNAPSHOT"]
+                                  [midje "1.6.3"]]
                    :plugins [[lein-figwheel "0.2.0-SNAPSHOT"]
                              [lein-ring "0.8.13"]
-                             [lein-deps-tree "0.1.2"]]
+                             [lein-deps-tree "0.1.2"]
+                             [lein-midje "3.1.3"]]
                    :ring {:handler tramboard-clj.core.handler/app}
                    :figwheel {:css-dirs ["resources/public/css"]}
                    :cljsbuild {:builds {:app {:source-paths ["env/dev/src"]
