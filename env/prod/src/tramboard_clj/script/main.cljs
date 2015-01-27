@@ -4,8 +4,4 @@
 
 (enable-console-print!)
 
-(defn main []
-  (om/root tram/stationboard tram/app-state
-           {:target (. js/document (getElementById "my-app"))}))
-
-(main)
+(tram/main)
