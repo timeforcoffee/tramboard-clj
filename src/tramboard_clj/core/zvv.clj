@@ -36,7 +36,7 @@
 
 ; TODO tests (=> capture some data from zvv api)
 (defn transform-response [response-body]
-  ;(spit "fixtures/zvv_responses/new.txt" (response-body))
+  ;(spit "fixtures/zvv_responses/new.txt" response-body)
   (let [unparsed (clojure.string/replace-first response-body "journeysObj = " "")
         data     (json/parse-string unparsed)
         journeys (data "journey")]

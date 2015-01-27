@@ -3,7 +3,8 @@
   (:require [tramboard-clj.core.zvv :as zvv]))
 
 (def fixtures
-  {:central_2228 (slurp "fixtures/zvv_responses/central_2228.txt")})
+  {:central_2228   (slurp "fixtures/zvv_responses/central_2228.txt")
+   :kunsthaus_2336 (slurp "fixtures/zvv_responses/kunsthaus_2336.txt")})
 
 (facts "transform zvv response"
        (fact "extracts station information under meta key"
