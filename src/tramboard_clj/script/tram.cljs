@@ -595,7 +595,7 @@
                           (dom/div #js {:className "container-fluid"}
                                    (case state
                                      :edit (dom/div nil
-                                                    (dom/span #js {:className "text-middle pull-left"}
+                                                    (dom/span #js {:className "back-link pull-left"}
                                                               (dom/a #js {:className "link-icon glyphicon glyphicon-arrow-left"
                                                                           :href "#"
                                                                           :onClick (fn [e]

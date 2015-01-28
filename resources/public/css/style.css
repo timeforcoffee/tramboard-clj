@@ -71,10 +71,14 @@ a .link-icon a.link-icon, a:hover .link-icon, a.link-icon:hover, a:visited .link
 }
 
 /* TODO maybe create a generic style with text-middle */
-.menu-bar .text-middle a {
+.menu-bar .back-link a {
 	line-height: 40px;
 	width: 40px;
 	text-align: left;
+}
+
+.menu-bar .text-middle {
+	line-height: 40px;
 }
 
 .menu-bar .glyphicon {
