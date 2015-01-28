@@ -5,6 +5,7 @@
             [ajax.core :refer [GET POST]]
             [cljs.core.async :refer [put! chan <! close! timeout]]
             [clojure.string :as str]
+            [clojure.set :refer [difference]]
             [cljs-time.core :refer [minute hour in-minutes interval now after?]]
             [cljs-time.format :refer [parse unparse formatters formatter show-formatters]]
             [cljs-time.coerce :refer [to-long from-long]]
@@ -105,6 +106,9 @@
 (defn get-stops-in-order [view]
   (map #(get (:stops view) %) (:stops-order view)))
 
+(defn get-destinations-not-excluded [stop]
+  (difference (:known-destinations stop) (:excluded-destinations stop)))
+
 (defn go-home-and-delete-view-if-no-stops [app]
   (let [current-view (current-view app)
         view-id (:view-id current-view)
@@ -178,7 +182,9 @@
               (format-to-hour-minute (:undelayed_departure entry)))}))
        ; we filter out the things we don't want to see
        (remove
-         #(contains? (:excluded-destinations (get (:stops current-view) (:stop-id %))) (:destination %)))))
+         #(contains? (:excluded-destinations (get (:stops current-view) (:stop-id %)))
+                     ; the entry that corresponds to the destination
+                     {:to (:destination %) :number (:number %)}))))
 
 
 (defn exclude-destination-link [{:keys [arrival current-view]} owner]
@@ -186,6 +192,7 @@
     om/IRender
     (render [this]
             (let [stop-id (:stop-id arrival)
+                  number (:number arrival)
                   destination (:destination arrival)]
               (dom/a #js {:href "#"
                           :className "link-icon"
@@ -193,9 +200,13 @@
                           :onClick (fn [e]
                                      (om/transact! current-view
                                                    (fn [view]
+                                                     ; we add the filter
                                                      (let [stop (get (:stops current-view) stop-id)
                                                            existing-excluded-destinations (or (:excluded-destinations stop) #{})
-                                                           new-current-view (update-updated-date (assoc-in view [:stops stop-id :excluded-destinations] (conj existing-excluded-destinations destination)))]
+                                                           new-current-view (update-updated-date
+                                                                              (assoc-in view
+                                                                                        [:stops stop-id :excluded-destinations]
+                                                                                        (conj existing-excluded-destinations {:to destination :number number})))]
                                                        new-current-view)))
                                      (.preventDefault e))}
                      (dom/span #js {:style #js {:display "none"}} "(exclude from view)") "✖")))))
@@ -240,19 +251,13 @@
                        (apply dom/tbody nil
                               (map #(om/build arrival-row {:arrival % :current-view current-view :current-state current-state}) arrivals))))))
 
-(defn heading [heading owner]
-  (reify
-    om/IRender
-    (render [this]
-            (dom/h2 #js {:className "heading thin"} heading))))
-
 (defn stop-heading [{:keys [current-view current-state]} owner]
   "This displays all the links"
   (reify
     om/IRender
     (render [this]
             (dom/div #js {:className "stop-heading"}
-                     (om/build heading (str "Trams / buses / trains departing from " (str/join " / " (map #(:name (val %)) (:stops current-view)))))))))
+                     (dom/h2 #js {:className "heading thin"} (str "Trams / buses / trains departing from " (str/join " / " (map #(:name (val %)) (:stops current-view)))))))))
 
 (defn control-bar [{:keys [current-state current-view]} owner]
   (reify
@@ -309,6 +314,7 @@
                                                 (.preventDefault e)
                                                 (om/transact! current-view
                                                               (fn [view]
+                                                                ; we remove all the filters
                                                                 (let [stops (:stops view)
                                                                       new-stops-vector (map
                                                                                          #(vector (first %) (dissoc (second %) :excluded-destinations))
@@ -366,15 +372,12 @@
                                         ; we update the list of existing destinations
                                         (om/transact! current-view [:stops stop-id]
                                                       (fn [stop]
+                                                        ; we add all the known destinations to the stop
                                                         (let [existing-known-destinations (or (:known-destinations stop) #{})
-                                                              new-known-destinations (map :to data)
-                                                              existing-known-numbers (or (:known-numbers stop) #{})
-                                                              new-known-numbers (map :number data)]
+                                                              new-known-destinations (map #(select-keys % [:to :number]) data)]
                                                           (assoc stop
                                                             :known-destinations
-                                                            (into existing-known-destinations new-known-destinations)
-                                                            :known-numbers
-                                                            (into existing-known-numbers new-known-numbers))))))
+                                                            (into existing-known-destinations new-known-destinations))))))
                                       (go (<! (timeout refresh-rate))
                                           (println (str "Putting onto fetch channel: " stop-id))
                                           (put! new-fetch-ch stop-id))
@@ -560,11 +563,16 @@
                                                           (fn [state] (assoc current-state :state :edit :params {:view-id (:view-id configured-view)})))
                                             (.preventDefault e))}
                             ; a list of all stops
-                            (dom/h3 #js {:className "thin heading"}
+                            (dom/h2 #js {:className "thin"}
                                     (str/join " / " (map #(:name %) (get-stops-in-order configured-view))))
                             ; a thumbnail of all trams
                             (dom/div #js {:className "number-list"}
-                                     (let [numbers (sort-by #(cap % 20 "0") (reduce into #{} (map #(:known-numbers (val %)) (:stops configured-view))))
+                                     (let [numbers (->> (:stops configured-view)
+                                                        (map #(get-destinations-not-excluded (val %)))
+                                                        (reduce into #{})
+                                                        (map :number)
+                                                        (distinct)
+                                                        (sort-by #(cap % 20 "0")))
                                            too-big (> (count numbers) 10)
                                            numbers-to-show (if too-big (conj (vec (take 9 numbers)) "...") numbers)]
                                        (apply dom/ul #js {:className "list-inline"} (om/build-all recent-board-item-number numbers-to-show)))))))))
@@ -573,9 +581,9 @@
   (reify
     om/IRender
     (render [this]
-            (apply dom/div nil
+            (apply dom/div #js {:className "responsive-display"}
                    (dom/div #js {:className "heading"}
-                            (om/build heading "Recent boards"))
+                            (dom/h1 #js {:className "heading thin"} "Your recent boards"))
                    (map #(om/build recent-board-item {:configured-view % :current-state current-state}) (map #(val %) configured-views))))))
 
 (defn menu-bar [{:keys [current-state configured-views] :as app} owner]
@@ -624,7 +632,7 @@
                                 (case state
                                   :home (when (not (empty? configured-views))
                                           (om/build recent-boards {:configured-views configured-views :current-state current-state}))
-                                  :edit (dom/div #js {:className "board-display"}
+                                  :edit (dom/div #js {:className "responsive-display"}
                                                  (om/build stop-heading {:current-view current-view :current-state current-state})
                                                  (om/build arrival-tables-view {:current-view current-view :current-state current-state})))))))))
 

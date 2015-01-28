@@ -2,10 +2,17 @@ header {
 	margin-bottom: 14px;
 }
 
-/* generic styles */
-h2.heading {
-	font-size: 2.5em;
+.heading {
 	margin-bottom: 24px;
+}
+
+/* generic styles */
+h2 {
+	font-size: 2.5em;
+}
+
+h1 {
+	font-size: 3em;
 }
 
 .bold {
@@ -57,14 +64,17 @@ a .link-icon a.link-icon, a:hover .link-icon, a.link-icon:hover, a:visited .link
 /* specific styles */
 .menu-bar {
 	padding-top: 4px;
+	padding-bottom: 4px;
 	padding-left: 4px;
 	text-align: center;
 	background-color: #F5F5F5;
 }
 
 /* TODO maybe create a generic style with text-middle */
-.menu-bar .text-middle {
+.menu-bar .text-middle a {
 	line-height: 40px;
+	width: 40px;
+	text-align: left;
 }
 
 .menu-bar .glyphicon {
@@ -77,16 +87,6 @@ a .link-icon a.link-icon, a:hover .link-icon, a.link-icon:hover, a:visited .link
 
 .recent-board .number-list li {
 	margin-bottom: 6px;
-}
-
-.recent-board .number-generic {
-	font-size: 2em;
-	width: 50px;
-	line-height: 50px;
-}
-
-.recent-board .number-generic.number-big {
-	font-size: 1.5em;
 }
 
 .edit-form .form-control {
@@ -124,8 +124,12 @@ a .link-icon a.link-icon, a:hover .link-icon, a.link-icon:hover, a:visited .link
 }
 
 .control-bar a, .control-bar a:hover, .control-bar a:visited {
-	padding-left: 6px;
 	line-height: 2em;
+}
+
+.control-bar .glyphicon-resize-full {
+	padding-left: 6px;
+	padding-right: 6px;
 }
 
 .control-bar .remove-filter {
@@ -411,7 +415,7 @@ a .link-icon a.link-icon, a:hover .link-icon, a.link-icon:hover, a:visited .link
 }
 
 @media (max-width: 767px) {
-	body .board-display {
+	body .responsive-display {
 		font-size: 0.85em;
 	}
 
@@ -454,7 +458,7 @@ a .link-icon a.link-icon, a:hover .link-icon, a.link-icon:hover, a:visited .link
 }
 
 @media (max-width: 469px) {
-	body .board-display {
+	body .responsive-display {
 		font-size: 0.56em;
 	}
 
