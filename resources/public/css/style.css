@@ -131,7 +131,7 @@ a .link-icon a.link-icon, a:hover .link-icon, a.link-icon:hover, a:visited .link
 	line-height: 2em;
 }
 
-.control-bar .glyphicon-resize-full {
+.control-bar .glyphicon {
 	padding-left: 6px;
 	padding-right: 6px;
 }

@@ -526,12 +526,12 @@
                     (dom/form #js {:className "edit-form"}
                               (dom/div #js {:className "form-group form-group-lg"}
                                        (dom/label #js {:className "control-label sr-only" :htmlFor "stopInput"} "Stop")
-                                       (let [on-action (fn [e]
+                                       (let [on-action (fn [e preventDefault]
                                                          (put! input-focus-ch true)
-                                                         (.preventDefault e))]
+                                                         (when preventDefault (.preventDefault e)))]
                                          (dom/span #js {:className "form-control thin"
-                                                        :onClick on-action
-                                                        :onTouchStart on-action}
+                                                        :onClick #(on-action true %)
+                                                        :onTouchStart #(on-action false %)}
                                                    ; TODO transform this into a list of buttons with li+ul
                                                    (apply dom/span nil (map #(om/build edit-remove-button {:current-stop % :current-app app}) (get-stops-in-order current-view)))
                                                    (om/build autocomplete app {:opts {:input-id "stopInput"
