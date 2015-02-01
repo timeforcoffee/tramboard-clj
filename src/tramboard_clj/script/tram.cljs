@@ -249,6 +249,8 @@
       (<! cancel-ch)
       (.abort xhr))))
 
+; TODO refactor this part, this should be done in "fetch-stationboard-data" so
+; that we get a unified data structure in the code here
 (defn arrivals-from-station-data [station-data current-view]
   (->>  station-data
        (map (fn [station-data-entry] (map #(assoc % :stop-id (key station-data-entry)) (val station-data-entry))))
@@ -265,7 +267,7 @@
               (:stop-id entry)
               :name
               (:name entry)
-              :destination
+              :to
               (:to entry)
               :in-minutes
               (minutes-from departure-timestamp now)
@@ -279,7 +281,8 @@
        (remove
          #(contains? (:excluded-destinations (get (:stops current-view) (:stop-id %)))
                      ; the entry that corresponds to the destination
-                     {:to (:to %) :name (:name %)}))))
+                     {:to (:to %) :name (:name %)}))
+       (take 30)))
 
 
 (defn exclude-destination-link [{:keys [arrival current-view]} owner]
@@ -288,7 +291,7 @@
     (render [this]
             (let [stop-id     (:stop-id arrival)
                   number      (:name arrival)
-                  destination (:destination arrival)]
+                  destination (:to arrival)]
               (dom/a #js {:href "#"
                           :className "link-icon"
                           :title "Exclude destination"
@@ -330,7 +333,7 @@
                       (dom/td #js {:className "number-cell"} (om/build number-icon (:name arrival)))
                       (dom/td #js {:className "station"}
                               (dom/span #js {:className "exclude-link"} (om/build exclude-destination-link app))
-                              (dom/span #js {:className "station-name"} (:destination arrival)))
+                              (dom/span #js {:className "station-name"} (:to arrival)))
                       (dom/td #js {:className "departure thin"}
                               (dom/div nil (:time arrival))
                               (dom/div #js {:className "undelayed"} (:undelayed-time arrival)))
@@ -353,7 +356,7 @@
     om/IRender
     (render [this]
             (dom/div #js {:className "stop-heading"}
-                     (dom/h2 #js {:className "heading thin"} (str "Trams / buses / trains departing from " (str/join " / " (map #(:name (val %)) (:stops current-view)))))))))
+                     (dom/h2 #js {:className "heading thin"} (str "Trams / buses / trains departing from " (str/join " / " (map #(:name %) (get-stops-in-order current-view)))))))))
 
 (defn control-bar [{:keys [current-state current-view]} owner]
   (reify
