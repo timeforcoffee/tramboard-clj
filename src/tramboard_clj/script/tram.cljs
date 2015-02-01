@@ -726,7 +726,11 @@
                                                 split-screen-icon))
                                      (is-home current-state)
                                      (dom/div nil
-                                              (dom/span #js {:className "text-middle bold"} "Welcome to <app name>")
+                                              (dom/span #js {:className "text-middle bold"}
+                                                        (if-not is-split "Welcome to <app name>"
+                                                          (dom/div nil
+                                                                   (dom/div #js {:className "title-split-1"} "Your left board")
+                                                                   (dom/div #js {:className "title-split-2"} "Your right board"))))
                                               split-screen-icon))))))))
 
 (defn stationboard [{:keys [current-state app]} owner]

@@ -82,7 +82,6 @@ a .link-icon a.link-icon, a:hover .link-icon, a.link-icon:hover, a:visited .link
 	}
 }
 
-/* specific styles */
 .split-board > div {
 	display: block;
 	width: 50%;
@@ -96,6 +95,15 @@ a .link-icon a.link-icon, a:hover .link-icon, a.link-icon:hover, a:visited .link
 	.state-2 {
 		float: right;
 	}
+
+	.state-1 .title-split-2 {
+		display: none;
+	}
+
+	.state-2 .title-split-1 {
+		display: none;
+	}
+
 }
 
 .split-board.state-2-state-1 {
@@ -106,8 +114,18 @@ a .link-icon a.link-icon, a:hover .link-icon, a.link-icon:hover, a:visited .link
 	.state-1 {
 		float: right;
 	}
+
+	.state-1 .title-split-1 {
+		display: none;
+	}
+
+	.state-2 .title-split-2 {
+		display: none;
+	}
+
 }
 
+/* specific styles */
 .menu-bar {
 	padding-top: 4px;
 	padding-bottom: 4px;
