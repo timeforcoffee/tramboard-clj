@@ -1,3 +1,5 @@
+[![Build Status](https://travis-ci.org/fterrier/tramboard-clj.svg)](https://travis-ci.org/fterrier/tramboard-clj)
+
 # tramboard-clj
 
 A rewrite of the [Tramboard](https://github.com/fterrier/tramboard) using clojure and om
