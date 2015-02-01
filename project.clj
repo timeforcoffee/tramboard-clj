@@ -5,9 +5,11 @@
 
   :dependencies [[cljs-ajax "0.3.4"]
                  [cljs-uuid "0.0.4"]
+                 [clj-time "0.9.0"]
                  [compojure "1.3.1"]
                  [com.andrewmcveigh/cljs-time "0.3.0"]
                  [hiccup "1.0.0"]
+                 [http-kit "2.1.18"]
                  [org.clojure/clojure "1.6.0"]
                  [org.clojure/clojurescript "0.0-2727"]
                  [org.clojure/core.async "0.1.346.0-17112a-alpha"]
@@ -33,11 +35,15 @@
 
   :profiles {:dev {:source-paths ["env/dev/src"]
                    :dependencies [[figwheel-sidecar "0.2.1-SNAPSHOT"]
-                                  [figwheel "0.2.1-SNAPSHOT"]]
+                                  [figwheel "0.2.1-SNAPSHOT"]
+                                  [midje "1.6.3"]]
                    :plugins [[lein-figwheel "0.2.1-SNAPSHOT"]
                              [lein-ring "0.8.13"]
                              [lein-deps-tree "0.1.2"]
-                             [lein-pdo "0.1.1"]]
+                             [lein-pdo "0.1.1"]
+                             [lein-midje "3.1.3"]]
+                   :aliases {"autotest" ["midje" ":autotest"]}
+
                    :ring {:handler tramboard-clj.core.handler/app}
                    :figwheel {:css-dirs ["resources/public/css"]}
                    :cljsbuild {:builds {:app {:source-paths ["env/dev/src"]
