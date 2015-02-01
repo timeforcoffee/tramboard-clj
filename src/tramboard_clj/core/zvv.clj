@@ -2,6 +2,7 @@
   (:require [cheshire.core :as json]
             [clj-time.core :as t]
             [clj-time.format :as f]
+            [clojure.string :as str]
             [org.httpkit.client :as http]))
 
 ;(def http-options {:timeout 200             ; ms
@@ -10,7 +11,7 @@
 ;              :user-agent "User-Agent-string"
 ;              :headers {"X-Header" "Value"}})
 
-(def base-url "http://online.fahrplan.zvv.ch/bin/stboard.exe/dn?L=vs_stbzvv&boardType=dep&productsFilter=1:1111111111111111&additionalTime=0&disableEquivs=false&maxJourneys=18&start=yes&monitor=1&requestType=0&view=preview&input=")
+(def base-url "http://online.fahrplan.zvv.ch/bin/stboard.exe/dn?L=vs_stbzvv&boardType=dep&productsFilter=1:1111111111111111&additionalTime=0&disableEquivs=false&maxJourneys=30&start=yes&monitor=1&requestType=0&view=preview&input=")
 
 (def zvv-timezone (t/time-zone-for-id "Europe/Zurich"))
 
@@ -21,16 +22,19 @@
     nil
     (str (f/parse zvv-date-formatter (str date " " time)))))
 
+(defn sanitize [text]
+  (str/replace (str/replace text "&nbsp;" " ") #"S( )+" "S"))
+
 ; TODO add 1 day to realtime if it is smaller than scheduled (scheduled 23h59 + 3min delay ...)
 (defn departure [zvv-journey]
-  (let [colors          (clojure.string/split (zvv-journey "lc") #" ")
+  (let [colors          (vec (remove str/blank? (str/split (zvv-journey "lc") #" ")))
         zvv-date-parser (partial zvv-parse-datetime (zvv-journey "da"))]
     {;:meta zvv-journey
      :zvv_id (zvv-journey "id")
-     :name (zvv-journey "pr")
+     :name (sanitize (zvv-journey "pr"))
      :type (zvv-journey "productCategory")
-     :colors {:fg (str "#" (colors 0))
-              :bg (str "#" (colors 1))}
+     :colors {:fg (when (> (count colors) 0) (str "#" (colors 0)))
+              :bg (when (> (count colors) 1) (str "#" (colors 1)))}
      :to (zvv-journey "st")
      :departure {:scheduled (zvv-date-parser (zvv-journey "ti")) :realtime (zvv-date-parser (get-in zvv-journey ["rt" "dlt"]))}}))
 
