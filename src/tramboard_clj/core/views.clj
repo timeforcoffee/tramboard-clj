@@ -10,12 +10,12 @@
 (defn index-page []
   (html5
     [:head
-     [:meta {:charset "utf-8"}]
+     [:meta {:charset "UTF-8"}]
      [:meta {:http-equiv "X-UA-Compatible" :content "IE=edge"}]
      [:meta {:name "viewport" :content "width=device-width, initial-scale=1"}]
      [:title "Tramboard"]
      (include-css "//netdna.bootstrapcdn.com/bootstrap/3.3.2/css/bootstrap.min.css")
-     (include-css "/css/style.css")]
+     (include-css "/css/styles.css")]
     (into
       [:body [:div {:id "my-app"}]]
       (include-javascript))))
