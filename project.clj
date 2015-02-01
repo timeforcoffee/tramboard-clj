@@ -12,7 +12,6 @@
                  [org.clojure/clojurescript "0.0-2727"]
                  [org.clojure/core.async "0.1.346.0-17112a-alpha"]
                  [org.omcljs/om "0.8.7"]
-                 [cljsjs/react "0.12.2-5"]
                  [ring-json-response "0.2.0"]
                  [ring/ring-defaults "0.1.2"]
                  [ring/ring-jetty-adapter "1.2.1"]
@@ -31,8 +30,6 @@
 
   :less {:source-paths ["src/less"]
          :target-path "resources/public/css"}
-
-  :hooks [leiningen.cljsbuild leiningen.less]
 
   :profiles {:dev {:source-paths ["env/dev/src"]
                    :dependencies [[figwheel-sidecar "0.2.1-SNAPSHOT"]
@@ -53,9 +50,9 @@
              :uberjar {:source-paths ["env/prod/src"]
                        :omit-source true
                        :aot :all
+                       :hooks [leiningen.cljsbuild leiningen.less]
                        :cljsbuild {:builds {:app {:source-paths ["env/prod/src"]
                                                   :compiler {:output-to "resources/public/js/main.js"
                                                              :optimizations :advanced
-                                                             :pretty-print false
-                                                             :preamble ["react/react.min.js"]}}}}}}
+                                                             :pretty-print false}}}}}}
   :aliases {"develop" ["pdo" "figwheel" ["less" "auto"]]})
