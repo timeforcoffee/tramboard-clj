@@ -384,7 +384,7 @@ a .link-icon a.link-icon, a:hover .link-icon, a.link-icon:hover, a:visited .link
 	margin-top: 4px;
 	width: 100%;
 
-	td {
+	.tram-row td {
 		padding-bottom: 6px;
 	}
 
@@ -452,6 +452,10 @@ a .link-icon a.link-icon, a:hover .link-icon, a.link-icon:hover, a:visited .link
 
 /* Those things change on smaller devices*/
 .tram-table {
+	.tram-row {
+		line-height: 70px
+	}
+
 	.number-cell {
 		width: 70px;
 	}
@@ -478,7 +482,7 @@ a .link-icon a.link-icon, a:hover .link-icon, a.link-icon:hover, a:visited .link
 	vertical-align: top;
 }
 
-.number-big {
+.number-generic {
 	line-height: 68px;
 }
 
@@ -502,13 +506,17 @@ a .link-icon a.link-icon, a:hover .link-icon, a.link-icon:hover, a:visited .link
 		width: 60px;
 	}
 
-	.number-big {
+	.number-generic {
 		line-height: 58px;
 	}
 
 	.tram-table {
 		.remove-filter {
 			margin-left: 35px;
+		}
+
+		.tram-row {
+			line-height: 60px
 		}
 
 		.number-cell {
@@ -545,7 +553,7 @@ a .link-icon a.link-icon, a:hover .link-icon, a.link-icon:hover, a:visited .link
 		width: 40px;
 	}
 
-	.number-big {
+	.number-generic {
 		line-height: 38px;
 	}
 
@@ -556,6 +564,10 @@ a .link-icon a.link-icon, a:hover .link-icon, a.link-icon:hover, a:visited .link
 	.tram-table {
 		.remove-filter {
 			margin-left: 20px;
+		}
+
+		.tram-row {
+			line-height: 40px
 		}
 
 		.number-cell {
