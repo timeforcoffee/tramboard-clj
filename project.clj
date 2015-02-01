@@ -36,8 +36,7 @@
 
   :profiles {:dev {:source-paths ["env/dev/src"]
                    :dependencies [[figwheel-sidecar "0.2.1-SNAPSHOT"]
-                                  [figwheel "0.2.1-SNAPSHOT"]
-                                  [omdev "0.1.3-SNAPSHOT"]]
+                                  [figwheel "0.2.1-SNAPSHOT"]]
                    :plugins [[lein-figwheel "0.2.1-SNAPSHOT"]
                              [lein-ring "0.8.13"]
                              [lein-deps-tree "0.1.2"]
