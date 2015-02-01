@@ -49,8 +49,8 @@
   (within? (interval (minus from length) from) datetime))
 
 ; TODO memoize this
-(defn parse-from-date-time-no-ms [unparsed-date]
-  (parse (formatters :date-time-no-ms) unparsed-date))
+(defn parse-from-date-time [unparsed-date]
+  (parse (formatters :date-time) unparsed-date))
 
 ; TODO memoize this with "from" and "timestamp" being a timestamp with minute precision
 (defn minutes-from [timestamp from]
@@ -240,11 +240,11 @@
     (.setTimeoutInterval xhr 10000)
     (goog.events/listen
       xhr goog.net.EventType.SUCCESS
-      (fn [e] (put! complete-ch {:stop-id stop-id :data (js->clj (.getResponseJson xhr) :keywordize-keys true)})))
+      (fn [e] (put! complete-ch {:stop-id stop-id :data (:departures (js->clj (.getResponseJson xhr) :keywordize-keys true))})))
     (goog.events/listen
       xhr goog.net.EventType.ERROR
       (fn [e] (put! error-ch {:stop-id stop-id :data [] :error (.getLastError xhr)})))
-    (.send xhr (str "http://tramboard.herokuapp.com/stationboard/" stop-id) "GET")
+    (.send xhr (str "/stationboard/" stop-id) "GET")
     (go
       (<! cancel-ch)
       (.abort xhr))))
@@ -256,12 +256,15 @@
        (sort-by :departure)
        (map
          (fn [entry]
-           (let [departure-timestamp (parse-from-date-time-no-ms (:departure entry))
+           (let [scheduled-departure (:scheduled (:departure entry))
+                 ; TODO show something if we don't have realtime infos
+                 realtime-departure  (or (:realtime (:departure entry)) scheduled-departure)
+                 departure-timestamp (parse-from-date-time realtime-departure)
                  now                 (now)]
              {:stop-id
               (:stop-id entry)
-              :number
-              (:number entry)
+              :name
+              (:name entry)
               :destination
               (:to entry)
               :in-minutes
@@ -269,14 +272,14 @@
               :time
               (format-to-hour-minute departure-timestamp)
               :undelayed-time
-              (when (not= (:departure entry) (:undelayed_departure entry))
-                (let [undelayed-departure-timestamp (parse-from-date-time-no-ms (:undelayed_departure entry))]
-                  (format-to-hour-minute undelayed-departure-timestamp)))})))
+              (when (not= realtime-departure scheduled-departure)
+                (let [scheduled-departure-timestamp (parse-from-date-time scheduled-departure)]
+                  (format-to-hour-minute scheduled-departure-timestamp)))})))
        ; we filter out the things we don't want to see
        (remove
          #(contains? (:excluded-destinations (get (:stops current-view) (:stop-id %)))
                      ; the entry that corresponds to the destination
-                     {:to (:destination %) :number (:number %)}))))
+                     {:to (:to %) :name (:name %)}))))
 
 
 (defn exclude-destination-link [{:keys [arrival current-view]} owner]
@@ -284,7 +287,7 @@
     om/IRender
     (render [this]
             (let [stop-id     (:stop-id arrival)
-                  number      (:number arrival)
+                  number      (:name arrival)
                   destination (:destination arrival)]
               (dom/a #js {:href "#"
                           :className "link-icon"
@@ -299,7 +302,7 @@
                                                            new-current-view               (update-updated-date
                                                                                             (assoc-in view
                                                                                                       [:stops stop-id :excluded-destinations]
-                                                                                                      (conj existing-excluded-destinations {:to destination :number number})))]
+                                                                                                      (conj existing-excluded-destinations {:to destination :name number})))]
                                                        new-current-view)))
                                      (.preventDefault e))}
                      (dom/span #js {:style #js {:display "none"}} "(exclude from view)") "✖")))))
@@ -324,7 +327,7 @@
             ; (println "Rendering row")
             (let []
               (dom/tr #js {:className "tram-row"}
-                      (dom/td #js {:className "number-cell"} (om/build number-icon (:number arrival)))
+                      (dom/td #js {:className "number-cell"} (om/build number-icon (:name arrival)))
                       (dom/td #js {:className "station"}
                               (dom/span #js {:className "exclude-link"} (om/build exclude-destination-link app))
                               (dom/span #js {:className "station-name"} (:destination arrival)))
@@ -468,7 +471,7 @@
                                                       (fn [stop]
                                                         ; we add all the known destinations to the stop
                                                         (let [existing-known-destinations (or (:known-destinations stop) #{})
-                                                              new-known-destinations      (map #(select-keys % [:to :number]) data)]
+                                                              new-known-destinations      (map #(select-keys % [:to :name]) data)]
                                                           (assoc stop
                                                             :known-destinations
                                                             (into existing-known-destinations new-known-destinations))))))
@@ -663,7 +666,7 @@
                                      (let [numbers         (->> (:stops configured-view)
                                                                 (map #(get-destinations-not-excluded (val %)))
                                                                 (reduce into #{})
-                                                                (map :number)
+                                                                (map :name)
                                                                 (distinct)
                                                                 (sort-by #(cap % 20 "0")))
                                            too-big         (> (count numbers) 10)

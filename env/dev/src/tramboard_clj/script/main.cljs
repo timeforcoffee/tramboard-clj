@@ -2,8 +2,7 @@
   (:require [figwheel.client :as fw]
             [tramboard-clj.script.tram :as tram]
             [clojure.browser.repl :as repl]
-            [om.core :as om :include-macros true]
-            [omdev.core :as omdev]))
+            [om.core :as om :include-macros true]))
 
 (enable-console-print!)
 
