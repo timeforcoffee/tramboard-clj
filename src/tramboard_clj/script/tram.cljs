@@ -9,7 +9,6 @@
             [cljs-time.core :refer [minute hour in-minutes interval now after? minus weeks within? days]]
             [cljs-time.format :refer [parse unparse formatters formatter show-formatters]]
             [cljs-time.coerce :refer [to-long from-long]]
-            [secretary.core :as secretary :include-macros true :refer-macros [defroute]]
             [goog.events :as events]
             [cljs-uuid.core :as uuid]
             [arosequist.om-autocomplete :as ac]
@@ -29,7 +28,8 @@
          ; views from local storage
          :configured-views (array-map)
          ; navigation state
-         :complete-state {:split-states {:state-1 {:state-id :state-1 :state :home :params {} :rendered true} :state-2 {:state-id :state-2 :state :home :params {} :rendered false}}
+         :complete-state {:split-states {:state-1 {:state-id :state-1 :state :home :params {} :rendered true}
+                                         :state-2 {:state-id :state-2 :state :home :params {} :rendered false}}
                           :order [:state-1 :state-2]}}))
 
 (defn uuid [] (str (uuid/make-random)))
@@ -215,7 +215,8 @@
                 new-complete-state   (modify-complete-state complete-state current-state #(if go-home? (go-home %) %))]
             (assoc app :configured-views new-configured-views :complete-state new-complete-state)))))
 
-(defn fetch-suggestions [value suggestions-ch cancel-ch]
+
+(defn fetch-suggestions [value suggestions-ch cancel-ch transformation-fn]
   (let [xhr (XhrIo.) abort-chan (chan)]
     ; we introduce some timeout here
     (go (<! (timeout 250)) (put! abort-chan false))
@@ -235,12 +236,12 @@
         (put! abort-chan true)
         (.abort xhr)))))
 
-(defn fetch-stationboard-data [stop-id complete-ch error-ch cancel-ch]
+(defn fetch-stationboard-data [stop-id complete-ch error-ch cancel-ch transformation-fn]
   (let [xhr (XhrIo.)]
     (.setTimeoutInterval xhr 10000)
     (goog.events/listen
       xhr goog.net.EventType.SUCCESS
-      (fn [e] (put! complete-ch {:stop-id stop-id :data (:departures (js->clj (.getResponseJson xhr) :keywordize-keys true))})))
+      (fn [e] (put! complete-ch {:stop-id stop-id :data (transformation-fn (js->clj (.getResponseJson xhr) :keywordize-keys true))})))
     (goog.events/listen
       xhr goog.net.EventType.ERROR
       (fn [e] (put! error-ch {:stop-id stop-id :data [] :error (.getLastError xhr)})))
@@ -249,13 +250,8 @@
       (<! cancel-ch)
       (.abort xhr))))
 
-; TODO refactor this part, this should be done in "fetch-stationboard-data" so
-; that we get a unified data structure in the code here
-(defn arrivals-from-station-data [station-data current-view]
-  (->>  station-data
-       (map (fn [station-data-entry] (map #(assoc % :stop-id (key station-data-entry)) (val station-data-entry))))
-       (flatten)
-       (sort-by :departure)
+(defn transform-stationboard-data [data]
+  (->> (:departures data)
        (map
          (fn [entry]
            (let [scheduled-departure (:scheduled (:departure entry))
@@ -263,9 +259,9 @@
                  realtime-departure  (or (:realtime (:departure entry)) scheduled-departure)
                  departure-timestamp (parse-from-date-time realtime-departure)
                  now                 (now)]
-             {:stop-id
-              (:stop-id entry)
-              :name
+             {:colors
+              (:colors entry)
+              :number
               (:name entry)
               :to
               (:to entry)
@@ -276,12 +272,18 @@
               :undelayed-time
               (when (not= realtime-departure scheduled-departure)
                 (let [scheduled-departure-timestamp (parse-from-date-time scheduled-departure)]
-                  (format-to-hour-minute scheduled-departure-timestamp)))})))
+                  (format-to-hour-minute scheduled-departure-timestamp)))})))))
+
+(defn arrivals-from-station-data [station-data current-view]
+  (->> station-data
+       (map (fn [station-data-entry] (map #(assoc % :stop-id (key station-data-entry)) (val station-data-entry))))
+       (flatten)
+       (sort-by :departure)
        ; we filter out the things we don't want to see
        (remove
          #(contains? (:excluded-destinations (get (:stops current-view) (:stop-id %)))
                      ; the entry that corresponds to the destination
-                     {:to (:to %) :name (:name %)}))
+                     {:to (:to %) :number (:number %)}))
        (take 30)))
 
 
@@ -290,8 +292,9 @@
     om/IRender
     (render [this]
             (let [stop-id     (:stop-id arrival)
-                  number      (:name arrival)
-                  destination (:to arrival)]
+                  number      (:number arrival)
+                  destination (:to arrival)
+                  colors      (:colors arrival)]
               (dom/a #js {:href "#"
                           :className "link-icon"
                           :title "Exclude destination"
@@ -305,18 +308,19 @@
                                                            new-current-view               (update-updated-date
                                                                                             (assoc-in view
                                                                                                       [:stops stop-id :excluded-destinations]
-                                                                                                      (conj existing-excluded-destinations {:to destination :name number})))]
+                                                                                                      (conj existing-excluded-destinations {:to destination :number number :colors colors})))]
                                                        new-current-view)))
                                      (.preventDefault e))}
                      (dom/span #js {:style #js {:display "none"}} "(exclude from view)") "✖")))))
 
-(defn number-icon [number owner]
+(defn number-icon [{:keys [number colors]} owner]
   (reify
     om/IRender
     (render [this]
             (let [big     (>= (count number) 3)
                   too-big (>= (count number) 5)]
-              (dom/span #js {:className (str "bold number-generic number-" number (when big " number-big"))}
+              (dom/span #js {:className (str "bold number-generic number-" number (when big " number-big"))
+                             :style #js {:backgroundColor (:bg colors) :color (:fg colors)}}
                         (if too-big (apply str (take 4 number)) number))))))
 
 (defn arrival-row [{:keys [arrival current-view current-state] :as app} owner]
@@ -327,10 +331,11 @@
                 )
     om/IRender
     (render [this]
-            ; (println "Rendering row")
+            (println "Rendering row")
+
             (let []
               (dom/tr #js {:className "tram-row"}
-                      (dom/td #js {:className "number-cell"} (om/build number-icon (:name arrival)))
+                      (dom/td #js {:className "number-cell"} (om/build number-icon {:number (:number arrival) :colors (:colors arrival)}))
                       (dom/td #js {:className "station"}
                               (dom/span #js {:className "exclude-link"} (om/build exclude-destination-link app))
                               (dom/span #js {:className "station-name"} (:to arrival)))
@@ -421,9 +426,7 @@
                                                                                          stops)
                                                                       new-current-view (update-updated-date (assoc view :stops (apply assoc stops (flatten new-stops-vector))))]
                                                                   new-current-view))))}
-                                (dom/span #js {:className "remove-filter-image"} "✖") (dom/span #js {:className "remove-filter-text"} "remove filters")))
-                       ;(when (not ))
-                       )))))
+                                (dom/span #js {:className "remove-filter-image"} "✖") (dom/span #js {:className "remove-filter-text"} "remove filters"))))))))
 
 (defn arrival-tables-view [{:keys [current-view current-state]} owner]
   "Takes as input a set of views (station id) and the size of the pane and renders the table views."
@@ -467,20 +470,22 @@
                                       [{:keys [data stop-id error]} (<! new-incoming-ch)]
                                       (println (str "Received data for stop: " stop-id))
 
-                                      (when (not error)
+                                      (go (<! (timeout refresh-rate))
+                                          (println (str "Putting onto fetch channel: " stop-id))
+                                          (put! new-fetch-ch stop-id))
+
+                                      ; we just validate here the stop id
+                                      (when (and (not error) stop-id)
                                         (om/update-state! owner :station-data #(assoc % stop-id data))
                                         ; we update the list of existing destinations
                                         (om/transact! current-view [:stops stop-id]
                                                       (fn [stop]
                                                         ; we add all the known destinations to the stop
                                                         (let [existing-known-destinations (or (:known-destinations stop) #{})
-                                                              new-known-destinations      (map #(select-keys % [:to :name]) data)]
+                                                              new-known-destinations      (map #(select-keys % [:to :number :colors]) data)]
                                                           (assoc stop
                                                             :known-destinations
                                                             (into existing-known-destinations new-known-destinations))))))
-                                      (go (<! (timeout refresh-rate))
-                                          (println (str "Putting onto fetch channel: " stop-id))
-                                          (put! new-fetch-ch stop-id))
                                       (recur))))
                                 ; we initialize the fetch loop
                                 (go
@@ -488,7 +493,9 @@
                                     (when-some
                                       [stop-id (<! new-fetch-ch)]
                                       (println (str "Received fetch message for stop: " stop-id))
-                                      (fetch-stationboard-data stop-id new-incoming-ch new-incoming-ch new-cancel-ch)
+                                      (fetch-stationboard-data stop-id new-incoming-ch
+                                                               new-incoming-ch new-cancel-ch
+                                                               transform-stationboard-data)
                                       (recur))))
 
                                 ; we ask the channel to fetch the new data
@@ -573,7 +580,7 @@
                                                   :render-item ac-bootstrap/render-item
                                                   :render-item-opts {:text-fn (fn [item _] (:name item))}}
                               :result-ch result-ch
-                              :suggestions-fn fetch-suggestions}}))))
+                              :suggestions-fn #(fetch-suggestions %1 %2 %3 identity)}}))))
 
 (defn edit-remove-button [{:keys [current-stop app current-state]} owner]
   (reify
@@ -620,8 +627,6 @@
                         current-view     (current-view current-state configured-views)]
 
                     (println "Rendering edit-pane with state " current-state)
-                    (println current-state)
-
                     (dom/form #js {:className "edit-form"}
                               (dom/div #js {:className "form-group form-group-lg"}
                                        (dom/label #js {:className "control-label sr-only" :htmlFor "stopInput"} "Stop")
@@ -643,14 +648,14 @@
   (reify
     om/IRender
     (render [this]
-            (dom/li nil (:name stop)))))
+            (dom/li nil (:number stop)))))
 
-(defn recent-board-item-number [number owner]
+(defn recent-board-item-number [number-with-colors owner]
   (reify
     om/IRender
     (render [this]
             (dom/li nil
-                    (om/build number-icon number)))))
+                    (om/build number-icon number-with-colors)))))
 
 (defn recent-board-item [{:keys [configured-view current-state]} owner]
   (reify
@@ -669,11 +674,11 @@
                                      (let [numbers         (->> (:stops configured-view)
                                                                 (map #(get-destinations-not-excluded (val %)))
                                                                 (reduce into #{})
-                                                                (map :name)
+                                                                (map #(select-keys % [:number :colors]))
                                                                 (distinct)
-                                                                (sort-by #(cap % 20 "0")))
+                                                                (sort-by #(cap (:number %) 20 "0")))
                                            too-big         (> (count numbers) 10)
-                                           numbers-to-show (if too-big (conj (vec (take 9 numbers)) "...") numbers)]
+                                           numbers-to-show (if too-big (conj (vec (take 9 numbers)) {:number "..."}) numbers)]
                                        (apply dom/ul #js {:className "list-inline"} (om/build-all recent-board-item-number numbers-to-show)))))))))
 
 (defn recent-boards [{:keys [configured-views current-state]} owner]
