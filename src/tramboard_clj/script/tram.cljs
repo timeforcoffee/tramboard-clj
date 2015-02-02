@@ -634,8 +634,7 @@
                                                          (when preventDefault (.preventDefault e)))]
                                          (dom/span #js {:className "form-control thin"
                                                         :onClick #(on-action true %)
-                                                        ;:onTouchStart #(on-action false %)
-                                                        }
+                                                        :onTouchStart #(on-action false %)}
                                                    ; TODO transform this into a list of buttons with li+ul
                                                    (apply dom/span nil (map #(om/build edit-remove-button {:app app :current-stop % :configured-views configured-views :current-state current-state}) (get-stops-in-order current-view)))
                                                    (om/build autocomplete {:app app :configured-views configured-views :current-state current-state}
