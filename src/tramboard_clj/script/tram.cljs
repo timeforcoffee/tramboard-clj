@@ -434,6 +434,7 @@
           (let [stop-ids (keys (:stops current))]
             (when (not= (set stop-ids) (set (om/get-state current-owner :ids)))
               (println (str "Initializing arrival tables with stops: " stop-ids))
+              (om/set-state! current-owner :loading true)
               (put! (om/get-state current-owner :view-change-ch) stop-ids))))]
     (reify
       om/IInitState
@@ -475,6 +476,7 @@
 
                                       ; we just validate here the stop id
                                       (when (and (not error) stop-id)
+                                        (om/set-state! owner :loading false)
                                         (om/update-state! owner :station-data #(assoc % stop-id data))
                                         ; we update the list of existing destinations
                                         (om/transact! current-view [:stops stop-id]
@@ -530,7 +532,7 @@
                         (when incoming-ch (close! incoming-ch))
                         (when fetch-ch (close! fetch-ch)))))
       om/IRenderState
-      (render-state [this {:keys [station-data activity-ch]}]
+      (render-state [this {:keys [station-data activity-ch loading]}]
 
                     (let [arrivals  (arrivals-from-station-data station-data current-view)
                           on-action (fn [preventDefault e]
@@ -543,7 +545,9 @@
                                     :onClick #(on-action true %)
                                     :onTouchStart #(on-action false %)}
                                (om/build control-bar {:current-state current-state :current-view current-view} {:init-state {:activity-ch activity-ch}})
+                               (dom/div #js {:className (str "text-center thin loading " (when-not loading "hidden"))} "Your departures are loading...")
                                (om/build arrival-table {:arrivals arrivals :current-view current-view :current-state current-state})))))))
+
 
 (defn loading [_ owner]
   (reify
@@ -797,7 +801,6 @@
     (om/root split-stationboard saved-app-state
              {:target (. js/document (getElementById "my-app"))
               :tx-listen (fn [{:keys [path new-state]} _]
-                           (println new-state)
                            (. js/localStorage (setItem "views"
                                                        ; here if we don't dissoc the page will reload in the current state
                                                        (pr-str new-state))))})))
