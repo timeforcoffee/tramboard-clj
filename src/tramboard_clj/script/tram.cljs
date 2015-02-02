@@ -3,9 +3,8 @@
   (:require [om.core :as om :include-macros true]
             [om.dom :as dom :include-macros true]
             [ajax.core :refer [GET POST]]
-            [cljs.core.async :refer [put! chan <! close! timeout]]
+            [cljs.core.async :refer [put! chan <! >! close! timeout]]
             [clojure.string :as str]
-            [clojure.set :refer [difference]]
             [cljs-time.core :refer [minute hour in-minutes interval now after? minus weeks within? days]]
             [cljs-time.format :refer [parse unparse formatters formatter show-formatters]]
             [cljs-time.coerce :refer [to-long from-long]]
@@ -82,12 +81,6 @@
 
 ;(def display-time (memoize display-time-no-cache))
 
-(defn get-view-id [app]
-  (->> app
-       (:current-state)
-       (:params)
-       (:view-id)))
-
 (defn current-view [current-state configured-views]
   (let [view-id (:view-id (:params current-state))]
     (get configured-views view-id)))
@@ -98,8 +91,20 @@
 (defn get-stops-in-order [view]
   (map #(get (:stops view) %) (:stops-order view)))
 
+(defn is-in-destinations [destinations arrival]
+  (let [keys              [:to :number]
+        is-in-destination (contains? (into #{} (map #(select-keys % keys) destinations))
+                                     ; the entry that corresponds to the destination
+                                     (select-keys arrival keys))]
+    is-in-destination))
+
 (defn get-destinations-not-excluded [stop]
-  (difference (:known-destinations stop) (:excluded-destinations stop)))
+  (remove #(is-in-destinations (:excluded-destinations stop) %) (:known-destinations stop)))
+
+(defn get-recent-board-views [configured-views complete-state]
+  (let [views              (map #(val %) configured-views)
+        selected-views-ids (into #{} (map #(:view-id (:params (val %))) (:split-states complete-state)))]
+        (remove #(contains? selected-views-ids (:view-id %)) views)))
 
 (defn remove-stop-and-update-date [current-view stop-id]
   (let [new-stops        (dissoc (:stops current-view) stop-id)
@@ -215,9 +220,34 @@
                 new-complete-state   (modify-complete-state complete-state current-state #(if go-home? (go-home %) %))]
             (assoc app :configured-views new-configured-views :complete-state new-complete-state)))))
 
+(defn transact-add-filter [view arrival]
+  (let [stop-id     (:stop-id arrival)
+        number      (:number arrival)
+        destination (:to arrival)
+        colors      (:colors arrival)]
+    (om/transact!
+      view (fn [view]
+             ; we add the filter
+             (let [stop                           (get (:stops view) stop-id)
+                   existing-excluded-destinations (or (:excluded-destinations stop) #{})
+                   new-excluded-destinations      (conj existing-excluded-destinations {:to destination :number number})
+                   new-current-view               (update-updated-date
+                                                    (assoc-in view [:stops stop-id :excluded-destinations] new-excluded-destinations))]
+               (println new-current-view)
+               new-current-view)))))
+
+(defn transact-remove-filters [view]
+  (om/transact! view
+                (fn [view]
+                  ; we remove all the filters
+                  (let [stops            (:stops view)
+                        new-stops-vector (map #(vector (first %) (dissoc (second %) :excluded-destinations)) stops)
+                        new-current-view (update-updated-date (assoc view :stops (apply assoc stops (flatten new-stops-vector))))]
+                    new-current-view))))
 
 (defn fetch-suggestions [value suggestions-ch cancel-ch transformation-fn]
-  (let [xhr (XhrIo.) abort-chan (chan)]
+  (let [xhr        (XhrIo.)
+        abort-chan (chan)]
     ; we introduce some timeout here
     (go (<! (timeout 250)) (put! abort-chan false))
 
@@ -259,16 +289,11 @@
                  realtime-departure  (or (:realtime (:departure entry)) scheduled-departure)
                  departure-timestamp (parse-from-date-time realtime-departure)
                  now                 (now)]
-             {:colors
-              (:colors entry)
-              :number
-              (:name entry)
-              :to
-              (:to entry)
-              :in-minutes
-              (minutes-from departure-timestamp now)
-              :time
-              (format-to-hour-minute departure-timestamp)
+             {:colors (:colors entry)
+              :number (:name entry)
+              :to (:to entry)
+              :in-minutes (minutes-from departure-timestamp now)
+              :time (format-to-hour-minute departure-timestamp)
               :undelayed-time
               (when (not= realtime-departure scheduled-departure)
                 (let [scheduled-departure-timestamp (parse-from-date-time scheduled-departure)]
@@ -280,38 +305,21 @@
        (flatten)
        (sort-by :departure)
        ; we filter out the things we don't want to see
-       (remove
-         #(contains? (:excluded-destinations (get (:stops current-view) (:stop-id %)))
-                     ; the entry that corresponds to the destination
-                     {:to (:to %) :number (:number %)}))
+       (remove #(let [stop (get (:stops current-view) (:stop-id %))]
+         (is-in-destinations (:excluded-destinations stop) %)))
        (take 30)))
-
 
 (defn exclude-destination-link [{:keys [arrival current-view]} owner]
   (reify
     om/IRender
     (render [this]
-            (let [stop-id     (:stop-id arrival)
-                  number      (:number arrival)
-                  destination (:to arrival)
-                  colors      (:colors arrival)]
-              (dom/a #js {:href "#"
-                          :className "link-icon"
-                          :title "Exclude destination"
-                          :onClick (fn [e]
-                                     (om/transact! current-view
-                                                   ; TODO put this in a function
-                                                   (fn [view]
-                                                     ; we add the filter
-                                                     (let [stop                           (get (:stops current-view) stop-id)
-                                                           existing-excluded-destinations (or (:excluded-destinations stop) #{})
-                                                           new-current-view               (update-updated-date
-                                                                                            (assoc-in view
-                                                                                                      [:stops stop-id :excluded-destinations]
-                                                                                                      (conj existing-excluded-destinations {:to destination :number number :colors colors})))]
-                                                       new-current-view)))
-                                     (.preventDefault e))}
-                     (dom/span #js {:style #js {:display "none"}} "(exclude from view)") "✖")))))
+            (dom/a #js {:href "#"
+                        :className "link-icon"
+                        :title "Exclude destination"
+                        :onClick (fn [e]
+                                   (transact-add-filter current-view arrival)
+                                   (.preventDefault e))}
+                   (dom/span #js {:style #js {:display "none"}} "(exclude from view)") "✖"))))
 
 (defn number-icon [{:keys [number colors]} owner]
   (reify
@@ -416,16 +424,7 @@
                                      :className "remove-filter link-icon"
                                      :onClick (fn [e]
                                                 (.preventDefault e)
-                                                (om/transact! current-view
-                                                              ; TODO put this in a function
-                                                              (fn [view]
-                                                                ; we remove all the filters
-                                                                (let [stops            (:stops view)
-                                                                      new-stops-vector (map
-                                                                                         #(vector (first %) (dissoc (second %) :excluded-destinations))
-                                                                                         stops)
-                                                                      new-current-view (update-updated-date (assoc view :stops (apply assoc stops (flatten new-stops-vector))))]
-                                                                  new-current-view))))}
+                                                (transact-remove-filters current-view))}
                                 (dom/span #js {:className "remove-filter-image"} "✖") (dom/span #js {:className "remove-filter-text"} "remove filters"))))))))
 
 (defn arrival-tables-view [{:keys [current-view current-state]} owner]
@@ -552,6 +551,7 @@
     (render [_]
             (dom/li nil (dom/a nil "Loading...")))))
 
+; TODO modularize this component
 (defn autocomplete [{:keys [app current-state]} owner {:keys [input-id input-placeholder input-focus-ch backspace-ch]}]
   (reify
     om/IInitState
@@ -572,7 +572,7 @@
                               :container-view-opts {}
                               :input-view ac-bootstrap/input-view
                               :input-view-opts {:placeholder input-placeholder :id input-id}
-                              ; TODO merge those 2 in a input-view-init-state maybe ?
+                              ; TODO as part of modularization, merge those 2 in a input-view-init-state maybe ?
                               :input-focus-ch input-focus-ch
                               :backspace-ch backspace-ch
                               :results-view ac-bootstrap/results-view
@@ -580,7 +580,9 @@
                                                   :render-item ac-bootstrap/render-item
                                                   :render-item-opts {:text-fn (fn [item _] (:name item))}}
                               :result-ch result-ch
-                              :suggestions-fn #(fetch-suggestions %1 %2 %3 identity)}}))))
+                              :suggestions-fn (fn [value suggestions-ch cancel-ch]
+                                                (if (str/blank? value) (put! suggestions-ch [])
+                                                  (fetch-suggestions value suggestions-ch cancel-ch identity)))}}))))
 
 (defn edit-remove-button [{:keys [current-stop app current-state]} owner]
   (reify
@@ -605,9 +607,6 @@
                 {:input-focus-ch (chan) :backspace-ch (chan)})
     om/IWillMount
     (will-mount  [_]
-                ; this does not look good because it removes the placeholder text
-                ;(go (put! (om/get-state owner :input-focus-ch) true))
-
                 (let [backspace-ch (om/get-state owner :backspace-ch)]
                   (go
                     (loop []
@@ -631,11 +630,12 @@
                               (dom/div #js {:className "form-group form-group-lg"}
                                        (dom/label #js {:className "control-label sr-only" :htmlFor "stopInput"} "Stop")
                                        (let [on-action (fn [preventDefault e]
-                                                         (put! input-focus-ch true)
+                                                         (put! input-focus-ch true identity false)
                                                          (when preventDefault (.preventDefault e)))]
                                          (dom/span #js {:className "form-control thin"
                                                         :onClick #(on-action true %)
-                                                        :onTouchStart #(on-action false %)}
+                                                        ;:onTouchStart #(on-action false %)
+                                                        }
                                                    ; TODO transform this into a list of buttons with li+ul
                                                    (apply dom/span nil (map #(om/build edit-remove-button {:app app :current-stop % :configured-views configured-views :current-state current-state}) (get-stops-in-order current-view)))
                                                    (om/build autocomplete {:app app :configured-views configured-views :current-state current-state}
@@ -677,18 +677,21 @@
                                                                 (map #(select-keys % [:number :colors]))
                                                                 (distinct)
                                                                 (sort-by #(cap (:number %) 20 "0")))
-                                           too-big         (> (count numbers) 10)
-                                           numbers-to-show (if too-big (conj (vec (take 9 numbers)) {:number "..."}) numbers)]
+                                           too-big         (> (count numbers) 9)
+                                           numbers-to-show (if too-big (conj (vec (take 8 numbers)) {:number "..."}) numbers)]
                                        (apply dom/ul #js {:className "list-inline"} (om/build-all recent-board-item-number numbers-to-show)))))))))
 
-(defn recent-boards [{:keys [configured-views current-state]} owner]
+(defn recent-boards [{:keys [app current-state]} owner]
   (reify
     om/IRender
     (render [this]
-            (apply dom/div #js {:className "responsive-display"}
+            (let [configured-views (:configured-views app)
+                  complete-state   (:complete-state app)
+                  recent-views     (get-recent-board-views configured-views complete-state)]
+            (apply dom/div #js {:className (str "responsive-display " (when (empty? recent-views) "hidden"))}
                    (dom/div #js {:className "heading"}
                             (dom/h1 #js {:className "heading thin"} "Your recent boards"))
-                   (map #(om/build recent-board-item {:configured-view % :current-state current-state}) (map #(val %) configured-views))))))
+                   (map #(om/build recent-board-item {:configured-view % :current-state current-state}) recent-views))))))
 
 (defn menu-icon [{:keys [current-state complete-state]} owner ]
   (reify
@@ -731,7 +734,10 @@
                                        (dom/div nil
                                                 back-icon
                                                 (dom/span nil
-                                                          (dom/div #js {:className "bold"} "Your current board")
+                                                          (if-not is-split (dom/div #js {:className "bold"} "Your current board")
+                                                            (dom/div nil
+                                                                   (dom/div #js {:className "bold title-split-1"} "Your left board")
+                                                                   (dom/div #js {:className "bold title-split-2"} "Your right board")))
                                                           (dom/div #js {:className "thin"} (str "saved "
                                                                                                 (display-time (:last-updated current-view)))))
                                                 split-screen-icon))
@@ -768,8 +774,7 @@
                                 (om/build edit-pane {:app app :current-state current-state})
                                 (cond
                                   (is-home current-state)
-                                  (when (not (empty? configured-views))
-                                    (om/build recent-boards {:current-state current-state :configured-views configured-views}))
+                                  (om/build recent-boards {:app app :current-state current-state})
                                   (is-edit current-state)
                                   (dom/div #js {:className "responsive-display"}
                                            (om/build stop-heading current-view)
@@ -793,6 +798,7 @@
     (om/root split-stationboard saved-app-state
              {:target (. js/document (getElementById "my-app"))
               :tx-listen (fn [{:keys [path new-state]} _]
+                           (println new-state)
                            (. js/localStorage (setItem "views"
                                                        ; here if we don't dissoc the page will reload in the current state
                                                        (pr-str new-state))))})))
