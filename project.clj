@@ -17,7 +17,8 @@
                  [ring-json-response "0.2.0"]
                  [ring/ring-defaults "0.1.2"]
                  [ring/ring-jetty-adapter "1.2.1"]
-                 [ring/ring-mock "0.2.0"]]
+                 [ring/ring-mock "0.2.0"]
+                 [bk/ring-gzip "0.1.1"]]
 
   :plugins [[lein-cljsbuild "1.0.3"]
             [lein-git-deps "0.0.2-SNAPSHOT"]
