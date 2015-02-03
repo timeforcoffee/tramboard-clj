@@ -317,7 +317,7 @@
   (empty? (remove #(= :loading (val %)) station-data)))
 
 (defn are-all-error-or-empty [station-data]
-  (empty? (remove #(or (= :error (val %)) (empty? (val %))) station-data)))
+  (empty? (remove #(or (= :error (val %)) (and (not= :loading (val %)) (empty? (val %)))) station-data)))
 
 (defn exclude-destination-link [{:keys [arrival current-view]} owner]
   (reify
