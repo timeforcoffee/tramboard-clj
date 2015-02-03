@@ -5,7 +5,7 @@
             [ajax.core :refer [GET POST]]
             [cljs.core.async :refer [put! chan <! >! close! timeout]]
             [clojure.string :as str]
-            [cljs-time.core :refer [minute hour in-minutes interval now after? minus weeks within? days]]
+            [cljs-time.core :refer [minute hour in-minutes interval now after? minus weeks within? days to-default-time-zone]]
             [cljs-time.format :refer [parse unparse formatters formatter show-formatters]]
             [cljs-time.coerce :refer [to-long from-long]]
             [goog.events :as events]
@@ -39,7 +39,6 @@
 (defn display-in-minutes [in-minutes]
   (if (< in-minutes 59) in-minutes ">59"))
 
-
 (def hour-minute-formatter (formatter "HH:mm"))
 (def date-formatter (formatter "d MMM yyyy"))
 (def only-day-formatter (formatter "EEEE"))
@@ -56,7 +55,7 @@
     (in-minutes (interval from timestamp))))
 
 (defn format-to-hour-minute [timestamp]
-  (unparse hour-minute-formatter timestamp))
+  (unparse hour-minute-formatter (to-default-time-zone timestamp)))
 
 (defn display-time [timestamp]
   "Unpure function that decides how this should be displayed depending on the current day"
