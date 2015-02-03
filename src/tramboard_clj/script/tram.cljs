@@ -47,8 +47,7 @@
 (defn is-within [datetime from length]
   (within? (interval (minus from length) from) datetime))
 
-; TODO memoize this
-(defn parse-from-date-time [unparsed-date]
+(defn parse-from-date-time-uncached [unparsed-date]
   (parse (formatters :date-time) unparsed-date))
 
 ; TODO memoize this with "from" and "timestamp" being a timestamp with minute precision
@@ -79,7 +78,7 @@
                              " at " hour-minute-format)]
     display-time))
 
-;(def display-time (memoize display-time-no-cache))
+(def parse-from-date-time (memoize parse-from-date-time-uncached))
 
 (defn current-view [current-state configured-views]
   (let [view-id (:view-id (:params current-state))]
@@ -275,7 +274,7 @@
     (goog.events/listen
       xhr goog.net.EventType.ERROR
       (fn [e] (put! error-ch {:stop-id stop-id :data [] :error (.getLastError xhr)})))
-    (.send xhr (str "/stationboard/" stop-id) "GET")
+    (.send xhr (str "/api/stationboard/" stop-id) "GET")
     (go
       (<! cancel-ch)
       (.abort xhr))))
@@ -289,7 +288,8 @@
                  realtime-departure  (or (:realtime (:departure entry)) scheduled-departure)
                  departure-timestamp (parse-from-date-time realtime-departure)
                  now                 (now)]
-             {:colors (:colors entry)
+             {:departure-timestamp departure-timestamp
+              :colors (:colors entry)
               :number (:name entry)
               :to (:to entry)
               :in-minutes (minutes-from departure-timestamp now)
@@ -299,15 +299,27 @@
                 (let [scheduled-departure-timestamp (parse-from-date-time scheduled-departure)]
                   (format-to-hour-minute scheduled-departure-timestamp)))})))))
 
+(defn merge-station-data-and-set-loading [station-data ids]
+  (let [station-data-without-removed-ids (into {} (filter #(contains? ids (key %)) station-data))
+        ids-without-loaded-stations      (remove #(contains? station-data %) ids)
+        new-station-data                 (merge station-data-without-removed-ids (into {} (map (fn [id] [id :loading]) ids-without-loaded-stations)))]
+    new-station-data))
+
 (defn arrivals-from-station-data [station-data current-view]
-  (->> station-data
-       (map (fn [station-data-entry] (map #(assoc % :stop-id (key station-data-entry)) (val station-data-entry))))
-       (flatten)
-       (sort-by :departure)
-       ; we filter out the things we don't want to see
-       (remove #(let [stop (get (:stops current-view) (:stop-id %))]
-         (is-in-destinations (:excluded-destinations stop) %)))
-       (take 30)))
+  (let [arrivals (->> station-data
+                      (remove #(or (= :loading (val %)) (= :error (val %))))
+                      ; TODO fix this
+                      (map (fn [station-data-entry] (map #(assoc % :stop-id (key station-data-entry)) (val station-data-entry))))
+                      (flatten)
+                      (sort-by :departure-timestamp)
+                      ; we filter out the things we don't want to see
+                      (remove #(let [stop (get (:stops current-view) (:stop-id %))]
+                                 (is-in-destinations (:excluded-destinations stop) %)))
+                      (take 30))]
+    arrivals))
+
+(defn are-all-loading [station-data]
+  (empty? (remove #(= :loading (val %)) station-data)))
 
 (defn exclude-destination-link [{:keys [arrival current-view]} owner]
   (reify
@@ -431,16 +443,16 @@
   "Takes as input a set of views (station id) and the size of the pane and renders the table views."
   (let [initialize
         (fn [current current-owner]
-          (let [stop-ids (keys (:stops current))]
-            (when (not= (set stop-ids) (set (om/get-state current-owner :ids)))
-              (println (str "Initializing arrival tables with stops: " stop-ids))
-              (om/set-state! current-owner :loading true)
-              (put! (om/get-state current-owner :view-change-ch) stop-ids))))]
+          (let [stop-ids (set (keys (:stops current)))]
+            (let [{:keys [view-change-ch station-data]} (om/get-state owner)]
+              (when (not= stop-ids (set (keys station-data)))
+                (println (str "Initializing arrival tables with stops: " stop-ids))
+                (put! view-change-ch stop-ids)))))]
     (reify
       om/IInitState
       (init-state [_]
                   (println (str "Resetting state"))
-                  {:station-data {} :ids #{} :arrival-channels {} :activity-ch (chan) :view-change-ch (chan)})
+                  {:station-data {} :arrival-channels {} :activity-ch (chan) :view-change-ch (chan)})
       om/IWillMount
       (will-mount [_]
                   ; the is the control channel loop
@@ -459,7 +471,8 @@
                                     old-fetch-ch          (:fetch-ch old-arrival-channels)
                                     new-cancel-ch         (chan)
                                     new-incoming-ch       (chan)
-                                    new-fetch-ch          (chan)]
+                                    new-fetch-ch          (chan)
+                                    station-data          (:station-data state)]
                                 (when old-cancel-ch (close! old-cancel-ch))
                                 (when old-incoming-ch (close! old-incoming-ch))
                                 (when old-fetch-ch (close! old-fetch-ch))
@@ -475,18 +488,19 @@
                                           (put! new-fetch-ch stop-id))
 
                                       ; we just validate here the stop id
-                                      (when (and (not error) stop-id)
-                                        (om/set-state! owner :loading false)
-                                        (om/update-state! owner :station-data #(assoc % stop-id data))
-                                        ; we update the list of existing destinations
-                                        (om/transact! current-view [:stops stop-id]
-                                                      (fn [stop]
-                                                        ; we add all the known destinations to the stop
-                                                        (let [existing-known-destinations (or (:known-destinations stop) #{})
-                                                              new-known-destinations      (map #(select-keys % [:to :number :colors]) data)]
-                                                          (assoc stop
-                                                            :known-destinations
-                                                            (into existing-known-destinations new-known-destinations))))))
+                                      (if (and (not error) stop-id)
+                                        (do
+                                          (om/update-state! owner :station-data #(assoc % stop-id data))
+                                          ; we update the list of existing destinations
+                                          (om/transact! current-view [:stops stop-id]
+                                                        (fn [stop]
+                                                          ; we add all the known destinations to the stop
+                                                          (let [existing-known-destinations (or (:known-destinations stop) #{})
+                                                                new-known-destinations      (map #(select-keys % [:to :number :colors]) data)]
+                                                            (assoc stop
+                                                              :known-destinations
+                                                              (into existing-known-destinations new-known-destinations))))))
+                                        (om/update-state! owner :station-data #(assoc % stop-id :error)))
                                       (recur))))
                                 ; we initialize the fetch loop
                                 (go
@@ -509,11 +523,10 @@
                                                      :incoming-ch new-incoming-ch
                                                      :cancel-ch new-cancel-ch
                                                      :fetch-ch new-fetch-ch))
-                                  :ids stop-ids
-                                  :station-data {}))))
-                          (recur)))))
-                  (println (str "Initializing on WillMount"))
-                  (initialize current-view owner))
+                                  :station-data (merge-station-data-and-set-loading station-data stop-ids)))))
+                          (recur))))
+                    (println (str "Initializing on WillMount"))
+                    (initialize current-view owner)))
       om/IWillReceiveProps
       (will-receive-props [_ {:keys [current-view]}]
                           (println (str "Initializing on WillReceiveProps"))
@@ -532,14 +545,15 @@
                         (when incoming-ch (close! incoming-ch))
                         (when fetch-ch (close! fetch-ch)))))
       om/IRenderState
-      (render-state [this {:keys [station-data activity-ch loading]}]
+      (render-state [this {:keys [station-data activity-ch]}]
 
                     (let [arrivals  (arrivals-from-station-data station-data current-view)
                           on-action (fn [preventDefault e]
                                       (put! activity-ch true)
-                                      (when preventDefault (.preventDefault e)))]
+                                      (when preventDefault (.preventDefault e)))
+                          loading   (are-all-loading station-data)]
 
-                      (println "Rendering arrival table")
+                      (println "Rendering arrival table with stops " arrivals)
 
                       (dom/div #js {:onMouseMove #(on-action true %)
                                     :onClick #(on-action true %)

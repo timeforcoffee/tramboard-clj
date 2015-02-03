@@ -18,7 +18,8 @@
                  [ring/ring-defaults "0.1.2"]
                  [ring/ring-jetty-adapter "1.2.1"]
                  [ring/ring-mock "0.2.0"]
-                 [bk/ring-gzip "0.1.1"]]
+                 [bk/ring-gzip "0.1.1"]
+                 [org.clojars.jws/ring-etag-middleware "0.1.2-SNAPSHOT"]]
 
   :plugins [[lein-cljsbuild "1.0.3"]
             [lein-git-deps "0.0.2-SNAPSHOT"]
