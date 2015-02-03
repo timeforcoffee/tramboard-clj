@@ -50,17 +50,14 @@
 (defn parse-from-date-time-uncached [unparsed-date]
   (parse (formatters :date-time) unparsed-date))
 
-; TODO memoize this with "from" and "timestamp" being a timestamp with minute precision
 (defn minutes-from [timestamp from]
   (if (after? from timestamp)
     (- (in-minutes (interval timestamp from)))
     (in-minutes (interval from timestamp))))
 
-; TODO memoize this with "timestamp" being a timestamp with minute precision
 (defn format-to-hour-minute [timestamp]
   (unparse hour-minute-formatter timestamp))
 
-; TODO memoize this with "timestamp" being a timestamp with minute precision
 (defn display-time [timestamp]
   "Unpure function that decides how this should be displayed depending on the current day"
   (let [now                (now)
@@ -308,7 +305,6 @@
 (defn arrivals-from-station-data [station-data current-view]
   (let [arrivals (->> station-data
                       (remove #(or (= :loading (val %)) (= :error (val %))))
-                      ; TODO fix this
                       (map (fn [station-data-entry] (map #(assoc % :stop-id (key station-data-entry)) (val station-data-entry))))
                       (flatten)
                       (sort-by :departure-timestamp)
@@ -320,6 +316,9 @@
 
 (defn are-all-loading [station-data]
   (empty? (remove #(= :loading (val %)) station-data)))
+
+(defn are-all-error-or-empty [station-data]
+  (empty? (remove #(or (= :error (val %)) (empty? (val %))) station-data)))
 
 (defn exclude-destination-link [{:keys [arrival current-view]} owner]
   (reify
@@ -345,10 +344,6 @@
 
 (defn arrival-row [{:keys [arrival current-view current-state] :as app} owner]
   (reify
-    om/IWillMount
-    (will-mount [_]
-                ; (println "Mounting row")
-                )
     om/IRender
     (render [this]
             (println "Rendering row")
@@ -431,13 +426,12 @@
                                                 (om/transact! current-state :params #(dissoc % :display ))
                                                 (om/transact! current-state :params #(assoc % :display :expanded)))
                                               (.preventDefault e))})
-                       (when (not (empty? excluded-destinations))
-                         (dom/a #js {:href "#"
-                                     :className "remove-filter link-icon"
-                                     :onClick (fn [e]
-                                                (.preventDefault e)
-                                                (transact-remove-filters current-view))}
-                                (dom/span #js {:className "remove-filter-image"} "✖") (dom/span #js {:className "remove-filter-text"} "remove filters"))))))))
+                       (dom/a #js {:href "#"
+                                   :className (str "remove-filter link-icon " (when (empty? excluded-destinations) "hidden"))
+                                   :onClick (fn [e]
+                                              (.preventDefault e)
+                                              (transact-remove-filters current-view))}
+                              (dom/span #js {:className "remove-filter-image"} "✖") (dom/span #js {:className "remove-filter-text"} "remove filters")))))))
 
 (defn arrival-tables-view [{:keys [current-view current-state]} owner]
   "Takes as input a set of views (station id) and the size of the pane and renders the table views."
@@ -551,15 +545,17 @@
                           on-action (fn [preventDefault e]
                                       (put! activity-ch true)
                                       (when preventDefault (.preventDefault e)))
-                          loading   (are-all-loading station-data)]
+                          loading   (are-all-loading station-data)
+                          error     (are-all-error-or-empty station-data)]
 
-                      (println "Rendering arrival table with stops " arrivals)
+                      (println "Rendering arrival table with stops " station-data)
 
                       (dom/div #js {:onMouseMove #(on-action true %)
                                     :onClick #(on-action true %)
                                     :onTouchStart #(on-action false %)}
                                (om/build control-bar {:current-state current-state :current-view current-view} {:init-state {:activity-ch activity-ch}})
                                (dom/div #js {:className (str "text-center thin loading " (when-not loading "hidden"))} "Your departures are loading...")
+                               (dom/div #js {:className (str "text-center thin loading " (when (or (not error) loading) "hidden"))} "Sorry, no departures are available at this time...")
                                (om/build arrival-table {:arrivals arrivals :current-view current-view :current-state current-state})))))))
 
 
