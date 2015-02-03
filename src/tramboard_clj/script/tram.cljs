@@ -548,7 +548,7 @@
                           loading   (are-all-loading station-data)
                           error     (are-all-error-or-empty station-data)]
 
-                      (println "Rendering arrival table with stops " station-data)
+                      (println "Rendering arrival table")
 
                       (dom/div #js {:onMouseMove #(on-action true %)
                                     :onClick #(on-action true %)
