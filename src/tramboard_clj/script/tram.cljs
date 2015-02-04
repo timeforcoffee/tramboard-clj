@@ -50,7 +50,7 @@
   (let [view-id (:view-id (:params current-state))]
     (get configured-views view-id)))
 
-(defn update-updated-date [view]
+(defn- update-updated-date [view]
   (assoc view :last-updated (to-long (now))))
 
 (defn get-stops-in-order [view]
@@ -71,7 +71,7 @@
         selected-views-ids (into #{} (map #(:view-id (:params (val %))) (:split-states complete-state)))]
     (remove #(contains? selected-views-ids (:view-id %)) views)))
 
-(defn remove-stop-and-update-date [current-view stop-id]
+(defn- remove-stop-and-update-date [current-view stop-id]
   (let [new-stops        (dissoc (:stops current-view) stop-id)
         new-stops-order  (vec (remove #(= stop-id %) (:stops-order current-view)))
         new-current-view (update-updated-date (assoc current-view
@@ -79,7 +79,7 @@
                                                 :stops-order new-stops-order))]
     new-current-view))
 
-(defn add-stop-and-update-date [current-view {:keys [:id] :as stop}]
+(defn- add-stop-and-update-date [current-view {:keys [:id] :as stop}]
   (let [existing-stops       (:stops current-view)
         existing-stops-order (or (:stops-order current-view) [])
         existing-stop        (get existing-stops id)
@@ -90,7 +90,7 @@
                                                     :stops-order new-stops-order))]
     new-current-view))
 
-(defn delete-view-if-no-stops [configured-views view-id]
+(defn- delete-view-if-no-stops [configured-views view-id]
   (let [current-view  (get configured-views view-id)
         current-stops (:stops current-view)]
     (if (empty? current-stops)
@@ -162,11 +162,11 @@
       (when-not (<! abort-chan)
         (goog.events/listen
           xhr goog.net.EventType.SUCCESS
-          (fn [e] (put! suggestions-ch (js->clj (.getResponseJson xhr) :keywordize-keys true))))
+          (fn [e] (put! suggestions-ch (:stations (js->clj (.getResponseJson xhr) :keywordize-keys true)))))
         (goog.events/listen
           xhr goog.net.EventType.ERROR
           (fn [e] (println "ERROR")))
-        (.send xhr (str "http://tramboard.herokuapp.com/stations/" value) "GET")))
+        (.send xhr (str "/api/stations/" value) "GET")))
     (go
       (<! cancel-ch)
       (do

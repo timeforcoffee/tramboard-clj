@@ -16,11 +16,13 @@
   (parse (formatters :date-time) unparsed-date))
 
 (defn minutes-from [timestamp from]
+  "Returns the difference in minutes between from and timestamp."
   (if (after? from timestamp)
     (- (in-minutes (interval timestamp from)))
     (in-minutes (interval from timestamp))))
 
 (defn format-to-hour-minute [timestamp]
+  "Formats a timestamp to HH:mm"
   (unparse hour-minute-formatter (to-default-time-zone timestamp)))
 
 (defn display-time [timestamp]
@@ -40,4 +42,7 @@
                              " at " hour-minute-format)]
     display-time))
 
-(def parse-from-date-time (memoize parse-from-date-time-uncached))
+(def parse-from-date-time
+  "Parses a date in the format 21-12-2015T12:12:00.000+01:00 into a timestamp.
+  This call is memoized."
+  (memoize parse-from-date-time-uncached))

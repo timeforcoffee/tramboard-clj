@@ -18,18 +18,19 @@
 
 (defroutes api-routes
   (context "/api" []
-    (wrap-no-cache (GET "/stationboard/:id{[0-9]+}" [id] (station id)))))
+    (wrap-routes (GET "/stationboard/:id{[0-9]+}" [id] (station id)) wrap-no-cache)
+    (wrap-routes (GET "/stations/:query{.+}" [query] (query-stations query)) wrap-no-cache)))
 
 (defroutes app-routes
-  (wrap-cache (GET "/" [] (index-page)))
-  (wrap-cache (route/resources "/"))
+  (wrap-routes (GET "/" [] (index-page)) wrap-cache)
+  (wrap-routes (route/resources "/") wrap-cache)
   (route/not-found "Not Found"))
 
 (def site
-  (wrap-defaults app-routes (assoc site-defaults :cookies false :session false)))
+  (wrap-routes app-routes wrap-defaults (assoc site-defaults :cookies false :session false)))
 
 (def api
-  (wrap-defaults api-routes api-defaults))
+  (wrap-routes api-routes wrap-defaults api-defaults))
 
 (def app
   (wrap-gzip (wrap-etag (routes api site))))

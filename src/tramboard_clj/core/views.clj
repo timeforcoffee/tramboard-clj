@@ -24,3 +24,7 @@
 
 (defn station [id]
   (json-response (zvv/station id)))
+
+(defn query-stations [query]
+  (println query)
+  (json-response (zvv/query-stations query)))
