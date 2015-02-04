@@ -3,8 +3,7 @@
   :url "http://example.com/FIXME"
   :min-lein-version "2.0.0"
 
-  :dependencies [[cljs-ajax "0.3.4"]
-                 [cljs-uuid "0.0.4"]
+  :dependencies [[cljs-uuid "0.0.4"]
                  [clj-time "0.9.0"]
                  [compojure "1.3.1"]
                  [com.andrewmcveigh/cljs-time "0.3.0"]
@@ -13,7 +12,7 @@
                  [org.clojure/clojure "1.6.0"]
                  [org.clojure/clojurescript "0.0-2727"]
                  [org.clojure/core.async "0.1.346.0-17112a-alpha"]
-                 [org.omcljs/om "0.8.7"]
+                 [org.omcljs/om "0.8.8"]
                  [ring-json-response "0.2.0"]
                  [ring/ring-defaults "0.1.2"]
                  [ring/ring-jetty-adapter "1.2.1"]

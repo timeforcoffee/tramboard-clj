@@ -2,7 +2,6 @@
   (:require-macros [cljs.core.async.macros :refer [go]])
   (:require [om.core :as om :include-macros true]
             [om.dom :as dom :include-macros true]
-            [ajax.core :refer [GET POST]]
             [cljs.core.async :refer [put! chan <! >! close! timeout]]
             [clojure.string :as str]
             [cljs-time.core :refer [minute hour in-minutes interval now after? minus weeks within? days to-default-time-zone]]
@@ -12,8 +11,9 @@
             [cljs-uuid.core :as uuid]
             [arosequist.om-autocomplete :as ac]
             [arosequist.om-autocomplete.bootstrap :as ac-bootstrap]
-            [cljs.reader :as reader])
-
+            [cljs.reader :as reader]
+            [tramboard-clj.script.time :refer [parse-from-date-time format-to-hour-minute display-time minutes-from]]
+            [tramboard-clj.script.state :refer [is-home is-edit is-split get-state go-home go-edit go-toggle-split modify-complete-state get-all-states]])
   (:import [goog.net XhrIo]))
 
 (enable-console-print!)
@@ -27,54 +27,24 @@
          ; views from local storage
          :configured-views (array-map)
          ; navigation state
-         :complete-state {:split-states {:state-1 {:state-id :state-1 :state :home :params {} :rendered true}
-                                         :state-2 {:state-id :state-2 :state :home :params {} :rendered false}}
+         :complete-state {:split-states {:state-1 {:state-id :state-1 :state :home :params {} :visible true}
+                                         :state-2 {:state-id :state-2 :state :home :params {} :visible false}}
                           :order [:state-1 :state-2]}}))
 
 (defn uuid [] (str (uuid/make-random)))
+
+(defn deep-merge
+  "Recursively merges maps. If vals are not maps, the last value wins."
+  [& vals]
+  (if (every? map? vals)
+    (apply merge-with deep-merge vals)
+    (last vals)))
 
 (defn cap [string x letter]
   (if (= 0 (- x (count string))) string (cap (str letter string) x letter)))
 
 (defn display-in-minutes [in-minutes]
   (if (< in-minutes 59) in-minutes ">59"))
-
-(def hour-minute-formatter (formatter "HH:mm"))
-(def date-formatter (formatter "d MMM yyyy"))
-(def only-day-formatter (formatter "EEEE"))
-
-(defn is-within [datetime from length]
-  (within? (interval (minus from length) from) datetime))
-
-(defn parse-from-date-time-uncached [unparsed-date]
-  (parse (formatters :date-time) unparsed-date))
-
-(defn minutes-from [timestamp from]
-  (if (after? from timestamp)
-    (- (in-minutes (interval timestamp from)))
-    (in-minutes (interval from timestamp))))
-
-(defn format-to-hour-minute [timestamp]
-  (unparse hour-minute-formatter (to-default-time-zone timestamp)))
-
-(defn display-time [timestamp]
-  "Unpure function that decides how this should be displayed depending on the current day"
-  (let [now                (now)
-        datetime           (from-long timestamp)
-        date-format        (unparse date-formatter datetime)
-        hour-minute-format (unparse hour-minute-formatter datetime)
-        is-today           (= date-format (unparse date-formatter now))
-        is-within-a-week   (is-within datetime now (weeks 1))
-        is-yesterday       (is-within datetime now (days 1))
-        display-time       (str
-                             (if is-today "today"
-                               (if is-yesterday "yesterday"
-                                 (if is-within-a-week (str "last " (unparse only-day-formatter datetime))
-                                   (str " on " date-format))))
-                             " at " hour-minute-format)]
-    display-time))
-
-(def parse-from-date-time (memoize parse-from-date-time-uncached))
 
 (defn current-view [current-state configured-views]
   (let [view-id (:view-id (:params current-state))]
@@ -99,7 +69,7 @@
 (defn get-recent-board-views [configured-views complete-state]
   (let [views              (map #(val %) configured-views)
         selected-views-ids (into #{} (map #(:view-id (:params (val %))) (:split-states complete-state)))]
-        (remove #(contains? selected-views-ids (:view-id %)) views)))
+    (remove #(contains? selected-views-ids (:view-id %)) views)))
 
 (defn remove-stop-and-update-date [current-view stop-id]
   (let [new-stops        (dissoc (:stops current-view) stop-id)
@@ -127,64 +97,6 @@
       ; we dissoc the current view and set the state to home
       (dissoc configured-views view-id)
       configured-views)))
-
-(defn get-state [complete-state state-id]
-  (get (:split-states complete-state) state-id))
-
-(defn is-home [state]
-  (= :home (:state state)))
-
-(defn is-edit [state]
-  (= :edit (:state state)))
-
-(defn is-split [complete-state]
-  (let [split-states (:split-states complete-state)
-        state-1      (get split-states :state-1)
-        state-2      (get split-states :state-2)]
-  (and (:rendered state-1) (:rendered state-2))))
-
-(defn go-home [state]
-  (assoc state :state :home :params {}))
-
-(defn go-edit [state view-id]
-  (assoc state :state :edit :params {:view-id view-id}))
-
-(defn go-hide [state]
-  (go-home (assoc state :rendered false)))
-
-(defn go-show [state]
-  (assoc state :rendered true))
-
-(defn get-other-state [complete-state state]
-  (let [state-1          (get-state complete-state :state-1)
-        state-2          (get-state complete-state :state-2)
-        state-id         (:state-id state)
-        other-state      (if (= state-id :state-1) state-2 state-1)]
-    other-state))
-
-(defn go-toggle-split [complete-state state]
-  (let [state-to-toggle    state
-        other-state        (get-other-state complete-state state)
-        is-split           (is-split complete-state)
-        new-complete-state (if is-split
-                             (assoc-in complete-state [:split-states (:state-id state-to-toggle)] (go-hide state-to-toggle))
-                             (assoc (assoc-in complete-state [:split-states (:state-id other-state)] (go-show other-state))
-                               :order [(:state-id state-to-toggle) (:state-id other-state)]))]
-    new-complete-state))
-
-(defn modify-complete-state [complete-state current-state fun]
-  (let [state-id           (:state-id current-state)
-        new-current-state  (fun current-state)
-        replace-state      (fn [complete-state current-state]
-                             (assoc-in complete-state [:split-states state-id] new-current-state))
-        new-complete-state (replace-state complete-state new-current-state)]
-    new-complete-state))
-
-(defn get-current-states [complete-state]
-  (let [split-states (:split-states complete-state)
-        state-1      (get split-states :state-1)
-        state-2      (get split-states :state-2)]
-    [state-1 state-2]))
 
 (defn transact-add-stop [app state stop]
   (om/transact!
@@ -700,10 +612,10 @@
             (let [configured-views (:configured-views app)
                   complete-state   (:complete-state app)
                   recent-views     (get-recent-board-views configured-views complete-state)]
-            (apply dom/div #js {:className (str "responsive-display " (when (empty? recent-views) "hidden"))}
-                   (dom/div #js {:className "heading"}
-                            (dom/h1 #js {:className "heading thin"} "Your recent boards"))
-                   (map #(om/build recent-board-item {:configured-view % :current-state current-state}) recent-views))))))
+              (apply dom/div #js {:className (str "responsive-display " (when (empty? recent-views) "hidden"))}
+                     (dom/div #js {:className "heading"}
+                              (dom/h1 #js {:className "heading thin"} "Your recent boards"))
+                     (map #(om/build recent-board-item {:configured-view % :current-state current-state}) recent-views))))))
 
 (defn menu-icon [{:keys [current-state complete-state]} owner ]
   (reify
@@ -748,8 +660,8 @@
                                                 (dom/span nil
                                                           (if-not is-split (dom/div #js {:className "bold"} "Your current board")
                                                             (dom/div nil
-                                                                   (dom/div #js {:className "bold title-split-1"} "Your left board")
-                                                                   (dom/div #js {:className "bold title-split-2"} "Your right board")))
+                                                                     (dom/div #js {:className "bold title-split-1"} "Your left board")
+                                                                     (dom/div #js {:className "bold title-split-2"} "Your right board")))
                                                           (dom/div #js {:className "thin"} (str "saved "
                                                                                                 (display-time (:last-updated current-view)))))
                                                 split-screen-icon))
@@ -777,7 +689,7 @@
               (dom/div (clj->js {:className
                                  (str (when (= display :expanded) "display-expanded") " "
                                       (when (= activity :idle)    "activity-idle") " "
-                                      (when-not (:rendered current-state) "hidden") " "
+                                      (when-not (:visible current-state) "hidden") " "
                                       (name (:state-id current-state)))})
 
                        (om/build menu-bar {:app app :current-state current-state})
@@ -796,7 +708,7 @@
   (reify
     om/IRender
     (render [this]
-            (let [states (get-current-states complete-state)
+            (let [states (get-all-states complete-state)
                   order  (:order complete-state )]
               (println "Rendering split stationboard with states " states)
               (apply dom/div (when (is-split complete-state)
@@ -805,7 +717,7 @@
 
 (defn main []
   (let [saved-state     (try (reader/read-string (. js/localStorage (getItem "views"))) (catch :default e (println e) {}))
-        saved-app-state (swap! app-state merge saved-state)]
+        saved-app-state (swap! app-state deep-merge saved-state)]
     (println saved-app-state)
     (om/root split-stationboard saved-app-state
              {:target (. js/document (getElementById "my-app"))
