@@ -23,7 +23,7 @@
 
 (defroutes app-routes
   (wrap-routes (GET "/" [] (index-page)) wrap-cache)
-  (wrap-routes (route/resources "/") wrap-cache)
+  (wrap-routes (route/resources "/public") wrap-cache)
   (route/not-found "Not Found"))
 
 (def site

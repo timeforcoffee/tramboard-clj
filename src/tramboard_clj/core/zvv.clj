@@ -65,7 +65,6 @@
 ; TODO error handling
 (defn do-api-call [url transform-fn]
   (let [response    (http/get url)]
-    (println response)
     (transform-fn (:body @response))))
 
 (defn station [id]
