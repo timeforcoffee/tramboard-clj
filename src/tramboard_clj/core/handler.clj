@@ -3,6 +3,7 @@
             [compojure.route :as route]
             [ring.middleware.defaults :refer [wrap-defaults site-defaults api-defaults]]
             [ring.middleware.gzip :refer [wrap-gzip]]
+            [ring.middleware.json :refer [wrap-json-response]]
             [ring.middleware.etag :refer [wrap-etag]]
             [tramboard-clj.core.views :refer :all]))
 
@@ -18,8 +19,8 @@
 
 (defroutes api-routes
   (context "/api" []
-    (wrap-routes (GET "/stationboard/:id{[0-9]+}" [id] (station id)) wrap-no-cache)
-    (wrap-routes (GET "/stations/:query{.+}" [query] (query-stations query)) wrap-no-cache)))
+    (wrap-routes (wrap-routes (GET "/stationboard/:id{[0-9]+}" [id] (station id)) wrap-json-response) wrap-no-cache)
+    (wrap-routes (wrap-routes (GET "/stations/:query{.+}" [query] (query-stations query)) wrap-json-response) wrap-no-cache)))
 
 (defroutes app-routes
   (wrap-routes (GET "/" [] (index-page)) wrap-cache)
