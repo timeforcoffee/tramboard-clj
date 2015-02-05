@@ -10,7 +10,7 @@
             [goog.events :as events]
             [cljs-uuid.core :as uuid]
             [arosequist.om-autocomplete :as ac]
-            [arosequist.om-autocomplete.bootstrap :as ac-bootstrap]
+            [arosequist.om-autocomplete.bootstrap :as acb]
             [cljs.reader :as reader]
             [tramboard-clj.script.time :refer [parse-from-date-time format-to-hour-minute display-time minutes-from]]
             [tramboard-clj.script.state :refer [is-home is-edit is-split get-state go-home go-edit go-toggle-split modify-complete-state get-all-states]])
@@ -23,35 +23,42 @@
 
 ; our initial app state
 (defonce app-state
-  (atom {
-         ; views from local storage
+  (atom {; views from local storage
          :configured-views (array-map)
          ; navigation state
          :complete-state {:split-states {:state-1 {:state-id :state-1 :state :home :params {} :visible true}
                                          :state-2 {:state-id :state-2 :state :home :params {} :visible false}}
                           :order [:state-1 :state-2]}}))
 
-(defn uuid [] (str (uuid/make-random)))
+(defn- wait-on-channel [channel function]
+  (go
+    (loop []
+      (when-some
+        [channel-output (<! channel)]
+        (function channel-output)
+        (recur)))))
 
-(defn deep-merge
+(defn- uuid [] (str (uuid/make-random)))
+
+(defn- deep-merge
   "Recursively merges maps. If vals are not maps, the last value wins."
   [& vals]
   (if (every? map? vals)
     (apply merge-with deep-merge vals)
     (last vals)))
 
-(defn cap [string x letter]
+(defn- cap [string x letter]
   (if (= 0 (- x (count string))) string (cap (str letter string) x letter)))
 
-(defn display-in-minutes [in-minutes]
+(defn- display-in-minutes [in-minutes]
   (if (< in-minutes 59) in-minutes ">59"))
+
+(defn- update-updated-date [view]
+  (assoc view :last-updated (to-long (now))))
 
 (defn current-view [current-state configured-views]
   (let [view-id (:view-id (:params current-state))]
     (get configured-views view-id)))
-
-(defn- update-updated-date [view]
-  (assoc view :last-updated (to-long (now))))
 
 (defn get-stops-in-order [view]
   (map #(get (:stops view) %) (:stops-order view)))
@@ -187,8 +194,8 @@
       (<! cancel-ch)
       (.abort xhr))))
 
-(defn transform-stationboard-data [data]
-  (->> (:departures data)
+(defn transform-stationboard-data [json-data]
+  (->> (:departures json-data)
        (map
          (fn [entry]
            (let [scheduled-departure (:scheduled (:departure entry))
@@ -197,15 +204,14 @@
                  departure-timestamp (parse-from-date-time realtime-departure)
                  now                 (now)]
              {:departure-timestamp departure-timestamp
-              :colors (:colors entry)
-              :number (:name entry)
-              :to (:to entry)
-              :in-minutes (minutes-from departure-timestamp now)
-              :time (format-to-hour-minute departure-timestamp)
-              :undelayed-time
-              (when (not= realtime-departure scheduled-departure)
-                (let [scheduled-departure-timestamp (parse-from-date-time scheduled-departure)]
-                  (format-to-hour-minute scheduled-departure-timestamp)))})))))
+              :colors              (:colors entry)
+              :number              (:name entry)
+              :to                  (:to entry)
+              :in-minutes          (minutes-from departure-timestamp now)
+              :time                (format-to-hour-minute departure-timestamp)
+              :undelayed-time      (when (not= realtime-departure scheduled-departure)
+                                     (let [scheduled-departure-timestamp (parse-from-date-time scheduled-departure)]
+                                       (format-to-hour-minute scheduled-departure-timestamp)))})))))
 
 (defn merge-station-data-and-set-loading [station-data ids]
   (let [station-data-without-removed-ids (into {} (filter #(contains? ids (key %)) station-data))
@@ -294,31 +300,27 @@
     om/IWillMount
     (will-mount [_]
                 (let [{:keys [activity-ch]} (om/get-state owner)]
-                  (go
-                    (loop []
-                      (when-some
-                        [activity (<! activity-ch)]
-                        ; activity detected, we show the view
-                        (om/update-state!
-                          owner
-                          (fn [s]
-                            (let [old-hide-ch (:hide-ch s)
-                                  new-hide-ch (chan)]
-                              (when old-hide-ch (close! old-hide-ch))
+                  (wait-on-channel
+                    activity-ch
+                    (fn [_] (om/update-state!
+                              owner
+                              (fn [s]
+                                (let [old-hide-ch (:hide-ch s)
+                                      new-hide-ch (chan)]
+                                  (when old-hide-ch (close! old-hide-ch))
 
-                              (go (when-some [hide (<! new-hide-ch)]
-                                             (when hide
-                                               (om/transact! current-state :params #(assoc % :activity :idle)))))
+                                  (go (when-some [hide (<! new-hide-ch)]
+                                                 (when hide
+                                                   (om/transact! current-state :params #(assoc % :activity :idle)))))
 
-                              (go (<! (timeout 2000))
-                                  (println "Putting true on hide channel")
-                                  (put! new-hide-ch true))
+                                  (go (<! (timeout 2000))
+                                      (println "Putting true on hide channel")
+                                      (put! new-hide-ch true))
 
-                              (om/transact! current-state :params
-                                            (fn [params] (if (get params :activity) (dissoc params :activity) params)))
+                                  (om/transact! current-state :params
+                                                (fn [params] (if (get params :activity) (dissoc params :activity) params)))
 
-                              (assoc s :hide-ch new-hide-ch))))
-                        (recur))))))
+                                  (assoc s :hide-ch new-hide-ch))))))))
     om/IWillUnmount
     (will-unmount [this]
                   (let [hide-ch (om/get-state owner :hide-ch)]
@@ -362,74 +364,69 @@
       (will-mount [_]
                   ; the is the control channel loop
                   (let [{:keys [view-change-ch]} (om/get-state owner)]
-                    (go
-                      (loop []
-                        (when-some
-                          [stop-ids (<! view-change-ch)]
-                          (println (str "Got view-change message with stops: " stop-ids))
-                          (om/update-state!
-                            owner
-                            (fn [state]
-                              (let [old-arrival-channels  (:arrival-channels state)
-                                    old-cancel-ch         (:cancel-ch old-arrival-channels)
-                                    old-incoming-ch       (:incoming-ch old-arrival-channels)
-                                    old-fetch-ch          (:fetch-ch old-arrival-channels)
-                                    new-cancel-ch         (chan)
-                                    new-incoming-ch       (chan)
-                                    new-fetch-ch          (chan)
-                                    station-data          (:station-data state)]
-                                (when old-cancel-ch (close! old-cancel-ch))
-                                (when old-incoming-ch (close! old-incoming-ch))
-                                (when old-fetch-ch (close! old-fetch-ch))
-                                ; we initialize the incoming channel loop
-                                (go
-                                  (loop []
-                                    (when-some
-                                      [{:keys [data stop-id error]} (<! new-incoming-ch)]
-                                      (println (str "Received data for stop: " stop-id))
+                    (wait-on-channel
+                      view-change-ch
+                      (fn [stop-ids]
+                        (println (str "Got view-change message with stops: " stop-ids))
+                        (om/update-state!
+                          owner
+                          (fn [state]
+                            (let [old-arrival-channels  (:arrival-channels state)
+                                  old-cancel-ch         (:cancel-ch old-arrival-channels)
+                                  old-incoming-ch       (:incoming-ch old-arrival-channels)
+                                  old-fetch-ch          (:fetch-ch old-arrival-channels)
+                                  new-cancel-ch         (chan)
+                                  new-incoming-ch       (chan)
+                                  new-fetch-ch          (chan)
+                                  station-data          (:station-data state)]
+                              (when old-cancel-ch   (close! old-cancel-ch))
+                              (when old-incoming-ch (close! old-incoming-ch))
+                              (when old-fetch-ch    (close! old-fetch-ch))
+                              ; we initialize the incoming channel loop
+                              (wait-on-channel
+                                new-incoming-ch
+                                (fn [output]
+                                  (let [{:keys [data stop-id error]} output]
+                                    (println (str "Received data for stop: " stop-id))
 
-                                      (go (<! (timeout refresh-rate))
-                                          (println (str "Putting onto fetch channel: " stop-id))
-                                          (put! new-fetch-ch stop-id))
+                                    (go (<! (timeout refresh-rate))
+                                        (println (str "Putting onto fetch channel: " stop-id))
+                                        (put! new-fetch-ch stop-id))
 
-                                      ; we just validate here the stop id
-                                      (if (and (not error) stop-id)
-                                        (do
-                                          (om/update-state! owner :station-data #(assoc % stop-id data))
-                                          ; we update the list of existing destinations
-                                          (om/transact! current-view [:stops stop-id]
-                                                        (fn [stop]
-                                                          ; we add all the known destinations to the stop
-                                                          (let [existing-known-destinations (or (:known-destinations stop) #{})
-                                                                new-known-destinations      (map #(select-keys % [:to :number :colors]) data)]
-                                                            (assoc stop
-                                                              :known-destinations
-                                                              (into existing-known-destinations new-known-destinations))))))
-                                        (om/update-state! owner :station-data #(assoc % stop-id :error)))
-                                      (recur))))
-                                ; we initialize the fetch loop
-                                (go
-                                  (loop []
-                                    (when-some
-                                      [stop-id (<! new-fetch-ch)]
-                                      (println (str "Received fetch message for stop: " stop-id))
-                                      (fetch-stationboard-data stop-id new-incoming-ch
-                                                               new-incoming-ch new-cancel-ch
-                                                               transform-stationboard-data)
-                                      (recur))))
+                                    ; we just validate here the stop id
+                                    (if (and (not error) stop-id)
+                                      (do
+                                        (om/update-state! owner :station-data #(assoc % stop-id data))
+                                        ; we update the list of existing destinations
+                                        (om/transact! current-view [:stops stop-id]
+                                                      (fn [stop]
+                                                        ; we add all the known destinations to the stop
+                                                        (let [existing-known-destinations (or (:known-destinations stop) #{})
+                                                              new-known-destinations      (map #(select-keys % [:to :number :colors]) data)]
+                                                          (assoc stop
+                                                            :known-destinations
+                                                            (into existing-known-destinations new-known-destinations))))))
+                                      (om/update-state! owner :station-data #(assoc % stop-id :error))))))
+                              ; we initialize the fetch loop
+                              (wait-on-channel
+                                new-fetch-ch
+                                (fn [stop-id]
+                                  (println (str "Received fetch message for stop: " stop-id))
+                                  (fetch-stationboard-data stop-id new-incoming-ch
+                                                           new-incoming-ch new-cancel-ch
+                                                           transform-stationboard-data)))
 
-                                ; we ask the channel to fetch the new data
-                                (doseq [stop-id stop-ids]
-                                  (println (str "Initializing fetch loop for: " stop-id))
-                                  (put! new-fetch-ch stop-id))
+                              ; we ask the channel to fetch the new data
+                              (doseq [stop-id stop-ids]
+                                (println (str "Initializing fetch loop for: " stop-id))
+                                (put! new-fetch-ch stop-id))
 
-                                (assoc (update-in state [:arrival-channels]
-                                                  #(assoc %
-                                                     :incoming-ch new-incoming-ch
-                                                     :cancel-ch new-cancel-ch
-                                                     :fetch-ch new-fetch-ch))
-                                  :station-data (merge-station-data-and-set-loading station-data stop-ids)))))
-                          (recur))))
+                              (assoc (update-in state [:arrival-channels]
+                                                #(assoc %
+                                                   :incoming-ch new-incoming-ch
+                                                   :cancel-ch   new-cancel-ch
+                                                   :fetch-ch    new-fetch-ch))
+                                :station-data (merge-station-data-and-set-loading station-data stop-ids)))))))
                     (println (str "Initializing on WillMount"))
                     (initialize current-view owner)))
       om/IWillReceiveProps
@@ -469,14 +466,6 @@
                                (dom/div #js {:className (str "text-center thin loading " (when (or (not error) loading) "hidden"))} "Sorry, no departures are available at this time...")
                                (om/build arrival-table {:arrivals arrivals :current-view current-view :current-state current-state})))))))
 
-
-(defn loading [_ owner]
-  (reify
-    om/IRender
-    (render [_]
-            (dom/li nil (dom/a nil "Loading...")))))
-
-; TODO modularize this component
 (defn autocomplete [{:keys [app current-state]} owner {:keys [input-id input-placeholder input-focus-ch backspace-ch]}]
   (reify
     om/IInitState
@@ -485,29 +474,29 @@
     om/IWillMount
     (will-mount [_]
                 (let [result-ch (om/get-state owner :result-ch)]
-                  (go (loop []
-                        (let [[idx result] (<! result-ch)]
-                          (when (not (nil? result)) (transact-add-stop app current-state result))
-                          (recur))))))
+                  (wait-on-channel
+                    result-ch
+                    (fn [output]
+                      (let [[idx result] output]
+                        (when (not (nil? result)) (transact-add-stop app current-state result)))))))
     om/IRenderState
     (render-state [_ {:keys [result-ch]}]
                   (om/build ac/autocomplete {}
                             {:opts
-                             {:container-view ac-bootstrap/container-view
-                              :container-view-opts {}
-                              :input-view ac-bootstrap/input-view
-                              :input-view-opts {:placeholder input-placeholder :id input-id}
-                              ; TODO as part of modularization, merge those 2 in a input-view-init-state maybe ?
-                              :input-focus-ch input-focus-ch
-                              :backspace-ch backspace-ch
-                              :results-view ac-bootstrap/results-view
-                              :results-view-opts {:loading-view loading
-                                                  :render-item ac-bootstrap/render-item
-                                                  :render-item-opts {:text-fn (fn [item _] (:name item))}}
-                              :result-ch result-ch
-                              :suggestions-fn (fn [value suggestions-ch cancel-ch]
-                                                (if (str/blank? value) (put! suggestions-ch [])
-                                                  (fetch-suggestions value suggestions-ch cancel-ch identity)))}}))))
+                             (acb/add-bootstrap-opts
+                               {:suggestions-fn (fn [value suggestions-ch cancel-ch]
+                                                  (if (str/blank? value) (put! suggestions-ch [])
+                                                    (fetch-suggestions value suggestions-ch cancel-ch identity)))
+                                :result-ch      result-ch
+                                :result-text-fn (fn [item _] (:name item))
+                                :input-opts     {:placeholder    input-placeholder
+                                                 :id             input-id
+                                                 :on-key-down    (fn [e value handler]
+                                                                   (let [keyCode (.-keyCode e)]
+                                                                     (case (.-keyCode e)
+                                                                       8  (when (str/blank? value) (put! backspace-ch true))
+                                                                       (handler e))))
+                                                 :input-focus-ch input-focus-ch}})}))))
 
 (defn edit-remove-button [{:keys [current-stop app current-state]} owner]
   (reify
@@ -533,13 +522,10 @@
     om/IWillMount
     (will-mount  [_]
                 (let [backspace-ch (om/get-state owner :backspace-ch)]
-                  (go
-                    (loop []
-                      (println "LISTENING")
-                      (when-some
-                        [backspace (<! backspace-ch)]
-                        (when (not (nil? backspace)) (transact-remove-stop app current-state nil))
-                        (recur))))))
+                  (wait-on-channel
+                    backspace-ch
+                    (fn [backspace]
+                      (when (not (nil? backspace)) (transact-remove-stop app current-state nil))))))
     om/IWillUnmount
     (will-unmount [_]
                   (let [{:keys [input-focus-ch backspace-ch]} (om/get-state owner)]
@@ -716,9 +702,9 @@
                      (map #(om/build stationboard {:current-state % :app app}) states))))))
 
 (defn main []
-  (let [saved-state     (try (reader/read-string (. js/localStorage (getItem "views"))) (catch :default e (println e) {}))
+  (let [saved-state     (or (try (reader/read-string (. js/localStorage (getItem "views"))) (catch :default e (println e) {})) {})
         saved-app-state (swap! app-state deep-merge saved-state)]
-    (println saved-app-state)
+    (println app-state)
     (om/root split-stationboard saved-app-state
              {:target (. js/document (getElementById "my-app"))
               :tx-listen (fn [{:keys [path new-state]} _]
