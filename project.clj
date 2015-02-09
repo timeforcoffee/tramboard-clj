@@ -28,7 +28,7 @@
 
   :uberjar-name "tramboard-clj.jar"
 
-  :cljsbuild {:builds {:app {:source-paths ["src" ".lein-git-deps/om-autocomplete/src/"]}}}
+  :cljsbuild {:builds {:app {:source-paths ["src"]}}}
 
   :less {:source-paths ["src/less"]
          :target-path "resources/public/css"}
