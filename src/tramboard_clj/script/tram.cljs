@@ -526,7 +526,7 @@
                 buttons-width      (apply + (map #(+ button-padding (.-offsetWidth %)) buttons))
                 new-buttons-width  (if (< container-width buttons-width) container-width buttons-width)
                 prev-buttons-width (:buttons-width prev-state)
-                new-input-width    (- (if (< (- container-width new-buttons-width) min-input-width) container-width (- container-width new-buttons-width)) 40)
+                new-input-width    (- (if (< (- container-width new-buttons-width) min-input-width) container-width (- container-width new-buttons-width)) 42)
                 prev-input-width   (:input-width prev-state)]
             (when (or (nil? prev-buttons-width) (not= prev-buttons-width new-buttons-width))
               (om/set-state! current-owner :buttons-width new-buttons-width))
