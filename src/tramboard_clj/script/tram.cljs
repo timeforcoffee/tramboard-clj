@@ -8,6 +8,7 @@
             [cljs-time.format :refer [parse unparse formatters formatter show-formatters]]
             [cljs-time.coerce :refer [to-long from-long]]
             [goog.events :as events]
+            [goog.array :as g-array]
             [cljs-uuid.core :as uuid]
             [arosequist.om-autocomplete :as ac]
             [arosequist.om-autocomplete.bootstrap :as acb]
@@ -466,7 +467,7 @@
                                (dom/div #js {:className (str "text-center thin loading " (when (or (not error) loading) "hidden"))} "Sorry, no departures are available at this time...")
                                (om/build arrival-table {:arrivals arrivals :current-view current-view :current-state current-state})))))))
 
-(defn autocomplete [{:keys [app current-state]} owner {:keys [input-id input-placeholder input-focus-ch backspace-ch]}]
+(defn autocomplete [{:keys [app current-state]} owner {:keys [input-id input-placeholder]}]
   (reify
     om/IInitState
     (init-state [_]
@@ -480,10 +481,12 @@
                       (let [[idx result] output]
                         (when (not (nil? result)) (transact-add-stop app current-state result)))))))
     om/IRenderState
-    (render-state [_ {:keys [result-ch]}]
+    (render-state [_ {:keys [result-ch backspace-ch input-style]}]
+                  (println input-style)
                   (om/build ac/autocomplete {}
-                            {:opts
-                             (acb/add-bootstrap-opts
+                            (acb/add-bootstrap-m
+                              {:state {:input-state {:style input-style}}
+                               :opts
                                {:suggestions-fn (fn [value suggestions-ch cancel-ch]
                                                   (if (str/blank? value) (put! suggestions-ch [])
                                                     (fetch-suggestions value suggestions-ch cancel-ch identity)))
@@ -495,8 +498,7 @@
                                                                    (let [keyCode (.-keyCode e)]
                                                                      (case (.-keyCode e)
                                                                        8  (when (str/blank? value) (put! backspace-ch true))
-                                                                       (handler e))))
-                                                 :input-focus-ch input-focus-ch}})}))))
+                                                                       (handler e))))}}})))))
 
 (defn edit-remove-button [{:keys [current-stop app current-state]} owner]
   (reify
@@ -514,45 +516,64 @@
 
 (defn edit-pane [{:keys [app current-state]} owner]
   "This shows the edit pane to add stops and stuff"
+  (let [set-sizes
+        (fn [current-owner prev-state]
+          (let [button-padding     4   ; TODO link this to CSS somehow
+                min-input-width    200 ; TODO link this to CSS somehow
+                container          (om/get-node current-owner "container")
+                container-width    (.-offsetWidth container)
+                buttons            (g-array/toArray (.-children (om/get-node current-owner "buttons")))
+                buttons-width      (apply + (map #(+ button-padding (.-offsetWidth %)) buttons))
+                new-buttons-width  (if (< container-width buttons-width) container-width buttons-width)
+                prev-buttons-width (:buttons-width prev-state)
+                new-input-width    (- (if (< (- container-width new-buttons-width) min-input-width) container-width (- container-width new-buttons-width)) 40)
+                prev-input-width   (:input-width prev-state)]
+            (when (or (nil? prev-buttons-width) (not= prev-buttons-width new-buttons-width))
+              (om/set-state! current-owner :buttons-width new-buttons-width))
+            (when (or (nil? prev-input-width) (not= prev-input-width new-input-width))
+              (om/set-state! current-owner :input-width new-input-width))))]
+    (reify
+      om/IInitState
+      (init-state [_]
+                  {:backspace-ch (chan)})
+      om/IWillMount
+      (will-mount  [_]
+                  (let [backspace-ch (om/get-state owner :backspace-ch)]
+                    (wait-on-channel
+                      backspace-ch
+                      (fn [backspace]
+                        (when (not (nil? backspace)) (transact-remove-stop app current-state nil))))))
+      om/IWillUnmount
+      (will-unmount [_]
+                    (let [{:keys [backspace-ch]} (om/get-state owner)]
+                      (close! backspace-ch)))
+      om/IDidMount
+      (did-mount [_]
+                 (set-sizes owner (om/get-state owner)))
+      om/IDidUpdate
+      (did-update [_ _ prev-state]
+                  (set-sizes owner prev-state))
+      om/IRenderState
+      (render-state [_ {:keys [backspace-ch buttons-width input-width]}]
+                    (let [configured-views (:configured-views app)
+                          current-view     (current-view current-state configured-views)]
 
-  (reify
-    om/IInitState
-    (init-state [_]
-                {:input-focus-ch (chan) :backspace-ch (chan)})
-    om/IWillMount
-    (will-mount  [_]
-                (let [backspace-ch (om/get-state owner :backspace-ch)]
-                  (wait-on-channel
-                    backspace-ch
-                    (fn [backspace]
-                      (when (not (nil? backspace)) (transact-remove-stop app current-state nil))))))
-    om/IWillUnmount
-    (will-unmount [_]
-                  (let [{:keys [input-focus-ch backspace-ch]} (om/get-state owner)]
-                    (close! input-focus-ch)
-                    (close! backspace-ch)))
-    om/IRenderState
-    (render-state [_ {:keys [input-focus-ch backspace-ch]}]
-                  (let [configured-views (:configured-views app)
-                        current-view     (current-view current-state configured-views)]
-
-                    (println "Rendering edit-pane with state " current-state)
-                    (dom/form #js {:className "edit-form"}
-                              (dom/div #js {:className "form-group form-group-lg"}
-                                       (dom/label #js {:className "control-label sr-only" :htmlFor "stopInput"} "Stop")
-                                       (let [on-action (fn [preventDefault e]
-                                                         (put! input-focus-ch true identity false)
-                                                         (when preventDefault (.preventDefault e)))]
+                      (println "Rendering edit-pane with state " current-state)
+                      (dom/form #js {:className "edit-form"}
+                                (dom/div #js {:className "form-group form-group-lg"}
+                                         (dom/label #js {:className "control-label sr-only"
+                                                         :htmlFor   "stopInput"} "Stop")
                                          (dom/span #js {:className "form-control thin"
-                                                        :onClick #(on-action true %)
-                                                        :onTouchStart #(on-action false %)}
-                                                   ; TODO transform this into a list of buttons with li+ul
-                                                   (apply dom/span nil (map #(om/build edit-remove-button {:app app :current-stop % :configured-views configured-views :current-state current-state}) (get-stops-in-order current-view)))
+                                                        :ref       "container"}
+                                                   (apply dom/span #js {:className "buttons"
+                                                                        :ref       "buttons"
+                                                                        :style     #js {:width (str buttons-width "px")}}
+                                                          (map #(om/build edit-remove-button {:app app :current-stop % :configured-views configured-views :current-state current-state}) (get-stops-in-order current-view)))
                                                    (om/build autocomplete {:app app :configured-views configured-views :current-state current-state}
-                                                             {:opts {:input-id "stopInput"
-                                                                     :input-placeholder "Enter a stop"
-                                                                     :input-focus-ch input-focus-ch
-                                                                     :backspace-ch backspace-ch}})))))))))
+                                                             {:init-state {:backspace-ch   backspace-ch}
+                                                              :state {:input-style #js {:width (str input-width "px")}}
+                                                              :opts {:input-id          "stopInput"
+                                                                     :input-placeholder "Enter a stop"}})))))))))
 
 (defn recent-board-item-stop [stop owner]
   (reify

@@ -20,13 +20,11 @@
                  [ring/ring-codec "1.0.0"]
                  [ring/ring-json "0.3.1"]
                  [bk/ring-gzip "0.1.1"]
-                 [org.clojars.jws/ring-etag-middleware "0.1.2-SNAPSHOT"]]
+                 [org.clojars.jws/ring-etag-middleware "0.1.2-SNAPSHOT"]
+                 [org.clojars.fterrier/om-autocomplete "0.2.0-SNAPSHOT"]]
 
   :plugins [[lein-cljsbuild "1.0.3"]
-            [lein-git-deps "0.0.2-SNAPSHOT"]
             [lein-less "1.7.2"]]
-
-  :git-dependencies [["https://github.com/fterrier/om-autocomplete.git"]]
 
   :uberjar-name "tramboard-clj.jar"
 
