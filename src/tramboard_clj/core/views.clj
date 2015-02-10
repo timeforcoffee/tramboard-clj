@@ -10,7 +10,7 @@
      [:meta {:http-equiv "Content-Type"    :content "text/html;charset=utf-8"}]
      [:meta {:http-equiv "X-UA-Compatible" :content "IE=edge"}]
      [:meta {:name "viewport" :content "width=device-width, initial-scale=1"}]
-     [:title "Time for Coffee !"]
+     [:title "Time for Coffee!"]
      (include-css "//netdna.bootstrapcdn.com/bootstrap/3.3.2/css/bootstrap.min.css")
      (include-css "//maxcdn.bootstrapcdn.com/font-awesome/4.3.0/css/font-awesome.min.css")
      (include-css "/css/styles.css")

@@ -652,7 +652,7 @@
             (let [configured-views (:configured-views app)
                   complete-state   (:complete-state app)
                   recent-views     (get-recent-board-views configured-views complete-state)]
-              (apply dom/div #js {:className "text-center"}
+              (apply dom/div nil
                      (dom/div #js {:className "heading"}
                               (dom/h1 #js {:className "heading thin"} "Your recent boards"))
                      (map #(om/build recent-board-item {:configured-view % :current-state current-state}) recent-views))))))
@@ -678,7 +678,7 @@
                   split-screen-icon (om/build menu-icon
                                               {:current-state current-state :complete-state complete-state}
                                               {:state {:span-class "split-link pull-right"
-                                                       :icon-class (if-not is-split "glyphicon-expand" "glyphicon-remove-circle")
+                                                       :icon-class (if-not is-split "fa fa-columns" "glyphicon-remove-circle")
                                                        :hidden-text "split"
                                                        :on-action (fn [complete-state current-state]
                                                                     (om/transact! complete-state #(go-toggle-split % current-state)))}})]
@@ -708,7 +708,7 @@
                                      (is-home current-state)
                                      (dom/div nil
                                               (dom/span #js {:className "text-middle bold"}
-                                                        (if-not is-split "You've got Time for Coffee !"
+                                                        (if-not is-split "You've got Time for Coffee!"
                                                           (dom/div nil
                                                                    (dom/div #js {:className "title-split-1"} "Your left board")
                                                                    (dom/div #js {:className "title-split-2"} "Your right board"))))
@@ -729,7 +729,7 @@
                              (strong "train") " " (om/build transport-icon "train") ", "
                              (strong "boat")  " " (om/build transport-icon "boat")  " or "
                              (strong "cable car") ".")
-                    (dom/div nil "Enter any stop in Switzerland "
+                    (dom/div nil "Enter any stop in "
                              (dom/div #js {:className "phoca-flagbox"}
                                       (dom/span #js {:className "phoca-flag ch"} nil) )
                              " to get started.")))))
@@ -746,7 +746,7 @@
                   display          (:display (:params current-state))
                   activity         (:activity (:params current-state))
                   recent-views     (get-recent-board-views configured-views complete-state)
-                  display-banner   (is-home current-state)]
+                  display-banner   (and (is-home current-state) (not (is-split complete-state)))]
 
               (println "Rendering stationboard with state " current-state)
               (dom/div (clj->js {:className
