@@ -724,12 +724,12 @@
             (dom/h1 #js {:className "ultra-thin welcome-banner text-center"}
                     (dom/div nil
                              "Relax and don't wait at the stop for your next "
-                             (strong "bus") " " (om/build transport-icon "bus") ", "
-                             (strong "tram") " " (om/build transport-icon "tram") ", "
+                             (strong "bus")   " " (om/build transport-icon "bus")   ", "
+                             (strong "tram")  " " (om/build transport-icon "tram")  ", "
                              (strong "train") " " (om/build transport-icon "train") ", "
-                             (strong "boat") " " (om/build transport-icon "boat") " or "
+                             (strong "boat")  " " (om/build transport-icon "boat")  " or "
                              (strong "cable car") ".")
-                    (dom/div nil "Enter any stop in "
+                    (dom/div nil "Enter any stop in Switzerland "
                              (dom/div #js {:className "phoca-flagbox"}
                                       (dom/span #js {:className "phoca-flag ch"} nil) )
                              " to get started.")))))
