@@ -277,7 +277,7 @@
                                                   "tram"        "fa-tram"
                                                   "subway"      "fa-train"
                                                   "rack-train"  "fa-subway"
-                                                  "cable-car"   "fa-subway"
+                                                  "cable-car"   "fa-cable-car"
                                                   "bus"         "fa-bus"
                                                   "train"       "fa-subway"
                                                   "taxi"        "fa-taxi"
@@ -285,8 +285,8 @@
 
                                                   "train"))
                   icon               (dom/i #js {:className (str "fa " (map-transport-icon type))})]
-              (if (= type "tram")
-                (dom/span #js {:className "span-fa"} icon (dom/span #js {:className "hidden"} "tram"))
+              (if (or (= type "tram") (= type "cable-car"))
+                (dom/span #js {:className "span-fa"} icon (dom/span #js {:className "hidden"} "transport icon"))
                 icon)))))
 
 (defn arrival-row [{:keys [arrival current-view current-state] :as app} owner]
@@ -728,7 +728,7 @@
                              (strong "tram")  " " (om/build transport-icon "tram")  ", "
                              (strong "train") " " (om/build transport-icon "train") ", "
                              (strong "boat")  " " (om/build transport-icon "boat")  " or "
-                             (strong "cable car") ".")
+                             (strong "cable car") " " (om/build transport-icon "cable-car") ".")
                     (dom/div nil "Enter any stop in "
                              (dom/div #js {:className "phoca-flagbox"}
                                       (dom/span #js {:className "phoca-flag ch"} nil) )
