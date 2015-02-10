@@ -682,7 +682,7 @@
                                            back-icon         (om/build menu-icon
                                                                        {:current-state current-state :complete-state complete-state}
                                                                        {:state {:span-class "back-link pull-left"
-                                                                                :icon-class "glyphicon-arrow-left"
+                                                                                :icon-class "glyphicon-home"
                                                                                 :hidden-text "back"
                                                                                 :on-action (fn [_ current-state]
                                                                                              (om/transact! current-state #(go-home %)))}})]

@@ -16,7 +16,8 @@
              (zvv/transform-station-response (:flughafen_xxxx fixtures)) =>
              (contains {:departures (contains {:zvv_id "11484850"
                                                :name "S2"
-                                               :type "S"
+                                               :type "train"
+                                               :accessible false
                                                :colors { :fg nil :bg nil }
                                                :to "Ziegelbrücke"
                                                :departure {
@@ -26,7 +27,8 @@
              (zvv/transform-station-response (:central_2228 fixtures)) =>
              (contains {:departures (contains {:zvv_id "32108510"
                                                :name "31"
-                                               :type "Bus-NF"
+                                               :type "bus"
+                                               :accessible true
                                                :colors { :fg "#ffffff" :bg "#a5a2c6" }
                                                :to "Zürich, Hegibachplatz"
                                                :departure {
