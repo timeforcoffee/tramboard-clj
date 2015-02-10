@@ -41,6 +41,11 @@
 
 (defn- uuid [] (str (uuid/make-random)))
 
+(defn- ga [& more]
+  (when js/ga
+    (.. (aget js/window "ga")
+        (apply nil (clj->js more)))))
+
 (defn- deep-merge
   "Recursively merges maps. If vals are not maps, the last value wins."
   [& vals]
@@ -118,6 +123,7 @@
                 current-view         (or (get configured-views view-id) {:view-id view-id})
                 new-view             (add-stop-and-update-date current-view stop)
                 new-configured-views (assoc configured-views view-id new-view)]
+            (ga "send" "event" "stop" "add" {:dimension1 (:id stop)})
             (assoc app :configured-views new-configured-views :complete-state new-complete-state)))))
 
 (defn transact-remove-stop [app state stop-id]
@@ -133,6 +139,7 @@
                 new-configured-views (delete-view-if-no-stops (assoc configured-views view-id new-view) view-id)
                 go-home?             (not (get new-configured-views view-id))
                 new-complete-state   (modify-complete-state complete-state current-state #(if go-home? (go-home %) %))]
+            (ga "send" "event" "stop" "remove" {:dimension1 stop-id})
             (assoc app :configured-views new-configured-views :complete-state new-complete-state)))))
 
 (defn transact-add-filter [view arrival]
@@ -437,6 +444,7 @@
                                 new-fetch-ch
                                 (fn [stop-id]
                                   (println (str "Received fetch message for stop: " stop-id))
+                                  (ga "send" "event" "stop" "query" {:dimension1 stop-id})
                                   (fetch-stationboard-data stop-id new-incoming-ch
                                                            new-incoming-ch new-cancel-ch
                                                            transform-stationboard-data)))
@@ -503,7 +511,8 @@
                     result-ch
                     (fn [output]
                       (let [[idx result] output]
-                        (when (not (nil? result)) (transact-add-stop app current-state result)))))))
+                        (when (not (nil? result))
+                          (transact-add-stop app current-state result)))))))
     om/IRenderState
     (render-state [_ {:keys [result-ch backspace-ch input-style]}]
                   (om/build ac/autocomplete {}
@@ -778,7 +787,6 @@
     (om/root split-stationboard saved-app-state
              {:target (. js/document (getElementById "my-app"))
               :tx-listen (fn [{:keys [path new-state]} _]
-                           (println new-state)
                            (. js/localStorage (setItem "views"
                                                        ; here if we don't dissoc the page will reload in the current state
                                                        (pr-str new-state))))})))
