@@ -27,6 +27,46 @@
 (defn sanitize [text]
   (str/replace (str/replace text "&nbsp;" " ") #"S( )+" "S"))
 
+(defn map-category [text]
+  (case text
+    "Trm-NF" "tram"
+    "Trm"    "tram"
+    "Tro"    "tram"
+    "M"      "subway"
+    "Bus"    "bus"
+    "Bus-NF" "bus"
+    "KB"     "bus"
+    "ICB"    "bus"
+    "S"      "train"
+    "ICN"    "train"
+    "IC"     "train"
+    "IR"     "train"
+    "RE"     "train"
+    "R"      "train"
+    "EC"     "train"
+    "TER"    "train"
+    "ICE"    "train"
+    "BEX"    "train"
+    "SLB"    "train"
+    "LSB"    "train"
+    "D"      "train"
+    "VAE"    "train"
+    "ATZ"    "train"
+    "TGV"    "train"
+    "RB"     "train"
+    "TX"     "taxi"
+    "Schiff" "boat"
+    "Fun"    "rack-train"
+    "GB"     "cable-car"
+
+    "train"))
+
+(defn map-accessible [text]
+  (case text
+    "Trm-NF" true
+    "Bus-NF" true
+    false))
+
 ; TODO add 1 day to realtime if it is smaller than scheduled (scheduled 23h59 + 3min delay ...)
 (defn zvv-departure [zvv-journey]
   (let [colors          (vec (remove str/blank? (str/split (zvv-journey "lc") #" ")))
@@ -34,7 +74,8 @@
     {;:meta zvv-journey
      :zvv_id (zvv-journey "id")
      :name (sanitize (zvv-journey "pr"))
-     :type (zvv-journey "productCategory")
+     :type (map-category (zvv-journey "productCategory"))
+     :accessible (map-accessible (zvv-journey "productCategory"))
      :colors {:fg (when (> (count colors) 0) (str "#" (colors 0)))
               :bg (when (> (count colors) 1) (str "#" (colors 1)))}
      :to (zvv-journey "st")

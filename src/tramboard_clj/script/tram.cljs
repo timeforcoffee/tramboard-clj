@@ -206,6 +206,8 @@
                  now                 (now)]
              {:departure-timestamp departure-timestamp
               :colors              (:colors entry)
+              :type                (:type entry)
+              :accessible          (:accessible entry)
               :number              (:name entry)
               :to                  (:to entry)
               :in-minutes          (minutes-from departure-timestamp now)
@@ -260,6 +262,26 @@
                              :style #js {:backgroundColor (:bg colors) :color (:fg colors)}}
                         (if too-big (apply str (take 4 number)) number))))))
 
+(defn transport-icon [type owner]
+  (reify
+    om/IRender
+    (render [this]
+            (let [map-transport-icon (fn [type] (case type
+                                                  "tram"        "fa-tram"
+                                                  "subway"      "fa-train"
+                                                  "rack-train"  "fa-subway"
+                                                  "cable-car"   "fa-subway"
+                                                  "bus"         "fa-bus"
+                                                  "train"       "fa-subway"
+                                                  "taxi"        "fa-taxi"
+                                                  "boat"        "fa-ship"
+
+                                                  "train"))
+                  icon               (dom/i #js {:className (str "fa " (map-transport-icon type))})]
+              (if (= type "tram")
+                (dom/span #js {:className "span-fa"} icon (dom/span #js {:className "hidden"} "tram"))
+                icon)))))
+
 (defn arrival-row [{:keys [arrival current-view current-state] :as app} owner]
   (reify
     om/IRender
@@ -271,14 +293,16 @@
                       (dom/td #js {:className "number-cell"} (om/build number-icon {:number (:number arrival) :colors (:colors arrival)}))
                       (dom/td #js {:className "station"}
                               (dom/span #js {:className "exclude-link"} (om/build exclude-destination-link app))
-                              (dom/span #js {:className "station-name"} (:to arrival)))
+                              (dom/span #js {:className "station-name"}
+                                        (:to arrival)
+                                        (when (:accessible arrival) (dom/i #js {:className "bold fa fa-wheelchair"}))))
                       (dom/td #js {:className "departure thin"}
                               (dom/div nil (:time arrival))
                               (dom/div #js {:className "undelayed"} (:undelayed-time arrival)))
                       (let [display-in-minutes  (display-in-minutes (:in-minutes arrival))]
                         (dom/td #js {:className (str "text-right time time" (:in-minutes arrival))}
-                                (dom/img #js {:src "images/tram.png"}
-                                         (dom/div #js {:className "bold pull-right"} display-in-minutes)))))))))
+                                (om/build transport-icon (:type arrival))
+                                (dom/div #js {:className "bold pull-right"} display-in-minutes))))))))
 
 (defn arrival-table [{:keys [arrivals current-view current-state]} owner]
   (reify
@@ -463,8 +487,8 @@
                                     :onClick #(on-action true %)
                                     :onTouchStart #(on-action false %)}
                                (om/build control-bar {:current-state current-state :current-view current-view} {:init-state {:activity-ch activity-ch}})
-                               (dom/div #js {:className (str "text-center thin loading " (when-not loading "hidden"))} "Your departures are loading...")
-                               (dom/div #js {:className (str "text-center thin loading " (when (or (not error) loading) "hidden"))} "Sorry, no departures are available at this time...")
+                               (dom/div #js {:className (str "text-center ultra-thin loading " (when-not loading "hidden"))} "Your departures are loading...")
+                               (dom/div #js {:className (str "text-center ultra-thin loading " (when (or (not error) loading) "hidden"))} "Sorry, no departures are available at this time...")
                                (om/build arrival-table {:arrivals arrivals :current-view current-view :current-state current-state})))))))
 
 (defn autocomplete [{:keys [app current-state]} owner {:keys [input-id input-placeholder]}]
@@ -482,7 +506,6 @@
                         (when (not (nil? result)) (transact-add-stop app current-state result)))))))
     om/IRenderState
     (render-state [_ {:keys [result-ch backspace-ch input-style]}]
-                  (println input-style)
                   (om/build ac/autocomplete {}
                             (acb/add-bootstrap-m
                               {:state {:input-state {:style input-style}}
@@ -520,13 +543,14 @@
         (fn [current-owner prev-state]
           (let [button-padding     4   ; TODO link this to CSS somehow
                 min-input-width    200 ; TODO link this to CSS somehow
+                input-padding      42  ; TODO link this to CSS somehow
                 container          (om/get-node current-owner "container")
                 container-width    (.-offsetWidth container)
                 buttons            (g-array/toArray (.-children (om/get-node current-owner "buttons")))
                 buttons-width      (apply + (map #(+ button-padding (.-offsetWidth %)) buttons))
                 new-buttons-width  (if (< container-width buttons-width) container-width buttons-width)
                 prev-buttons-width (:buttons-width prev-state)
-                new-input-width    (- (if (< (- container-width new-buttons-width) min-input-width) container-width (- container-width new-buttons-width)) 42)
+                new-input-width    (- (if (< (- container-width new-buttons-width) min-input-width) container-width (- container-width new-buttons-width)) input-padding)
                 prev-input-width   (:input-width prev-state)]
             (when (or (nil? prev-buttons-width) (not= prev-buttons-width new-buttons-width))
               (om/set-state! current-owner :buttons-width new-buttons-width))
@@ -619,7 +643,7 @@
             (let [configured-views (:configured-views app)
                   complete-state   (:complete-state app)
                   recent-views     (get-recent-board-views configured-views complete-state)]
-              (apply dom/div #js {:className (str "responsive-display " (when (empty? recent-views) "hidden"))}
+              (apply dom/div #js {:className "text-center"}
                      (dom/div #js {:className "heading"}
                               (dom/h1 #js {:className "heading thin"} "Your recent boards"))
                      (map #(om/build recent-board-item {:configured-view % :current-state current-state}) recent-views))))))
@@ -681,6 +705,26 @@
                                                                    (dom/div #js {:className "title-split-2"} "Your right board"))))
                                               split-screen-icon))))))))
 
+(defn strong [text]
+  (dom/span #js {:className "thin"} text))
+
+(defn welcome-banner [_ owner]
+  (reify
+    om/IRender
+    (render [this]
+            (dom/h1 #js {:className "ultra-thin welcome-banner text-center"}
+                    (dom/div nil
+                             "Relax and don't wait at the stop for your next "
+                             (strong "bus") " " (om/build transport-icon "bus") ", "
+                             (strong "tram") " " (om/build transport-icon "tram") ", "
+                             (strong "train") " " (om/build transport-icon "train") ", "
+                             (strong "boat") " " (om/build transport-icon "boat") " or "
+                             (strong "cable car") ".")
+                    (dom/div nil "Enter any stop in Switzerland "
+                             (dom/div #js {:className "phoca-flagbox"}
+                                      (dom/span #js {:className "phoca-flag ch"} nil) )
+                             " to get started.")))))
+
 (defn stationboard [{:keys [current-state app]} owner]
   "Takes the app (contains all views, selected view) and renders the whole page, knows what to display based on the routing."
   (reify
@@ -688,24 +732,29 @@
     (render [this]
             ; those all depend on the screen that's displayed
             (let [configured-views (:configured-views app)
+                  complete-state   (:complete-state app)
                   current-view     (current-view current-state configured-views)
                   display          (:display (:params current-state))
-                  activity         (:activity (:params current-state))]
+                  activity         (:activity (:params current-state))
+                  recent-views     (get-recent-board-views configured-views complete-state)
+                  display-banner   (and (is-home current-state) (not (seq recent-views)))]
 
               (println "Rendering stationboard with state " current-state)
               (dom/div (clj->js {:className
-                                 (str (when (= display :expanded) "display-expanded") " "
+                                 (str (when-not (:visible current-state) "hidden") " "
+                                      (when (= display :expanded) "display-expanded") " "
                                       (when (= activity :idle)    "activity-idle") " "
-                                      (when-not (:visible current-state) "hidden") " "
                                       (name (:state-id current-state)))})
 
                        (om/build menu-bar {:app app :current-state current-state})
                        (dom/div #js {:className "container-fluid"}
-                                ; this one needs the whole app
+                                (dom/div #js {:className (str "responsive-display " (when-not display-banner "hidden"))}
+                                         (om/build welcome-banner nil))
                                 (om/build edit-pane {:app app :current-state current-state})
                                 (cond
                                   (is-home current-state)
-                                  (om/build recent-boards {:app app :current-state current-state})
+                                  (dom/div #js {:className (str "responsive-display " (when (empty? recent-views) "hidden"))}
+                                           (om/build recent-boards {:app app :current-state current-state}))
                                   (is-edit current-state)
                                   (dom/div #js {:className "responsive-display"}
                                            (om/build stop-heading current-view)
@@ -729,6 +778,7 @@
     (om/root split-stationboard saved-app-state
              {:target (. js/document (getElementById "my-app"))
               :tx-listen (fn [{:keys [path new-state]} _]
+                           (println new-state)
                            (. js/localStorage (setItem "views"
                                                        ; here if we don't dissoc the page will reload in the current state
                                                        (pr-str new-state))))})))

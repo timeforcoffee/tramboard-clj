@@ -30,6 +30,10 @@ h1 {
 	font-weight: 300;
 }
 
+.ultra-thin {
+	font-weight: 100;
+}
+
 a .link-icon, a.link-icon, a:visited .link-icon, a.link-icon:visited {
 	color: gray;
 }
@@ -43,7 +47,7 @@ a .link-icon a.link-icon, a:hover .link-icon, a.link-icon:hover, a:visited .link
 	outline: 0;
 }
 
-/* display logic */
+/* display logic when expanded */
 .display-expanded .edit-form {
 	display: none;
 }
@@ -129,10 +133,6 @@ a .link-icon a.link-icon, a:hover .link-icon, a.link-icon:hover, a:visited .link
 .loading {
 	margin-top: 20px;
 	font-size: @biggest-font-size;
-
-	&.thin {
-		font-weight: 100;
-	}
 }
 
 .menu-bar {
@@ -175,10 +175,18 @@ a .link-icon a.link-icon, a:hover .link-icon, a.link-icon:hover, a:visited .link
 	}
 }
 
+.welcome-banner {
+	margin: auto;
+	width: 90%;
+	line-height: 1.5em;
+	margin-bottom: 18px;
+}
+
 .edit-form {
 
 	.form-control {
 		height: auto;
+		box-shadow: none;
 	}
 
 	.dropdown {
@@ -282,6 +290,10 @@ a .link-icon a.link-icon, a:hover .link-icon, a.link-icon:hover, a:visited .link
 	.station-name {
 		font-size: @big-font-size;
 		/*display: table;*/
+
+		i {
+			margin-left: 8px;
+		}
 	}
 
 	.station > span {
@@ -297,16 +309,19 @@ a .link-icon a.link-icon, a:hover .link-icon, a.link-icon:hover, a:visited .link
 		font-size: @biggest-font-size;
 	}
 
-	.time img {
+	.time .fa {
 		display: none;
 	}
 
-	.time0 img,
-	.time-1 img,
-	.time-2 img {
+	.time0 .fa,
+	.time-1 .fa,
+	.time-2 .fa {
 		display: inline;
-		position: relative;
-		right: -6px;
+		font-size: 2em;
+
+		&.fa-tram {
+			top: -0.25em;
+		}
 	}
 
 	.time0 div,
@@ -492,5 +507,53 @@ a .link-icon a.link-icon, a:hover .link-icon, a.link-icon:hover, a:visited .link
 
 	@media (max-width: 469px) {
 		.smallest-device();
+	}
+}
+
+/* switzerland */
+.ch {
+ background: url('data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAzMjAgMzIwIj4NCjxwYXRoIGZpbGw9IiNkNTJiMWUiIGQ9Im0wLDBoMzIwdjMyMGgtMzIweiIvPg0KPGcgZmlsbD0iI2ZmZiI+DQo8cGF0aCBkPSJtNjAsMTMwaDIwMHY2MGgtMjAweiIvPg0KPHBhdGggZD0ibTEzMCw2MGg2MHYyMDBoLTYweiIvPg0KPC9nPg0KPC9zdmc+DQo=');
+ width: 100%;
+ height: 100%;
+ background-size: 100% 100%;
+}
+
+.phoca-flag {
+	position: absolute;
+    top: 0;
+    bottom: 0;
+    left: 0;
+    right: 0;
+
+    margin: auto;
+	display: inline-block;
+	vertical-align: middle;
+	border: 1px solid #e5e5e5;
+	-webkit-box-shadow: inset 0px 0px 0px 2px #fff;
+	box-shadow: inset 0px 0px 0px 2px #fff;
+}
+
+.phoca-flagbox {
+    width: 1em;
+    height: 1em;
+    display: inline-block;
+    vertical-align: middle;
+    position: relative;
+}
+
+.span-fa {
+	position: relative;
+	height: 1.2em;
+	width: 0.75em;
+	display: inline-block;
+
+	.fa.fa-tram {
+		background: transparent url('/images/tram.png') no-repeat 0 0px;
+		background-size: 1.25em 1.25em;
+		position: absolute;
+		top: 0.2em;
+		right: 0.05em;
+		height: 1.2em;
+		width: 1em;
 	}
 }
