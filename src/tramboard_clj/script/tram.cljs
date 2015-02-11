@@ -251,25 +251,26 @@
   (reify
     om/IRender
     (render [this]
+            (let [exclude-text (str "filter " (:to arrival) " from view")]
             (dom/a #js {:href "#"
                         :className "link-icon"
-                        :title "Exclude destination"
+                        :aria-label exclude-text
                         :onClick (fn [e]
                                    (transact-add-filter current-view arrival)
-                                   (.preventDefault e))}
-                   (dom/span #js {:style #js {:display "none"}} "(exclude from view)") "✖"))))
+                                   (.preventDefault e))} "✖")))))
 
-(defn number-icon [{:keys [number colors]} owner]
+(defn number-icon [{:keys [number colors type]} owner]
   (reify
     om/IRender
     (render [this]
             (let [big     (>= (count number) 3)
                   too-big (>= (count number) 5)]
               (dom/span #js {:className (str "bold number-generic number-" number (when big " number-big"))
-                             :style #js {:backgroundColor (:bg colors) :color (:fg colors)}}
+                             :style #js {:backgroundColor (:bg colors) :color (:fg colors)}
+                             :aria-label (str type " number " number)}
                         (if too-big (apply str (take 4 number)) number))))))
 
-(defn transport-icon [type owner]
+(defn transport-icon [{:keys [type accessible-text]} owner]
   (reify
     om/IRender
     (render [this]
@@ -284,10 +285,11 @@
                                                   "boat"        "fa-ship"
 
                                                   "train"))
-                  icon               (dom/i #js {:className (str "fa " (map-transport-icon type))})]
+                  icon               (dom/i #js {:className (str "fa " (map-transport-icon type))
+                                                 :aria-label accessible-text})]
               (if (or (= type "tram") (= type "cable-car"))
-                (dom/span #js {:className "span-fa"} icon (dom/span #js {:className "hidden"} "transport icon"))
-                icon)))))
+                (dom/span #js {:className "span-fa"
+                               :aria-label accessible-text} icon) icon)))))
 
 (defn arrival-row [{:keys [arrival current-view current-state] :as app} owner]
   (reify
@@ -295,21 +297,26 @@
     (render [this]
             (println "Rendering row")
 
-            (let []
+            (let [type       (:type arrival)
+                  in-minutes (:in-minutes arrival)
+                  number     (:number arrival)
+                  to         (:to arrival)
+                  accessible (:accessible arrival)]
               (dom/tr #js {:className "tram-row"}
-                      (dom/td #js {:className "number-cell"} (om/build number-icon {:number (:number arrival) :colors (:colors arrival)}))
+                      (dom/td #js {:className "number-cell"} (om/build number-icon {:number number :colors (:colors arrival) :type type}))
                       (dom/td #js {:className "station"}
                               (dom/span #js {:className "exclude-link"} (om/build exclude-destination-link app))
-                              (dom/span #js {:className "station-name"}
-                                        (:to arrival)
-                                        (when (:accessible arrival) (dom/i #js {:className "bold fa fa-wheelchair"}))))
+                              (dom/span #js {:className "station-name"
+                                             :aria-label (str "destination " to (when accessible (str ". this " type " is accessible by wheelchair")))}
+                                        to (when accessible (dom/i #js {:className "fa fa-wheelchair"}))))
                       (dom/td #js {:className "departure thin"}
                               (dom/div nil (:time arrival))
                               (dom/div #js {:className "undelayed"} (:undelayed-time arrival)))
-                      (let [display-in-minutes  (display-in-minutes (:in-minutes arrival))]
-                        (dom/td #js {:className (str "text-right time time" (:in-minutes arrival))}
-                                (om/build transport-icon (:type arrival))
-                                (dom/div #js {:className "bold pull-right"} display-in-minutes))))))))
+                      (let [display-in-minutes  (display-in-minutes in-minutes)]
+                        (dom/td #js {:className (str "text-right time time" in-minutes)}
+                                (om/build transport-icon {:type type :accessible-text "arriving now"})
+                                (dom/div #js {:className "bold pull-right"
+                                              :aria-label (str "arriving in " display-in-minutes " minutes")} display-in-minutes))))))))
 
 (defn arrival-table [{:keys [arrivals current-view current-state]} owner]
   (reify
@@ -360,11 +367,12 @@
     om/IRender
     (render [this]
             (let [excluded-destinations (remove nil? (flatten (map #(:excluded-destinations (val %)) (:stops current-view))))
-                  expanded              (= :expanded (:display (:params current-state)))]
+                  expanded              (= :expanded (:display (:params current-state)))
+                  fullscreen-text       (if expanded "exit fullscreen" "fullscreen")]
               (dom/div #js {:className "control-bar"}
                        (dom/a #js {:href "#"
                                    :className (str "link-icon glyphicon " (if expanded "glyphicon-resize-small" "glyphicon-resize-full"))
-                                   :title (if expanded "Exit fullscreen" "Fullscreen")
+                                   :aria-label fullscreen-text
                                    :onClick (fn [e]
                                               ; we change the state to hidden
                                               (if expanded
@@ -434,7 +442,7 @@
                                                       (fn [stop]
                                                         ; we add all the known destinations to the stop
                                                         (let [existing-known-destinations (or (:known-destinations stop) #{})
-                                                              new-known-destinations      (map #(select-keys % [:to :number :colors]) data)]
+                                                              new-known-destinations      (map #(select-keys % [:to :number :colors :type]) data)]
                                                           (assoc stop
                                                             :known-destinations
                                                             (into existing-known-destinations new-known-destinations))))))
@@ -536,14 +544,16 @@
   (reify
     om/IRender
     (render [this]
-            (let [stop-id (:id current-stop)]
+            (let [stop-id (:id current-stop)
+                  name    (:name current-stop)]
               (dom/button #js {:className "btn btn-primary"
                                :type "button"
+                               :aria-label (str "remove " name)
                                :onClick (fn [e]
                                           (transact-remove-stop app current-state stop-id)
                                           (.preventDefault e))}
-                          (:name current-stop)
-                          (dom/span #js {:className "glyphicon glyphicon-remove" :aria-hidden "true"}))))))
+                          name
+                          (dom/span #js {:className "glyphicon glyphicon-remove"}))))))
 
 
 (defn edit-pane [{:keys [app current-state]} owner]
@@ -592,10 +602,10 @@
                           current-view     (current-view current-state configured-views)]
 
                       (println "Rendering edit-pane with state " current-state)
-                      (dom/form #js {:className "edit-form"}
+                      (dom/form #js {:className "edit-form" :role "search"}
                                 (dom/div #js {:className "form-group form-group-lg"}
                                          (dom/label #js {:className "control-label sr-only"
-                                                         :htmlFor   "stopInput"} "Stop")
+                                                         :htmlFor   "stopInput"} "Enter a stop")
                                          (dom/span #js {:className "form-control thin"
                                                         :ref       "container"}
                                                    (apply dom/span #js {:className "buttons"
@@ -638,7 +648,7 @@
                                      (let [numbers         (->> (:stops configured-view)
                                                                 (map #(get-destinations-not-excluded (val %)))
                                                                 (reduce into #{})
-                                                                (map #(select-keys % [:number :colors]))
+                                                                (map #(select-keys % [:number :colors :type]))
                                                                 (distinct)
                                                                 (sort-by #(cap (:number %) 20 "0")))
                                            too-big         (> (count numbers) 9)
@@ -664,10 +674,10 @@
                   (dom/span #js {:className span-class}
                             (dom/a #js {:className (str "link-icon glyphicon " icon-class)
                                         :href "#"
+                                        :aria-label hidden-text
                                         :onClick (fn [e]
                                                    (on-action complete-state current-state)
-                                                   (.preventDefault e))}
-                                   (dom/span #js {:style #js {:display "none"}} hidden-text))))))
+                                                   (.preventDefault e))})))))
 
 (defn menu-bar [{:keys [app current-state]} owner]
   (reify
@@ -679,7 +689,7 @@
                                               {:current-state current-state :complete-state complete-state}
                                               {:state {:span-class "split-link pull-right"
                                                        :icon-class (if-not is-split "fa fa-columns" "glyphicon-remove-circle")
-                                                       :hidden-text "split"
+                                                       :hidden-text "split screen"
                                                        :on-action (fn [complete-state current-state]
                                                                     (om/transact! complete-state #(go-toggle-split % current-state)))}})]
               (dom/header #js {:className "menu-bar"}
@@ -692,7 +702,7 @@
                                                                        {:current-state current-state :complete-state complete-state}
                                                                        {:state {:span-class "back-link pull-left"
                                                                                 :icon-class "glyphicon-home"
-                                                                                :hidden-text "back"
+                                                                                :hidden-text "go back"
                                                                                 :on-action (fn [_ current-state]
                                                                                              (om/transact! current-state #(go-home %)))}})]
                                        (dom/div nil
@@ -724,14 +734,16 @@
             (dom/h1 #js {:className "ultra-thin welcome-banner text-center"}
                     (dom/div nil
                              "Relax and don't wait at the stop for your next "
-                             (strong "bus")   " " (om/build transport-icon "bus")   ", "
-                             (strong "tram")  " " (om/build transport-icon "tram")  ", "
-                             (strong "train") " " (om/build transport-icon "train") ", "
-                             (strong "boat")  " " (om/build transport-icon "boat")  " or "
-                             (strong "cable car") " " (om/build transport-icon "cable-car") ".")
+                             (strong "bus")   " " (om/build transport-icon {:type "bus"})   ", "
+                             (strong "tram")  " " (om/build transport-icon {:type "tram"})  ", "
+                             (strong "train") " " (om/build transport-icon {:type "train"}) ", "
+                             (strong "boat")  " " (om/build transport-icon {:type "boat"})  " or "
+                             (strong "cable car") " " (om/build transport-icon {:type "cable-car"}) ".")
                     (dom/div nil "Enter any stop in "
                              (dom/div #js {:className "phoca-flagbox"}
-                                      (dom/span #js {:className "phoca-flag ch"} nil) )
+                                      ; TODO Check this accessibility
+                                      (dom/span #js {:aria-label "Switzerland"
+                                                     :className "phoca-flag ch"}))
                              " to get started.")))))
 
 (defn stationboard [{:keys [current-state app]} owner]

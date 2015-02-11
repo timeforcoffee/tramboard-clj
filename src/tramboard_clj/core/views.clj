@@ -4,12 +4,14 @@
   (:require [tramboard-clj.core.zvv :as zvv]))
 
 (defn index-page []
-  (html5
+  (html5 {:lang "en"}
     [:head
      [:meta {:charset "UTF-8"}]
      [:meta {:http-equiv "Content-Type"    :content "text/html;charset=utf-8"}]
      [:meta {:http-equiv "X-UA-Compatible" :content "IE=edge"}]
      [:meta {:name "viewport" :content "width=device-width, initial-scale=1"}]
+     [:meta {:name "language" :content "en"}]
+     [:meta {:name "description" :content "Real-time public transport schedule at stops for bus, trains, trams and cable car."}]
      [:title "Time for Coffee!"]
      (include-css "//netdna.bootstrapcdn.com/bootstrap/3.3.2/css/bootstrap.min.css")
      (include-css "//maxcdn.bootstrapcdn.com/font-awesome/4.3.0/css/font-awesome.min.css")
