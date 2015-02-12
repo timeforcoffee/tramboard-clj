@@ -28,8 +28,6 @@
 
   :java-agents [[com.newrelic.agent.java/newrelic-agent "3.13.0" :bootclasspath true]]
 
-  :uberjar-name "tramboard-clj.jar"
-
   :cljsbuild {:builds {:app {:source-paths ["src"]}}}
 
   :less {:source-paths ["src/less"]
