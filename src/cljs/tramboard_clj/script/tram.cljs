@@ -153,7 +153,6 @@
                    new-excluded-destinations      (conj existing-excluded-destinations {:to destination :number number})
                    new-current-view               (update-updated-date
                                                     (assoc-in view [:stops stop-id :excluded-destinations] new-excluded-destinations))]
-               (println new-current-view)
                new-current-view)))))
 
 (defn transact-remove-filters [view]
@@ -343,7 +342,7 @@
             (dom/div #js {:className "stop-heading"}
                      (dom/h2 #js {:className "heading thin"} (str "Trams / buses / trains departing from " (str/join " / " (map #(:name %) (get-stops-in-order current-view)))))))))
 
-(defn control-bar [{:keys [current-state current-view]} owner]
+(defn control-bar [{:keys [current-state current-view]} owner {:keys [on-activity-fn]}]
   (reify
     om/IWillMount
     (will-mount [_]
@@ -358,16 +357,12 @@
                                   (when old-hide-ch (close! old-hide-ch))
 
                                   (go (when-some [hide (<! new-hide-ch)]
-                                                 (when hide
-                                                   (om/transact! current-state :params #(assoc % :activity :idle)))))
+                                                 (when hide (on-activity-fn :idle))))
 
                                   (go (<! (timeout 2000))
-                                      (println "Putting true on hide channel")
                                       (put! new-hide-ch true))
 
-                                  (om/transact! current-state :params
-                                                (fn [params] (if (get params :activity) (dissoc params :activity) params)))
-
+                                  (on-activity-fn :not-idle)
                                   (assoc s :hide-ch new-hide-ch))))))))
     om/IWillUnmount
     (will-unmount [this]
@@ -378,6 +373,7 @@
             (let [excluded-destinations (remove nil? (flatten (map #(:excluded-destinations (val %)) (:stops current-view))))
                   expanded              (= :expanded (:display (:params current-state)))
                   fullscreen-text       (if expanded "exit fullscreen" "fullscreen")]
+
               (dom/div #js {:className "control-bar"}
                        (dom/a #js {:href "#"
                                    :className (str "link-icon glyphicon " (if expanded "glyphicon-resize-small" "glyphicon-resize-full"))
@@ -395,7 +391,7 @@
                                               (transact-remove-filters current-view))}
                               (dom/span #js {:className "remove-filter-image"} "✖") (dom/span #js {:className "remove-filter-text thin"} "remove filters")))))))
 
-(defn arrival-tables-view [{:keys [current-view current-state]} owner]
+(defn arrival-tables-view [{:keys [current-view current-state]} owner {:keys [on-activity-fn]}]
   "Takes as input a set of views (station id) and the size of the pane and renders the table views."
   (let [initialize
         (fn [current current-owner]
@@ -511,10 +507,12 @@
                       (dom/div #js {:onMouseMove #(on-action true %)
                                     :onClick #(on-action true %)
                                     :onTouchStart #(on-action false %)}
-                               (om/build control-bar {:current-state current-state :current-view current-view} {:init-state {:activity-ch activity-ch}})
+                               (om/build control-bar {:current-state current-state :current-view current-view} {:init-state {:activity-ch activity-ch}
+                                                                                                                :opts {:on-activity-fn on-activity-fn}})
                                (dom/div #js {:className (str "text-center ultra-thin loading " (when-not loading "hidden"))} "Your departures are loading...")
                                (dom/div #js {:className (str "text-center ultra-thin loading " (when (or (not error) loading) "hidden"))} "Sorry, no departures are available at this time...")
-                               (om/build arrival-table {:arrivals arrivals :current-view current-view :current-state current-state})))))))
+                               (om/build arrival-table
+                                         {:arrivals arrivals :current-view current-view :current-state current-state})))))))
 
 (defn autocomplete [{:keys [app current-state]} owner {:keys [input-id input-placeholder]}]
   (reify
@@ -611,7 +609,7 @@
                           current-view     (current-view current-state configured-views)
                           is-home          (is-home current-state)]
 
-                      (println "Rendering edit-pane with state " current-state)
+                      (println "Rendering edit-pane")
                       (dom/form #js {:className "edit-form" :role "search"}
                                 (dom/div #js {:className "form-group form-group-lg"}
                                          (dom/label #js {:className "control-label sr-only"
@@ -762,18 +760,17 @@
 (defn stationboard [{:keys [current-state app]} owner]
   "Takes the app (contains all views, selected view) and renders the whole page, knows what to display based on the routing."
   (reify
-    om/IRender
-    (render [this]
+    om/IRenderState
+    (render-state [this {:keys [activity]}]
             ; those all depend on the screen that's displayed
             (let [configured-views (:configured-views app)
                   complete-state   (:complete-state app)
                   current-view     (current-view current-state configured-views)
                   display          (:display (:params current-state))
-                  activity         (:activity (:params current-state))
                   recent-views     (get-recent-board-views configured-views complete-state)
                   display-banner   (and (is-home current-state) (not (is-split complete-state)))]
 
-              (println "Rendering stationboard with state " current-state)
+              (println "Rendering stationboard")
               (dom/div (clj->js {:className
                                  (str (when-not (:visible current-state) "hidden") " "
                                       (when (= display :expanded) "display-expanded") " "
@@ -792,7 +789,9 @@
                                   (is-edit current-state)
                                   (dom/div #js {:className "responsive-display"}
                                            (om/build stop-heading current-view)
-                                           (om/build arrival-tables-view {:current-view current-view :current-state current-state})))))))))
+                                           (om/build arrival-tables-view
+                                                     {:current-view current-view :current-state current-state}
+                                                     {:opts {:on-activity-fn (fn [activity] (om/set-state! owner :activity activity))}})))))))))
 
 (defn split-stationboard [{:keys [complete-state] :as app} owner]
   (reify
@@ -800,7 +799,7 @@
     (render [this]
             (let [states (get-all-states complete-state)
                   order  (:order complete-state )]
-              (println "Rendering split stationboard with states " states)
+              (println "Rendering split stationboard")
               (apply dom/div (when (is-split complete-state)
                                (clj->js {:className (str "split-board " (name (get order 0)) "-" (name (get order 1)))}))
                      (map #(om/build stationboard {:current-state % :app app}) states))))))
@@ -808,7 +807,6 @@
 (defn main []
   (let [saved-state     (or (try (reader/read-string (. js/localStorage (getItem "views"))) (catch :default e (println e) {})) {})
         saved-app-state (swap! app-state deep-merge saved-state)]
-    (println app-state)
     (om/root split-stationboard saved-app-state
              {:target (. js/document (getElementById "my-app"))
               :tx-listen (fn [{:keys [path new-state]} _]
