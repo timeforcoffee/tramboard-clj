@@ -1,1 +1,1 @@
-web: lein -Dnewrelic.environment=$NEWRELIC_ENV $JVM_OPTS with-profile production trampoline run -m tramboard-clj.core.server
+web: JVM_OPTS=$JVM_OPTS lein with-profile production trampoline run -m tramboard-clj.core.server
