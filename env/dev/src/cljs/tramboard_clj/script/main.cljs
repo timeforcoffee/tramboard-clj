@@ -4,8 +4,6 @@
             [clojure.browser.repl :as repl]
             [om.core :as om :include-macros true]))
 
-(enable-console-print!)
-
 ; TODO maybe wrap this in a (defmacro run-only-in-dev)
 ;(repl/connect "http://localhost:9000/repl")
 
@@ -14,4 +12,5 @@
   :jsload-callback (fn []
                      (tram/main)))
 
+(tram/hook-browser-navigation!)
 (tram/main)

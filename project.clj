@@ -20,6 +20,7 @@
                  [ring/ring-codec "1.0.0"]
                  [ring/ring-json "0.3.1"]
                  [bk/ring-gzip "0.1.1"]
+                 [secretary "1.2.1"]
                  [org.clojars.jws/ring-etag-middleware "0.1.2-SNAPSHOT"]
                  [org.clojars.fterrier/om-autocomplete "0.2.0-SNAPSHOT"]
                  [com.newrelic.agent.java/newrelic-api "3.13.0"]]
