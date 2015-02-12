@@ -17,8 +17,6 @@
             [tramboard-clj.script.state :refer [is-home is-edit is-split get-state go-home go-edit go-toggle-split modify-complete-state get-all-states]])
   (:import [goog.net XhrIo]))
 
-(enable-console-print!)
-
 ; some global constants here
 (def refresh-rate 10000)
 
