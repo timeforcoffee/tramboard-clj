@@ -1,123 +1,115 @@
-# This file configures the New Relic Agent.  New Relic monitors
-# Java applications with deep visibility and low overhead.  For more details and additional
-# configuration options visit https://docs.newrelic.com/docs/java/java-agent-configuration.
 #
-# This section is for settings common to all environments.
-# Do not add anything above this next line.
-common: &default_settings
+# This file configures the New Relic Agent.  New Relic monitors
+# Ruby, Java, .NET, PHP, and Python applications with deep visibility and low overhead.
+# For more information, visit www.newrelic.com.
+#
+# Generated June 03, 2013
+#
+# This configuration file is custom generated for Barsoom
 
+
+# Here are the settings that are common to all environments
+common: &default_settings
   # ============================== LICENSE KEY ===============================
+
   # You must specify the license key associated with your New Relic
   # account.  This key binds your Agent's data to your account in the
   # New Relic service.
-  license_key: ''
+  license_key: '<%= ENV["NEW_RELIC_LICENSE_KEY"] %>'
 
-  # Agent Enabled
-  # Use this setting to disable the agent instead of removing it from the startup command.
-  # Default is true.
-  agent_enabled: true
+  # Agent Enabled (Ruby/Rails Only)
+  # Use this setting to force the agent to run or not run.
+  # Default is 'auto' which means the agent will install and run only
+  # if a valid dispatcher such as Mongrel is running.  This prevents
+  # it from running with Rake or the console.  Set to false to
+  # completely turn the agent off regardless of the other settings.
+  # Valid values are true, false and auto.
+  #
+  # agent_enabled: auto
 
-  # Set the name of your application as you'd like it show up in New Relic.
-  # If enable_auto_app_naming is false, the agent reports all data to this application.
-  # Otherwise, the agent reports only background tasks (transactions for non-web applications)
-  # to this application. To report data to more than one application
-  # (useful for rollup reporting), separate the application names with ";".
-  # For example, to report data to "My Application" and "My Application 2" use this:
-  # app_name: My Application;My Application 2
-  # This setting is required.
-  app_name: Time for Coffee
+  # Application Name Set this to be the name of your application as
+  # you'd like it show up in New Relic. The service will then auto-map
+  # instances of your application into an "application" on your
+  # dashboard page. If you want to map this instance into multiple
+  # apps, like "AJAX Requests" and "All UI" then specify a semicolon
+  # separated list of up to three distinct names, or a yaml list.
+  # Defaults to the capitalized RAILS_ENV or RACK_ENV (i.e.,
+  # Production, Staging, etc)
+  #
+  # Example:
+  #
+  #   app_name:
+  #       - Ajax Service
+  #       - All Services
+  #
+  app_name: <%= ENV["NEW_RELIC_APP_NAME"] %>
 
-  # To enable high security, set this property to true. When in high
-  # security mode, the agent will use SSL and obfuscated SQL. Additionally,
-  # request parameters and message parameters will not be sent to New Relic.
-  high_security: false
+  # When "true", the agent collects performance data about your
+  # application and reports this data to the New Relic service at
+  # newrelic.com. This global switch is normally overridden for each
+  # environment below. (formerly called 'enabled')
+  monitor_mode: true
 
-  # Set to true to enable support for auto app naming.
-  # The name of each web app is detected automatically
-  # and the agent reports data separately for each one.
-  # This provides a finer-grained performance breakdown for
-  # web apps in New Relic.
-  # Default is false.
-  enable_auto_app_naming: false
+  # Developer mode should be off in every environment but
+  # development as it has very high overhead in memory.
+  developer_mode: false
 
-  # Set to true to enable component-based transaction naming.
-  # Set to false to use the URI of a web request as the name of the transaction.
-  # Default is true.
-  enable_auto_transaction_naming: true
-
-  # The agent uses its own log file to keep its logging
-  # separate from that of your application.  Specify the log level here.
-  # This setting is dynamic, so changes do not require restarting your application.
-  # The levels in increasing order of verboseness are:
-  #   off, severe, warning, info, fine, finer, finest
-  # Default is info.
+  # The newrelic agent generates its own log file to keep its logging
+  # information separate from that of your application. Specify its
+  # log level here.
   log_level: info
 
-  # Log all data sent to and from New Relic in plain text.
-  # This setting is dynamic, so changes do not require restarting your application.
-  # Default is false.
-  audit_mode: false
+  # Optionally set the path to the log file This is expanded from the
+  # root directory (may be relative or absolute, e.g. 'log/' or
+  # '/var/log/') The agent will attempt to create this directory if it
+  # does not exist.
+  # log_file_path: 'log'
 
-  # The number of backup log files to save.
-  # Default is 1.
-  log_file_count: 1
+  # Optionally set the name of the log file, defaults to 'newrelic_agent.log'
+  # log_file_name: 'newrelic_agent.log'
 
-  # The maximum number of bytes to write to any one log file.
-  # The log_file_count must be set greater than 1.
-  # Default is 0 (no limit).
-  log_limit_in_kbytes: 0
+  # The newrelic agent communicates with the service via https by default.  This
+  # prevents eavesdropping on the performance metrics transmitted by the agent.
+  # The encryption required by SSL introduces a nominal amount of CPU overhead,
+  # which is performed asynchronously in a background thread.  If you'd prefer
+  # to send your metrics over http uncomment the following line.
+  # ssl: false
 
-  # Override other log rolling configuration and roll the logs daily.
-  # Default is false.
-  log_daily: false
+  #============================== Browser Monitoring ===============================
+  # New Relic Real User Monitoring gives you insight into the performance real users are
+  # experiencing with your website. This is accomplished by measuring the time it takes for
+  # your users' browsers to download and render your web pages by injecting a small amount
+  # of JavaScript code into the header and footer of each page.
+  browser_monitoring:
+      # By default the agent automatically injects the monitoring JavaScript
+      # into web pages. Set this attribute to false to turn off this behavior.
+      auto_instrument: true
 
-  # The name of the log file.
-  # Default is newrelic_agent.log.
-  log_file_name: newrelic_agent.log
-
-  # The log file directory.
-  # Default is the logs directory in the newrelic.jar parent directory.
-  #log_file_path:
-
-  # The agent communicates with New Relic via https by
-  # default.  If you want to communicate with newrelic via http,
-  # then turn off SSL by setting this value to false.
-  # This work is done asynchronously to the threads that process your
-  # application code, so response times will not be directly affected
-  # by this change.
-  # Default is true.
-  ssl: true
-
-  # Proxy settings for connecting to the New Relic server:
+  # Proxy settings for connecting to the New Relic server.
+  #
   # If a proxy is used, the host setting is required.  Other settings
-  # are optional.  Default port is 8080.  The username and password
-  # settings will be used to authenticate to Basic Auth challenges
-  # from a proxy server.
-  #proxy_host: hostname
-  #proxy_port: 8080
-  #proxy_user: username
-  #proxy_password: password
+  # are optional. Default port is 8080.
+  #
+  # proxy_host: hostname
+  # proxy_port: 8080
+  # proxy_user:
+  # proxy_pass:
 
-  # Limits the number of lines to capture for each stack trace.
-  # Default is 30
-  max_stack_trace_lines: 30
+  # The agent can optionally log all data it sends to New Relic servers to a
+  # separate log file for human inspection and auditing purposes. To enable this
+  # feature, change 'enabled' below to true.
+  # See: https://newrelic.com/docs/ruby/audit-log
+  audit_log:
+    enabled: false
 
-  # Provides the ability to configure the attributes sent to New Relic. These
-  # attributes can be found in transaction traces, traced errors, Insight's
-  # transaction events, and Insight's page views.
-  attributes:
-
-    # When true, attributes will be sent to New Relic. The default is true.
-    enabled: true
-
-    #A comma separated list of attribute keys whose values should
-    # be sent to New Relic.
-    #include:
-
-    # A comma separated list of attribute keys whose values should
-    # not be sent to New Relic.
-    #exclude:
-
+  # Tells transaction tracer and error collector (when enabled)
+  # whether or not to capture HTTP params.  When true, frameworks can
+  # exclude HTTP parameters from being captured.
+  # Rails: the RoR filter_parameter_logging excludes parameters
+  # Java: create a config setting called "ignored_params" and set it to
+  #     a comma separated list of HTTP parameter names.
+  #     ex: ignored_params: credit_card, ssn, password
+  capture_params: false
 
   # Transaction tracer captures deep information about slow
   # transactions and sends this to the New Relic service once a
@@ -125,147 +117,111 @@ common: &default_settings
   # the transactions including any SQL statements issued.
   transaction_tracer:
 
-    # Transaction tracer is enabled by default. Set this to false to turn it off.
-    # This feature is not available to Lite accounts and is automatically disabled.
-    # Default is true.
+    # Transaction tracer is enabled by default. Set this to false to
+    # turn it off. This feature is only available at the Professional
+    # and above product levels.
     enabled: true
 
     # Threshold in seconds for when to collect a transaction
     # trace. When the response time of a controller action exceeds
     # this threshold, a transaction trace will be recorded and sent to
     # New Relic. Valid values are any float value, or (default) "apdex_f",
-    # which will use the threshold for the "Frustrated" Apdex level
-    # (greater than four times the apdex_t value).
-    # Default is apdex_f.
+    # which will use the threshold for an dissatisfying Apdex
+    # controller action - four times the Apdex T value.
     transaction_threshold: apdex_f
 
     # When transaction tracer is on, SQL statements can optionally be
     # recorded. The recorder has three modes, "off" which sends no
     # SQL, "raw" which sends the SQL statement in its original form,
     # and "obfuscated", which strips out numeric and string literals.
-    # Default is obfuscated.
     record_sql: obfuscated
-
-    # Set this to true to log SQL statements instead of recording them.
-    # SQL is logged using the record_sql mode.
-    # Default is false.
-    log_sql: false
 
     # Threshold in seconds for when to collect stack trace for a SQL
     # call. In other words, when SQL statements exceed this threshold,
     # then capture and send to New Relic the current stack trace. This is
     # helpful for pinpointing where long SQL calls originate from.
-    # Default is 0.5 seconds.
-    stack_trace_threshold: 0.5
+    stack_trace_threshold: 0.500
 
     # Determines whether the agent will capture query plans for slow
-    # SQL queries. Only supported for MySQL and PostgreSQL.
-    # Default is true.
-    explain_enabled: true
+    # SQL queries.  Only supported in mysql and postgres.  Should be
+    # set to false when using other adapters.
+    # explain_enabled: true
 
-    # Threshold for query execution time below which query plans will not
+    # Threshold for query execution time below which query plans will
     # not be captured.  Relevant only when `explain_enabled` is true.
-    # Default is 0.5 seconds.
-    explain_threshold: 0.5
-
-    # Use this setting to control the variety of transaction traces.
-    # The higher the setting, the greater the variety.
-    # Set this to 0 to always report the slowest transaction trace.
-    # Default is 20.
-    top_n: 20
+    # explain_threshold: 0.5
 
   # Error collector captures information about uncaught exceptions and
-  # sends them to New Relic for viewing.
+  # sends them to New Relic for viewing
   error_collector:
 
-    # This property enables the collection of errors. If the property is not
-    # set or the property is set to false, then errors will not be collected.
-    # Default is true.
+    # Error collector is enabled by default. Set this to false to turn
+    # it off. This feature is only available at the Professional and above
+    # product levels.
     enabled: true
 
-    # Use this property to exclude specific exceptions from being reported as errors
-    # by providing a comma separated list of full class names.
-    # The default is to exclude akka.actor.ActorKilledException. If you want to override
-    # this, you must provide any new value as an empty list is ignored.
-    ignore_errors: akka.actor.ActorKilledException
+    # Rails Only - tells error collector whether or not to capture a
+    # source snippet around the place of the error when errors are View
+    # related.
+    capture_source: true
 
-    # Use this property to exclude specific http status codes from being reported as errors
-    # by providing a comma separated list of status codes.
-    # The default is to exclude 404s. If you want to override
-    # this, you must provide any new value as an empty list is ignored.
-    ignore_status_codes: 404
+    # To stop specific errors from reporting to New Relic, set this property
+    # to comma-separated values.  Default is to ignore routing errors,
+    # which are how 404's get triggered.
+    ignore_errors: "ActionController::RoutingError,Sinatra::NotFound"
 
-  # Analytics Events are used for Histograms and Percentiles. Unaggregated data is collected
-  # for each web transaction and sent to the server on harvest.
-  analytics_events:
-
-    # Set to false to disable analytics events.
-    # Default is true.
-    enabled: true
-
-    # Events are collected up to the configured amount. Afterwards, events are sampled to
-    # maintain an even distribution across the harvest cycle. Largest value accepted is 10000.
-    # Default is 2000.  Setting to 0 will disable.
-    max_samples_stored: 2000
-
-  # Cross Application Tracing adds request and response headers to
-  # external calls using supported HTTP libraries to provide better
-  # performance data when calling applications monitored by other New Relic Agents.
-  cross_application_tracer:
-
-    # Set to false to disable cross application tracing.
-    # Default is true.
-    enabled: true
-
-  # Thread profiler measures wall clock time, CPU time, and method call counts
-  # in your application's threads as they run.
-  # This feature is not available to Lite accounts and is automatically disabled.
-  thread_profiler:
-
-    # Set to false to disable the thread profiler.
-    # Default is true.
-    enabled: true
-
-  # New Relic Real User Monitoring gives you insight into the performance real users are
-  # experiencing with your website. This is accomplished by measuring the time it takes for
-  # your users' browsers to download and render your web pages by injecting a small amount
-  # of JavaScript code into the header and footer of each page.
-  browser_monitoring:
-
-    # By default the agent automatically inserts API calls in compiled JSPs to
-    # inject the monitoring JavaScript into web pages. Not all rendering engines are supported.
-    # See https://docs.newrelic.com/docs/java/real-user-monitoring-in-java#manual_instrumentation
-    # for instructions to add these manually to your pages.
-    # Set this attribute to false to turn off this behavior.
-    auto_instrument: true
-
+  # If you're interested in capturing memcache keys as though they
+  # were SQL uncomment this flag. Note that this does increase
+  # overhead slightly on every memcached call, and can have security
+  # implications if your memcached keys are sensitive
+  # capture_memcache_keys: true
 
 # Application Environments
 # ------------------------------------------
-# Environment specific settings are in this section.
-# You can use the environment to override the default settings.
-# For example, to change the app_name setting.
-# Use -Dnewrelic.environment= on the Java startup command line
-# to set the environment.
-# The default environment is production.
+# Environment-specific settings are in this section.
+# For Rails applications, RAILS_ENV is used to determine the environment.
+# For Java applications, pass -Dnewrelic.environment <environment> to set
+# the environment.
 
 # NOTE if your application has other named environments, you should
-# provide configuration settings for these environments here.
+# provide newrelic configuration settings for these environments here.
 
 development:
   <<: *default_settings
-  app_name: Time for Coffee (Development)
+  # Turn off communication to New Relic service in development mode (also
+  # 'enabled').
+  # NOTE: for initial evaluation purposes, you may want to temporarily
+  # turn the agent on in development mode.
+  monitor_mode: false
+
+  # Rails Only - when running in Developer Mode, the New Relic Agent will
+  # present performance information on the last 100 transactions you have
+  # executed since starting the mongrel.
+  # NOTE: There is substantial overhead when running in developer mode.
+  # Do not use for production or load testing.
+  developer_mode: true
+
+  # Enable textmate links
+  # textmate: true
 
 test:
   <<: *default_settings
-  app_name: Time for Coffee (Test)
+  # It almost never makes sense to turn on the agent when running
+  # unit, functional or integration tests or the like.
+  monitor_mode: false
 
+# Turn on the agent in production for 24x7 monitoring. NewRelic
+# testing shows an average performance impact of < 5 ms per
+# transaction, you can leave this on all the time without
+# incurring any user-visible performance degradation.
 production:
   <<: *default_settings
-  app_name: Time for Coffee (Production)
-  license_key: 'a03a1935cbfb30072df8f2328e467709ddb1bd32'
+  monitor_mode: true
 
+# Many applications have a staging environment which behaves
+# identically to production. Support for that environment is provided
+# here.  By default, the staging environment has the agent turned on.
 staging:
   <<: *default_settings
-  app_name: Time for Coffee (Staging)
-  license_key: '39959874953c967f92d71c1fef59bcb7a347d8ec'
+  monitor_mode: true
+  app_name: <%= ENV["NEW_RELIC_APP_NAME"] %> (Staging)
