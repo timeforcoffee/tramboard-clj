@@ -21,11 +21,11 @@
                            m=s.getElementsByTagName(o)[0];a.async=1;a.src=g;m.parentNode.insertBefore(a,m)
                            })(window,document,'script','//www.google-analytics.com/analytics.js','ga');
                            ga('create', '" (or (System/getenv "GA_TRACKING") "dummy") "', 'auto');ga('send', 'pageview');"))
-     (javascript-tag (com.newrelic.api.agent.NewRelic/getBrowserTimingHeader))]
+     (com.newrelic.api.agent.NewRelic/getBrowserTimingHeader)]
     (into
       [:body
        [:div {:id "my-app"}]
-       (javascript-tag (com.newrelic.api.agent.NewRelic/getBrowserTimingFooter))]
+       (com.newrelic.api.agent.NewRelic/getBrowserTimingFooter)]
       (include-javascript))))
 
 (defn station [id]
