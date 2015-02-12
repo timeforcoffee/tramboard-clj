@@ -266,3 +266,4 @@ production:
 staging:
   <<: *default_settings
   app_name: Time for Coffee (Staging)
+  license_key: '39959874953c967f92d71c1fef59bcb7a347d8ec'
