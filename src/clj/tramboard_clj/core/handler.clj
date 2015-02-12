@@ -25,9 +25,7 @@
 (defroutes app-routes
   (wrap-routes (GET "/" [] (index-page)) wrap-cache)
   (wrap-routes (route/resources "/public") wrap-cache)
-  ;(ANY "/*" [] (ring.util.response/not-found "Nothing here!"))
-  (route/not-found "404")
-  )
+  (route/not-found "404"))
 
 (def site
   (wrap-routes app-routes wrap-defaults (assoc site-defaults :cookies false :session false)))

@@ -78,7 +78,7 @@
      :accessible (map-accessible (zvv-journey "productCategory"))
      :colors {:fg (when (> (count colors) 0) (str "#" (colors 0)))
               :bg (when (> (count colors) 1) (str "#" (colors 1)))}
-     :to (zvv-journey "st")
+     :to (str/trim (zvv-journey "st"))
      :departure {:scheduled (zvv-date-parser (zvv-journey "ti"))
                  :realtime (zvv-date-parser (get-in zvv-journey ["rt" "dlt"]))}}))
 

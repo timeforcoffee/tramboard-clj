@@ -257,14 +257,25 @@
                                    (transact-add-filter current-view arrival)
                                    (.preventDefault e))} "✖")))))
 
+(defn is-white [color]
+  (let [upper-case-color (when-not (nil? color) (str/upper-case color))]
+    (or (or (nil? color) (str/blank? color))
+        (or (= upper-case-color "#FFF")
+            (= upper-case-color "#FFFFFF")))))
+
 (defn number-icon [{:keys [number colors type]} owner]
   (reify
     om/IRender
     (render [this]
-            (let [big     (>= (count number) 3)
-                  too-big (>= (count number) 5)]
-              (dom/span #js {:className (str "bold number-generic number-" number (when big " number-big"))
-                             :style #js {:backgroundColor (:bg colors) :color (:fg colors)}
+            (let [big      (>= (count number) 3)
+                  too-big  (>= (count number) 5)
+                  bg-color (:bg colors)
+                  fg-color (:fg colors)
+                  white    (is-white bg-color)]
+              (dom/span #js {:className (str "bold number-generic number-" number
+                                             (when big " number-big")
+                                             (when white " number-border"))
+                             :style #js {:backgroundColor bg-color :color fg-color}
                              :aria-label (str type " number " number)}
                         (if too-big (apply str (take 4 number)) number))))))
 
@@ -382,7 +393,7 @@
                                    :onClick (fn [e]
                                               (.preventDefault e)
                                               (transact-remove-filters current-view))}
-                              (dom/span #js {:className "remove-filter-image"} "✖") (dom/span #js {:className "remove-filter-text"} "remove filters")))))))
+                              (dom/span #js {:className "remove-filter-image"} "✖") (dom/span #js {:className "remove-filter-text thin"} "remove filters")))))))
 
 (defn arrival-tables-view [{:keys [current-view current-state]} owner]
   "Takes as input a set of views (station id) and the size of the pane and renders the table views."
@@ -597,7 +608,8 @@
       om/IRenderState
       (render-state [_ {:keys [backspace-ch buttons-width input-width]}]
                     (let [configured-views (:configured-views app)
-                          current-view     (current-view current-state configured-views)]
+                          current-view     (current-view current-state configured-views)
+                          is-home          (is-home current-state)]
 
                       (println "Rendering edit-pane with state " current-state)
                       (dom/form #js {:className "edit-form" :role "search"}
@@ -614,7 +626,10 @@
                                                              {:init-state {:backspace-ch   backspace-ch}
                                                               :state {:input-style #js {:width (str input-width "px")}}
                                                               :opts {:input-id          "stopInput"
-                                                                     :input-placeholder "Enter a stop"}})))))))))
+                                                                     :input-placeholder "Enter a stop"}}))
+                                         (dom/div #js {:className (str "text-right ultra-thin credits " (when-not is-home "hidden"))}
+                                                  "brought to you by "
+                                                  (dom/a #js {:target "_blank" :href "http://twitter.com/fterrier"} "@fterrier")))))))))
 
 (defn recent-board-item-stop [stop owner]
   (reify

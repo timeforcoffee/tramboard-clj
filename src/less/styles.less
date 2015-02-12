@@ -3,6 +3,8 @@
 
 @biggest-font-size: 3.4em;
 @big-font-size: 2em;
+@small-font-size: 1.4em;
+
 /* end of variables */
 
 header {
@@ -72,6 +74,7 @@ a .link-icon a.link-icon, a:hover .link-icon, a.link-icon:hover, a:visited .link
 	display: none;
 }
 
+/* split board display logic */
 @media (max-width: 639px) {
 	.menu-bar .split-link {
 		display: none;
@@ -189,6 +192,10 @@ a .link-icon a.link-icon, a:hover .link-icon, a.link-icon:hover, a:visited .link
 		box-shadow: none;
 	}
 
+	.form-group {
+		margin-bottom: 5px;
+	}
+
 	.dropdown {
 		line-height: 36px;
 		display: inline-block;
@@ -214,6 +221,10 @@ a .link-icon a.link-icon, a:hover .link-icon, a.link-icon:hover, a:visited .link
 		box-shadow: none;
 		padding-left: 0px;
 	}
+
+	.credits {
+		line-height: 14px;
+	}
 }
 
 .control-bar {
@@ -235,8 +246,12 @@ a .link-icon a.link-icon, a:hover .link-icon, a.link-icon:hover, a:visited .link
 		position: relative;
 	}
 
-	.remove-filter-image, .glyphicon, .remove-filter-text {
+	.remove-filter-image, .glyphicon {
 		font-size: 	@icon-font-size;
+	}
+
+	.remove-filter-text {
+		font-size: @small-font-size;
 	}
 
 	a:hover .remove-filter-text {
@@ -258,9 +273,12 @@ a .link-icon a.link-icon, a:hover .link-icon, a.link-icon:hover, a:visited .link
 	text-align: center;
 	color: black;
 	background: white;
-	border: 1px solid #ddd;
 	display: inline-block;
 	font-size: @biggest-font-size;
+}
+
+.number-border {
+	border: 1px solid #ddd;
 }
 
 .number-big {
@@ -372,6 +390,10 @@ a .link-icon a.link-icon, a:hover .link-icon, a.link-icon:hover, a:visited .link
 	}
 }
 
+.credits {
+	font-size: 1em;
+}
+
 .number-generic {
 	width: 70px;
 	vertical-align: top;
@@ -387,6 +409,10 @@ a .link-icon a.link-icon, a:hover .link-icon, a.link-icon:hover, a:visited .link
 .smaller-device() {
 	.responsive-display {
 		font-size: 0.85em;
+	}
+
+	.credits {
+		font-size: 0.9em;
 	}
 
 	.container-fluid {
@@ -438,6 +464,10 @@ a .link-icon a.link-icon, a:hover .link-icon, a.link-icon:hover, a:visited .link
 .smallest-device {
 	.responsive-display {
 		font-size: 0.56em;
+	}
+
+	.credits {
+		font-size: 0.8em;
 	}
 
 	.number-generic {
