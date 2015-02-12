@@ -26,6 +26,7 @@
   :plugins [[lein-cljsbuild "1.0.3"]
             [lein-less "1.7.2"]]
 
+  :java-agents [[com.newrelic.agent.java/newrelic-agent "3.13.0"]]
   :uberjar-name "tramboard-clj.jar"
 
   :cljsbuild {:builds {:app {:source-paths ["src"]}}}
