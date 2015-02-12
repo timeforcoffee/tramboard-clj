@@ -26,8 +26,6 @@
   :plugins [[lein-cljsbuild "1.0.4"]
             [lein-less "1.7.2"]]
 
-  :java-agents [[com.newrelic.agent.java/newrelic-agent "3.13.0" :bootclasspath true]]
-
   :uberjar-name "tramboard-clj.jar"
   :source-paths ["src/clj"]
   :cljsbuild {:builds {:app {:source-paths ["src/cljs"]}}}
@@ -55,8 +53,7 @@
                                                          :pretty-print true
                                                          :source-map "resources/public/out.js.map"}}}}}
 
-             :uberjar
-                      {:source-paths ["env/prod/src/clj"]
+             :uberjar {:source-paths ["env/prod/src/clj"]
                        :omit-source true
                        :aot :all
                        :hooks [leiningen.less leiningen.cljsbuild]
