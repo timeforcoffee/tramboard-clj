@@ -53,7 +53,8 @@
                                                          :pretty-print true
                                                          :source-map "resources/public/out.js.map"}}}}}
 
-             :uberjar {:source-paths ["env/prod/src"]
+             :production
+                      {:source-paths ["env/prod/src"]
                        :omit-source true
                        :aot :all
                        :hooks [leiningen.cljsbuild leiningen.less]
