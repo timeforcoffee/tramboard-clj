@@ -319,8 +319,8 @@
                                              :aria-label (str "destination " to (when accessible (str ". this " type " is accessible by wheelchair")))}
                                         to (when accessible (dom/i #js {:className "fa fa-wheelchair"}))))
                       (dom/td #js {:className "departure thin"}
-                              (dom/div nil (:time arrival))
-                              (dom/div #js {:className "undelayed"} (:undelayed-time arrival)))
+                              (dom/div nil (:time arrival)
+                                       (dom/span #js {:className "undelayed"} (:undelayed-time arrival))))
                       (let [display-in-minutes  (display-in-minutes in-minutes)]
                         (dom/td #js {:className (str "text-right time time" in-minutes)}
                                 (om/build transport-icon {:type type :accessible-text "arriving now"})

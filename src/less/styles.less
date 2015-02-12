@@ -351,10 +351,15 @@ a .link-icon a.link-icon, a:hover .link-icon, a.link-icon:hover, a:visited .link
 	.departure {
 		text-align: right;
 		font-size: @big-font-size;
+		position: relative
 	}
 
 	.departure .undelayed {
-		line-height: 0;
+		line-height: 2em;
+		display: block;
+		position: absolute;
+		right: 0px;
+		bottom: 0px;
 	}
 
 	.undelayed {
