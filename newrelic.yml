@@ -10,7 +10,7 @@ common: &default_settings
   # You must specify the license key associated with your New Relic
   # account.  This key binds your Agent's data to your account in the
   # New Relic service.
-  license_key: 'a03a1935cbfb30072df8f2328e467709ddb1bd32'
+  # license_key: 'a03a1935cbfb30072df8f2328e467709ddb1bd32'
 
   # Agent Enabled
   # Use this setting to disable the agent instead of removing it from the startup command.
@@ -25,7 +25,7 @@ common: &default_settings
   # For example, to report data to "My Application" and "My Application 2" use this:
   # app_name: My Application;My Application 2
   # This setting is required.
-  app_name: Time for Coffee
+  # app_name: Time for Coffee
 
   # To enable high security, set this property to true. When in high
   # security mode, the agent will use SSL and obfuscated SQL. Additionally,
@@ -262,6 +262,8 @@ test:
 
 production:
   <<: *default_settings
+  app_name: Time for Coffee (Production)
+  license_key: 'a03a1935cbfb30072df8f2328e467709ddb1bd32'
 
 staging:
   <<: *default_settings
