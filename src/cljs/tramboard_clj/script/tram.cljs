@@ -65,7 +65,7 @@
   (if (< in-minutes 59) in-minutes ">59"))
 
 (defn- reset-sharing-infos [view]
-  (assoc view :shared-view-id (:view-id view)))
+  (assoc view :shared-view-id (uuid)))
 
 (defn- update-updated-date [view]
   (assoc view :last-updated (to-long (now))))
@@ -90,9 +90,7 @@
   "This removes all non necessary view information such as known destination and view id,
   But keeps the view id as shared-view-id so that we can identify when someone opens the
   same view twice for example."
-  (let [shared-view-id (:view-id view)
-        ; we assoc here just in case, but it shouldn't be necessary
-        string-view    (pr-str (assoc (simplify-view view) :shared-view-id shared-view-id))]
+  (let [string-view    (pr-str (simplify-view view))]
     (str/replace (b64/encodeString string-view) "=" "")))
 
 (defn- pad [string num character]
@@ -151,8 +149,9 @@
       configured-views)))
 
 (defn- create-new-view [view]
-  (let [view-id (uuid)]
-    (update-updated-date (into {:view-id view-id :shared-view-id view-id} view))))
+  (let [view-id        (uuid)
+        shared-view-id (uuid)]
+    (update-updated-date (into {:view-id view-id :shared-view-id shared-view-id} view))))
 
 (defn- get-shared-view [shared-view-id configured-views]
   (let [shared-view (first (filter #(= (:shared-view-id %) shared-view-id) (map val configured-views)))]
