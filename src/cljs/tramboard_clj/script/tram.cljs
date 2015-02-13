@@ -359,7 +359,7 @@
                                                           (dissoc (val %) :known-destinations)) stops)))) :view-id :last-updated)))
 
 (defn- get-share-link [view]
-  (str "http://www.timeforcoffee.ch/#/link/" (b64/encodeString (export-view view))))
+  (str "http://www.timeforcoffee.ch/#/link/" (str/replace (b64/encodeString (export-view view)) "=" "")))
 
 (defn control-bar [{:keys [current-state current-view]} owner {:keys [on-activity-fn]}]
   (reify
