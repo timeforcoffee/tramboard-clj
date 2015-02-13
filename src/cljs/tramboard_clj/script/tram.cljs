@@ -64,8 +64,8 @@
 (defn- display-in-minutes [in-minutes]
   (if (< in-minutes 59) in-minutes ">59"))
 
-(defn- remove-sharing-infos [view]
-  (dissoc view :shared-view-id))
+(defn- reset-sharing-infos [view]
+  (assoc view :shared-view-id (:view-id view)))
 
 (defn- update-updated-date [view]
   (assoc view :last-updated (to-long (now))))
@@ -90,8 +90,9 @@
   "This removes all non necessary view information such as known destination and view id,
   But keeps the view id as shared-view-id so that we can identify when someone opens the
   same view twice for example."
-  (let [view-id     (:view-id view)
-        string-view (pr-str (assoc (simplify-view view) :shared-view-id view-id))]
+  (let [shared-view-id (:view-id view)
+        ; we assoc here just in case, but it shouldn't be necessary
+        string-view    (pr-str (assoc (simplify-view view) :shared-view-id shared-view-id))]
     (str/replace (b64/encodeString string-view) "=" "")))
 
 (defn- pad [string num character]
@@ -123,7 +124,7 @@
 (defn- remove-stop-and-update-date [current-view stop-id]
   (let [new-stops        (dissoc (:stops current-view) stop-id)
         new-stops-order  (vec (remove #(= stop-id %) (:stops-order current-view)))
-        new-current-view (remove-sharing-infos
+        new-current-view (reset-sharing-infos
                            (update-updated-date (assoc current-view
                                                 :stops new-stops
                                                 :stops-order new-stops-order)))]
@@ -135,7 +136,7 @@
         existing-stop        (get existing-stops id)
         new-stops            (assoc existing-stops id (merge (or existing-stop {}) stop))
         new-stops-order      (if-not existing-stop (conj existing-stops-order id) existing-stops-order)
-        new-current-view     (remove-sharing-infos
+        new-current-view     (reset-sharing-infos
                                (update-updated-date (assoc current-view
                                                     :stops new-stops
                                                     :stops-order new-stops-order)))]
@@ -151,7 +152,7 @@
 
 (defn- create-new-view [view]
   (let [view-id (uuid)]
-    (update-updated-date (into {:view-id view-id} view))))
+    (update-updated-date (into {:view-id view-id :shared-view-id view-id} view))))
 
 (defn- get-shared-view [shared-view-id configured-views]
   (let [shared-view (first (filter #(= (:shared-view-id %) shared-view-id) (map val configured-views)))]
@@ -186,7 +187,7 @@
     (.setToken (History.) "")))
 
 (defn- get-share-link [view]
-  (str "http://staging.timeforcoffee.ch/" (share-link {:* (export-string-from-view view)})))
+  (str "http://www.timeforcoffee.ch/" (share-link {:* (export-string-from-view view)})))
 
 ; Those 4 methods modify the view and will remove the shared-view-id param
 ; TODO move to own namespace
@@ -233,7 +234,7 @@
              (let [stop                           (get (:stops view) stop-id)
                    existing-excluded-destinations (or (:excluded-destinations stop) #{})
                    new-excluded-destinations      (conj existing-excluded-destinations {:to destination :number number})
-                   new-current-view               (remove-sharing-infos
+                   new-current-view               (reset-sharing-infos
                                                     (update-updated-date
                                                       (assoc-in view [:stops stop-id :excluded-destinations] new-excluded-destinations)))]
                new-current-view)))))
@@ -244,7 +245,7 @@
                   ; we remove all the filters
                   (let [stops            (:stops view)
                         new-stops-vector (map #(vector (first %) (dissoc (second %) :excluded-destinations)) stops)
-                        new-current-view (remove-sharing-infos
+                        new-current-view (reset-sharing-infos
                                            (update-updated-date
                                              (assoc view :stops (apply assoc stops (flatten new-stops-vector)))))]
                     new-current-view))))
