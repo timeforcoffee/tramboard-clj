@@ -4,5 +4,5 @@
 
 (enable-console-print!)
 
-(tram/hook-browser-navigation!)
+(tram/init!)
 (tram/main)

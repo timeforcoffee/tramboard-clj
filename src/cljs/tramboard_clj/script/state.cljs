@@ -2,9 +2,9 @@
   "This namespace deals with state functions and manipulations. The complete state of the app is the
   state of both split panes. Each pane's state is represented by a state structure contained in
   a map with 2 named items, like this :
-    :split-states {:state-1 {:state-id :state-1 :state :home :params {} :visible true}
-                   :state-2 {:state-id :state-2 :state :home :params {} :visible false}}
-    :order [:state-1 :state-2]}
+  :split-states {:state-1 {:state-id :state-1 :state :home :params {} :visible true}
+  :state-2 {:state-id :state-2 :state :home :params {} :visible false}}
+  :order [:state-1 :state-2]}
   When referring to complete state, one means the whole structure above. When referring to state, one
   means one of the 2 states inside the complete state.")
 
@@ -22,7 +22,7 @@
   (let [split-states (:split-states complete-state)
         state-1      (get split-states :state-1)
         state-2      (get split-states :state-2)]
-  (and (:visible state-1) (:visible state-2))))
+    (and (:visible state-1) (:visible state-2))))
 
 (defn go-home [state]
   (assoc state :state :home :params {}))
@@ -55,6 +55,15 @@
                              (assoc (assoc-in complete-state [:split-states (:state-id other-state)] (go-show other-state))
                                :order [(:state-id state-to-toggle) (:state-id other-state)]))]
     new-complete-state))
+
+(defn reset-complete-state [complete-state]
+  "This shows state-1 and hides state-2"
+  (let [state-1            (get-state complete-state :state-1)
+        state-2            (get-state complete-state :state-2)
+        new-complete-state (reduce #(assoc-in %1 (%2 0) (%2 1)) complete-state
+                                   [[[:split-states :state-1] (go-home state-1)]
+                                    [[:split-states :state-2] (go-hide state-2)]])]
+    (assoc new-complete-state :order [:state-1 :state-2])))
 
 (defn modify-complete-state [complete-state state fun]
   "Applies fun to state inside complete-state and returns the new complete state."

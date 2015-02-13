@@ -14,5 +14,5 @@
   :jsload-callback (fn []
                      (tram/main)))
 
-(tram/hook-browser-navigation!)
+(tram/init!)
 (tram/main)

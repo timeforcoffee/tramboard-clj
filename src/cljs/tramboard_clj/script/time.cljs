@@ -29,15 +29,15 @@
   "Unpure function that decides how this should be displayed depending on the current day"
   (let [now                (now)
         datetime           (from-long timestamp)
-        date-format        (unparse date-formatter datetime)
-        hour-minute-format (unparse hour-minute-formatter datetime)
-        is-today           (= date-format (unparse date-formatter now))
+        date-format        (unparse date-formatter (to-default-time-zone datetime))
+        hour-minute-format (unparse hour-minute-formatter (to-default-time-zone datetime))
+        is-today           (= date-format (unparse date-formatter (to-default-time-zone now)))
         is-within-a-week   (is-within datetime now (weeks 1))
         is-yesterday       (is-within datetime now (days 1))
         display-time       (str
                              (if is-today "today"
                                (if is-yesterday "yesterday"
-                                 (if is-within-a-week (str "last " (unparse only-day-formatter datetime))
+                                 (if is-within-a-week (str "last " (unparse only-day-formatter (to-default-time-zone datetime)))
                                    (str " on " date-format))))
                              " at " hour-minute-format)]
     display-time))

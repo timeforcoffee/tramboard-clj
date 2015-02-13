@@ -18,20 +18,17 @@
             [goog.history.EventType :as EventType]
             [goog.crypt.base64 :as b64]
             [tramboard-clj.script.time :refer [parse-from-date-time format-to-hour-minute display-time minutes-from]]
-            [tramboard-clj.script.state :refer [is-home is-edit is-split get-state go-home go-edit go-toggle-split modify-complete-state get-all-states]])
+            [tramboard-clj.script.state :refer [is-home is-edit is-split get-state go-home go-edit go-toggle-split modify-complete-state get-all-states reset-complete-state]])
   (:import [goog.net XhrIo]
            goog.History))
 
 ; some global constants here
 (def refresh-rate 10000)
 
-(secretary/set-config! :prefix "#")
-(defroute "/link/:hash" [hash]
-  (js/console.log (str "got hash: " hash)))
-
 ; our initial app state
 (defonce app-state
-  (atom {; views from local storage
+  (atom {:version 1
+         ; views from local storage
          :configured-views (array-map)
          ; navigation state
          :complete-state {:split-states {:state-1 {:state-id :state-1 :state :home :params {} :visible true}
@@ -76,6 +73,24 @@
 (defn get-stops-in-order [view]
   (map #(get (:stops view) %) (:stops-order view)))
 
+(defn- export-string-from-view [view]
+  (let [string-view (pr-str
+                      (dissoc (update-in view [:stops]
+                                         ; we remove :view-id :last-updated from the view and :known-destinations from each stop
+                                         (fn [stops] (into {} (map #(vector (key %)
+                                                                            (dissoc (val %) :known-destinations)) stops)))) :view-id :last-updated))]
+    (str/replace (b64/encodeString string-view) "=" "")))
+
+(defn- pad [string num character]
+  "Pads a string with character until it has a num divisable size"
+  (let [length        (count string)
+        too-big-by    (mod length num)
+        base64-string (apply str string (repeat (if (= 0 too-big-by) 0 (- num too-big-by)) "="))]
+    base64-string))
+
+(defn- view-from-export-string [string]
+    (reader/read-string (b64/decodeString (pad string 4 "="))))
+
 (defn is-in-destinations [destinations arrival]
   (let [keys              [:to :number]
         is-in-destination (contains? (into #{} (map #(select-keys % keys) destinations))
@@ -118,6 +133,36 @@
       (dissoc configured-views view-id)
       configured-views)))
 
+(defn swap-add-view [app view]
+  (swap!
+    app (fn [app]
+          (let [configured-views     (:configured-views app)
+                complete-state       (:complete-state app)
+                view-id              (:view-id view)
+                ; TODO this is the same as in transact-add-stop, simplify
+                new-configured-views (assoc configured-views view-id view)
+                current-state        (get-state complete-state :state-1)
+                ; TODO this is the same as in transact-add-stop, simplify
+                new-complete-state   (modify-complete-state (reset-complete-state complete-state) current-state #(go-edit % view-id))
+                new-app              (assoc app
+                                       :configured-views new-configured-views
+                                       :complete-state new-complete-state)]
+            new-app))))
+
+(defn- create-new-view [view]
+  (let [view-id (uuid)]
+    (update-updated-date (into {:view-id view-id} view))))
+
+(secretary/set-config! :prefix "#")
+(defroute share-link "/link/*" {hash :*}
+  (let [new-view (create-new-view (view-from-export-string hash))]
+    (println "Got link with a view to display" new-view)
+    (swap-add-view app-state new-view)
+    (.setToken (History.) "")))
+
+(defn- get-share-link [view]
+  (str "http://staging.timeforcoffee.ch/" (share-link {:* (export-string-from-view view)})))
+
 (defn transact-add-stop [app state stop]
   (om/transact!
     app (fn [app]
@@ -125,9 +170,10 @@
                 complete-state       (:complete-state app)
                 current-state        (get-state complete-state (:state-id state))
                 is-new-view          (not (is-edit current-state))
-                view-id              (if is-new-view (uuid) (:view-id (:params current-state)))
+                edit-view-id         (:view-id (:params current-state))
+                current-view         (if is-new-view (create-new-view nil) (get configured-views edit-view-id))
+                view-id              (:view-id current-view)
                 new-complete-state   (modify-complete-state complete-state current-state #(go-edit % view-id))
-                current-view         (or (get configured-views view-id) {:view-id view-id})
                 new-view             (add-stop-and-update-date current-view stop)
                 new-configured-views (assoc configured-views view-id new-view)]
             (ga "send" "event" "stop" "add" {:dimension1 (:id stop)})
@@ -351,16 +397,6 @@
             (dom/div #js {:className "stop-heading"}
                      (dom/h2 #js {:className "heading thin"} (str "Trams / buses / trains departing from " (str/join " / " (map #(:name %) (get-stops-in-order current-view)))))))))
 
-(defn- export-view [view]
-  (pr-str
-    (dissoc (update-in view [:stops]
-                       ; we remove :view-id :last-updated from the view and :known-destinations from each stop
-                       (fn [stops] (into {} (map #(vector (key %)
-                                                          (dissoc (val %) :known-destinations)) stops)))) :view-id :last-updated)))
-
-(defn- get-share-link [view]
-  (str "http://www.timeforcoffee.ch/#/link/" (str/replace (b64/encodeString (export-view view)) "=" "")))
-
 (defn control-bar [{:keys [current-state current-view]} owner {:keys [on-activity-fn]}]
   (reify
     om/IWillMount
@@ -389,10 +425,17 @@
                     (when hide-ch (close! hide-ch))))
     om/IDidUpdate
     (did-update [_ _ prev-state]
-                (when (and (not (:share-input-visible prev-state))
-                           (om/get-state owner :share-input-visible))
-                  (let [share-input (om/get-node owner "shareInput")]
-                    (.focus share-input))))
+                ; we set the focus here on share input if necessary
+                (let [share-input-visible (om/get-state owner :share-input-visible)]
+                  (when share-input-visible
+                    (when (not (:share-input-visible prev-state))
+                      (let [share-input (om/get-node owner "shareInput")]
+                        (.focus share-input)))
+                    ; we recalculate the share string
+                    (let [prev-share-input-value (:share-input-value prev-state)
+                          new-share-input-value  (get-share-link current-view)]
+                      (when (not= prev-share-input-value new-share-input-value)
+                        (om/set-state! owner :share-input-value new-share-input-value))))))
     om/IRenderState
     (render-state [this {:keys [share-input-value share-input-visible]}]
                   (let [excluded-destinations (remove nil? (flatten (map #(:excluded-destinations (val %)) (:stops current-view))))
@@ -866,13 +909,16 @@
         (secretary/dispatch! (.-token event))))
     (.setEnabled true)))
 
+(defn init! []
+  (let [saved-state     (or (try (reader/read-string (. js/localStorage (getItem "views"))) (catch :default e (println e) {})) {})]
+    (swap! app-state deep-merge saved-state)
+    (hook-browser-navigation!)))
+
 (defn main []
-  (let [saved-state     (or (try (reader/read-string (. js/localStorage (getItem "views"))) (catch :default e (println e) {})) {})
-        saved-app-state (swap! app-state deep-merge saved-state)]
-    (om/root split-stationboard saved-app-state
-             {:target (. js/document (getElementById "my-app"))
-              :tx-listen (fn [{:keys [path new-state]} _]
-                           (. js/localStorage (setItem "views"
-                                                       ; here if we don't dissoc the page will reload in the current state
-                                                       (pr-str new-state))))})))
+  (om/root split-stationboard app-state
+           {:target (. js/document (getElementById "my-app"))
+            :tx-listen (fn [{:keys [path new-state]} _]
+                         (. js/localStorage (setItem "views"
+                                                     ; here if we don't dissoc the page will reload in the current state
+                                                     (pr-str new-state))))}))
 
