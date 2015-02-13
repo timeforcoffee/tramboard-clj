@@ -24,10 +24,11 @@
 
 ; some global constants here
 (def refresh-rate 10000)
+(def current-version 1)
 
 ; our initial app state
 (defonce app-state
-  (atom {:version 1
+  (atom {:version current-version
          ; views from local storage
          :configured-views (array-map)
          ; navigation state
@@ -63,6 +64,9 @@
 (defn- display-in-minutes [in-minutes]
   (if (< in-minutes 59) in-minutes ">59"))
 
+(defn- remove-sharing-infos [view]
+  (dissoc view :shared-view-id))
+
 (defn- update-updated-date [view]
   (assoc view :last-updated (to-long (now))))
 
@@ -73,12 +77,21 @@
 (defn get-stops-in-order [view]
   (map #(get (:stops view) %) (:stops-order view)))
 
+(defn- simplify-view [view]
+  "Removes known-destinations and last-updated from the view"
+  (dissoc (update-in view [:stops]
+                     ; we remove :view-id :last-updated from the view and :known-destinations from each stop
+                     (fn [stops] (into {}  (map #(vector
+                                                   (key %)
+                                                   (dissoc (val %) :known-destinations)) stops))))
+          :view-id :last-updated))
+
 (defn- export-string-from-view [view]
-  (let [string-view (pr-str
-                      (dissoc (update-in view [:stops]
-                                         ; we remove :view-id :last-updated from the view and :known-destinations from each stop
-                                         (fn [stops] (into {} (map #(vector (key %)
-                                                                            (dissoc (val %) :known-destinations)) stops)))) :view-id :last-updated))]
+  "This removes all non necessary view information such as known destination and view id,
+  But keeps the view id as shared-view-id so that we can identify when someone opens the
+  same view twice for example."
+  (let [view-id     (:view-id view)
+        string-view (pr-str (assoc (simplify-view view) :shared-view-id view-id))]
     (str/replace (b64/encodeString string-view) "=" "")))
 
 (defn- pad [string num character]
@@ -102,16 +115,18 @@
   (remove #(is-in-destinations (:excluded-destinations stop) %) (:known-destinations stop)))
 
 (defn get-recent-board-views [configured-views complete-state]
-  (let [views              (map #(val %) configured-views)
-        selected-views-ids (into #{} (map #(:view-id (:params (val %))) (:split-states complete-state)))]
-    (remove #(contains? selected-views-ids (:view-id %)) views)))
+  (let [views                 (map #(val %) configured-views)
+        selected-views-ids    (into #{} (map #(:view-id (:params (val %))) (:split-states complete-state)))
+        views-without-current (remove #(contains? selected-views-ids (:view-id %)) views)]
+    (take 10 (sort-by #(- (:last-updated %)) views-without-current))))
 
 (defn- remove-stop-and-update-date [current-view stop-id]
   (let [new-stops        (dissoc (:stops current-view) stop-id)
         new-stops-order  (vec (remove #(= stop-id %) (:stops-order current-view)))
-        new-current-view (update-updated-date (assoc current-view
+        new-current-view (remove-sharing-infos
+                           (update-updated-date (assoc current-view
                                                 :stops new-stops
-                                                :stops-order new-stops-order))]
+                                                :stops-order new-stops-order)))]
     new-current-view))
 
 (defn- add-stop-and-update-date [current-view {:keys [:id] :as stop}]
@@ -120,9 +135,10 @@
         existing-stop        (get existing-stops id)
         new-stops            (assoc existing-stops id (merge (or existing-stop {}) stop))
         new-stops-order      (if-not existing-stop (conj existing-stops-order id) existing-stops-order)
-        new-current-view     (update-updated-date (assoc current-view
+        new-current-view     (remove-sharing-infos
+                               (update-updated-date (assoc current-view
                                                     :stops new-stops
-                                                    :stops-order new-stops-order))]
+                                                    :stops-order new-stops-order)))]
     new-current-view))
 
 (defn- delete-view-if-no-stops [configured-views view-id]
@@ -133,11 +149,24 @@
       (dissoc configured-views view-id)
       configured-views)))
 
-(defn swap-add-view [app view]
+(defn- create-new-view [view]
+  (let [view-id (uuid)]
+    (update-updated-date (into {:view-id view-id} view))))
+
+(defn- get-shared-view [shared-view-id configured-views]
+  (let [shared-view (first (filter #(= (:shared-view-id %) shared-view-id) (map val configured-views)))]
+    (println shared-view)
+    shared-view))
+
+(defn swap-import-and-display-view [app imported-view]
   (swap!
     app (fn [app]
           (let [configured-views     (:configured-views app)
                 complete-state       (:complete-state app)
+
+                shared-view-id       (:shared-view-id imported-view)
+                shared-view          (get-shared-view shared-view-id configured-views)
+                view                 (or shared-view (create-new-view imported-view))
                 view-id              (:view-id view)
                 ; TODO this is the same as in transact-add-stop, simplify
                 new-configured-views (assoc configured-views view-id view)
@@ -149,20 +178,18 @@
                                        :complete-state new-complete-state)]
             new-app))))
 
-(defn- create-new-view [view]
-  (let [view-id (uuid)]
-    (update-updated-date (into {:view-id view-id} view))))
-
 (secretary/set-config! :prefix "#")
 (defroute share-link "/link/*" {hash :*}
-  (let [new-view (create-new-view (view-from-export-string hash))]
-    (println "Got link with a view to display" new-view)
-    (swap-add-view app-state new-view)
+  (let [imported-view  (view-from-export-string hash)]
+    (println "Got link with a view to display" imported-view)
+    (swap-import-and-display-view app-state imported-view)
     (.setToken (History.) "")))
 
 (defn- get-share-link [view]
   (str "http://staging.timeforcoffee.ch/" (share-link {:* (export-string-from-view view)})))
 
+; Those 4 methods modify the view and will remove the shared-view-id param
+; TODO move to own namespace
 (defn transact-add-stop [app state stop]
   (om/transact!
     app (fn [app]
@@ -206,8 +233,9 @@
              (let [stop                           (get (:stops view) stop-id)
                    existing-excluded-destinations (or (:excluded-destinations stop) #{})
                    new-excluded-destinations      (conj existing-excluded-destinations {:to destination :number number})
-                   new-current-view               (update-updated-date
-                                                    (assoc-in view [:stops stop-id :excluded-destinations] new-excluded-destinations))]
+                   new-current-view               (remove-sharing-infos
+                                                    (update-updated-date
+                                                      (assoc-in view [:stops stop-id :excluded-destinations] new-excluded-destinations)))]
                new-current-view)))))
 
 (defn transact-remove-filters [view]
@@ -216,7 +244,9 @@
                   ; we remove all the filters
                   (let [stops            (:stops view)
                         new-stops-vector (map #(vector (first %) (dissoc (second %) :excluded-destinations)) stops)
-                        new-current-view (update-updated-date (assoc view :stops (apply assoc stops (flatten new-stops-vector))))]
+                        new-current-view (remove-sharing-infos
+                                           (update-updated-date
+                                             (assoc view :stops (apply assoc stops (flatten new-stops-vector)))))]
                     new-current-view))))
 
 (defn fetch-suggestions [value suggestions-ch cancel-ch transformation-fn]
@@ -739,6 +769,9 @@
             (dom/li nil
                     (om/build number-icon number-with-colors)))))
 
+(defn- get-all-excluded-destinations [view]
+  (remove nil? (flatten (map #(:excluded-destinations (val %)) (:stops view)))))
+
 (defn recent-board-item [{:keys [configured-view current-state]} owner]
   (reify
     om/IRender
@@ -750,7 +783,10 @@
                                             (.preventDefault e))}
                             ; a list of all stops
                             (dom/h2 #js {:className "thin"}
-                                    (str/join " / " (map #(:name %) (get-stops-in-order configured-view))))
+                                    (str (str/join " / " (map #(:name %) (get-stops-in-order configured-view)))
+                                         ; TODO maybe do this ?
+                                         ;(when (not (empty? (get-all-excluded-destinations configured-view))) " (with filters)")
+                                    ))
                             ; a thumbnail of all trams
                             (dom/div #js {:className "number-list"}
                                      (let [numbers         (->> (:stops configured-view)
@@ -910,7 +946,7 @@
     (.setEnabled true)))
 
 (defn init! []
-  (let [saved-state     (or (try (reader/read-string (. js/localStorage (getItem "views"))) (catch :default e (println e) {})) {})]
+  (let [saved-state (or (try (reader/read-string (. js/localStorage (getItem "views"))) (catch :default e (println e) {})) {})]
     (swap! app-state deep-merge saved-state)
     (hook-browser-navigation!)))
 
@@ -918,6 +954,7 @@
   (om/root split-stationboard app-state
            {:target (. js/document (getElementById "my-app"))
             :tx-listen (fn [{:keys [path new-state]} _]
+                         (println new-state)
                          (. js/localStorage (setItem "views"
                                                      ; here if we don't dissoc the page will reload in the current state
                                                      (pr-str new-state))))}))
