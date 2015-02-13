@@ -351,12 +351,15 @@
             (dom/div #js {:className "stop-heading"}
                      (dom/h2 #js {:className "heading thin"} (str "Trams / buses / trains departing from " (str/join " / " (map #(:name %) (get-stops-in-order current-view)))))))))
 
-(defn export-view [view]
+(defn- export-view [view]
   (pr-str
     (dissoc (update-in view [:stops]
                        ; we remove :view-id :last-updated from the view and :known-destinations from each stop
                        (fn [stops] (into {} (map #(vector (key %)
                                                           (dissoc (val %) :known-destinations)) stops)))) :view-id :last-updated)))
+
+(defn- get-share-link [view]
+  (str "http://www.timeforcoffee.ch/#/link/" (b64/encodeString (export-view view))))
 
 (defn control-bar [{:keys [current-state current-view]} owner {:keys [on-activity-fn]}]
   (reify
@@ -384,12 +387,17 @@
     (will-unmount [this]
                   (let [hide-ch (om/get-state owner :hide-ch)]
                     (when hide-ch (close! hide-ch))))
+    om/IDidUpdate
+    (did-update [_ _ prev-state]
+                (when (and (not (:share-input-visible prev-state))
+                           (om/get-state owner :share-input-visible))
+                  (let [share-input (om/get-node owner "shareInput")]
+                    (.focus share-input))))
     om/IRenderState
-    (render-state [this {:keys [share-input-value]}]
+    (render-state [this {:keys [share-input-value share-input-visible]}]
                   (let [excluded-destinations (remove nil? (flatten (map #(:excluded-destinations (val %)) (:stops current-view))))
                         expanded              (= :expanded (:display (:params current-state)))
                         fullscreen-text       (if expanded "exit fullscreen" "fullscreen")]
-
                     (dom/div #js {:className "control-bar"}
                              (dom/span #js {:className "first-cell"}
                                        (dom/a #js {:href "#"
@@ -401,26 +409,38 @@
                                                                 (om/transact! current-state :params #(dissoc % :display ))
                                                                 (om/transact! current-state :params #(assoc % :display :expanded)))
                                                               (.preventDefault e))}))
-                             (dom/span nil
+                             (dom/span #js {:className "remove-filter-cell"}
                                        (dom/a #js {:href "#"
-                                                   :className (str "remove-filter link-icon " (when (empty? excluded-destinations) "hidden"))
+                                                   :className "remove-filter link-icon"
                                                    :onClick (fn [e]
                                                               (.preventDefault e)
                                                               (transact-remove-filters current-view))}
-                                              (dom/span #js {:className "remove-filter-image"} "✖") (dom/span #js {:className "remove-filter-text thin"} "remove filters")))
+                                              (dom/span #js {:className (when (empty? excluded-destinations) "hidden")}
+                                                        (dom/span #js {:className "remove-filter-image"} "✖") (dom/span #js {:className "remove-filter-text"} "remove filters"))))
                              (dom/span nil
+                                       (let [on-action (fn [e] (.select (om/get-node owner "shareInput")))]
                                        (dom/input #js {:aria-label "share URL"
-                                                       :className (str "share-input form-control " (when (nil? share-input-value) "hidden"))
+                                                       :className (str "share-input form-control " (when-not share-input-visible "hidden"))
+                                                       :ref "shareInput"
                                                        :type "text"
-                                                       :value share-input-value}))
+                                                       :value share-input-value
+                                                       :onClick on-action
+                                                       :onFocus on-action
+                                                       :onTouchStart on-action})))
                              (dom/span #js {:className "share-link"}
                                        (dom/a #js {:href "#"
                                                    :className "link-icon glyphicon glyphicon-link"
                                                    :aria-label "share"
                                                    :onClick (fn [e]
                                                               (.preventDefault e)
-                                                              (let [share-input-value (b64/encodeString (export-view current-view))]
-                                                                (om/set-state! owner :share-input-value share-input-value)))})))))))
+                                                              (om/update-state! owner
+                                                                                (fn [state]
+                                                                                  (let [share-input-value   (or (:share-input-value state)
+                                                                                                                (get-share-link current-view))
+                                                                                        share-input-visible (not (:share-input-visible state))]
+                                                                                    (assoc state
+                                                                                      :share-input-value share-input-value
+                                                                                      :share-input-visible share-input-visible)))))})))))))
 
 (defn arrival-tables-view [{:keys [current-view current-state]} owner {:keys [on-activity-fn]}]
   "Takes as input a set of views (station id) and the size of the pane and renders the table views."
