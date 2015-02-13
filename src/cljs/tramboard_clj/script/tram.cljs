@@ -399,7 +399,7 @@
                         expanded              (= :expanded (:display (:params current-state)))
                         fullscreen-text       (if expanded "exit fullscreen" "fullscreen")]
                     (dom/div #js {:className "control-bar"}
-                             (dom/span #js {:className "first-cell"}
+                             (dom/div #js {:className "first-cell"}
                                        (dom/a #js {:href "#"
                                                    :className (str "link-icon glyphicon " (if expanded "glyphicon-resize-small" "glyphicon-resize-full"))
                                                    :aria-label fullscreen-text
@@ -409,7 +409,7 @@
                                                                 (om/transact! current-state :params #(dissoc % :display ))
                                                                 (om/transact! current-state :params #(assoc % :display :expanded)))
                                                               (.preventDefault e))}))
-                             (dom/span #js {:className "remove-filter-cell"}
+                             (dom/div #js {:className "remove-filter-cell"}
                                        (dom/a #js {:href "#"
                                                    :className "remove-filter link-icon"
                                                    :onClick (fn [e]
@@ -417,8 +417,11 @@
                                                               (transact-remove-filters current-view))}
                                               (dom/span #js {:className (when (empty? excluded-destinations) "hidden")}
                                                         (dom/span #js {:className "remove-filter-image"} "✖") (dom/span #js {:className "remove-filter-text thin"} "remove filters"))))
-                             (dom/span nil
-                                       (let [on-action (fn [e] (.select (om/get-node owner "shareInput")))]
+                             (dom/div #js {:className "input-cell"}
+                                       (let [on-action (fn [e]
+                                                         ;(.select (om/get-node owner "shareInput"))
+                                                         (let [share-input (om/get-node owner "shareInput")]
+                                                         (.setSelectionRange share-input 0 (count (.-value share-input)))))]
                                        (dom/input #js {:aria-label "share URL"
                                                        :className (str "share-input form-control " (when-not share-input-visible "hidden"))
                                                        :ref "shareInput"
@@ -427,7 +430,7 @@
                                                        :onClick on-action
                                                        :onFocus on-action
                                                        :onTouchStart on-action})))
-                             (dom/span #js {:className "share-link"}
+                             (dom/div #js {:className "share-link"}
                                        (dom/a #js {:href "#"
                                                    :className "link-icon glyphicon glyphicon-link"
                                                    :aria-label "share"

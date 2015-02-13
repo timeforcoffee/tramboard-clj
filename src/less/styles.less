@@ -247,7 +247,7 @@ a .link-icon a.link-icon, a:hover .link-icon, a.link-icon:hover, a:visited .link
 	}
 
 	.remove-filter-cell {
-		width: 14em;
+		min-width: 90px;
 	}
 
 	.remove-filter {
@@ -277,9 +277,13 @@ a .link-icon a.link-icon, a:hover .link-icon, a.link-icon:hover, a:visited .link
 		width: 200px;
 	}
 
-	& > span {
+	& > div {
 		display: table-cell;
 		vertical-align: middle;
+	}
+
+	.share-input {
+		overflow: hidden
 	}
 
 }
