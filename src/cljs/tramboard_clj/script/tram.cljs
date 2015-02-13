@@ -416,7 +416,7 @@
                                                               (.preventDefault e)
                                                               (transact-remove-filters current-view))}
                                               (dom/span #js {:className (when (empty? excluded-destinations) "hidden")}
-                                                        (dom/span #js {:className "remove-filter-image"} "✖") (dom/span #js {:className "remove-filter-text"} "remove filters"))))
+                                                        (dom/span #js {:className "remove-filter-image"} "✖") (dom/span #js {:className "remove-filter-text thin"} "remove filters"))))
                              (dom/span nil
                                        (let [on-action (fn [e] (.select (om/get-node owner "shareInput")))]
                                        (dom/input #js {:aria-label "share URL"
