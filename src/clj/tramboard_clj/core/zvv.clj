@@ -85,9 +85,10 @@
 ; TODO tests (=> capture some data from zvv api)
 (defn transform-station-response [response-body]
   ;(spit "fixtures/zvv_responses/new.txt" response-body)
-  (let [unparsed (clojure.string/replace-first response-body "journeysObj = " "")
-        data     (json/parse-string unparsed)
-        journeys (data "journey")]
+  (let [unparsed   (clojure.string/replace-first response-body "journeysObj = " "")
+        replace-bs (clojure.string/replace (clojure.string/replace unparsed "{label:" "{\"label\":") ",url:" ",\"url\":")
+        data       (json/parse-string replace-bs)
+        journeys   (data "journey")]
     {:meta {:station_id (data "stationEvaId")
             :station_name (data "stationName")}
      :departures (map zvv-departure journeys)}))
