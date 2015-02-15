@@ -1,9 +1,10 @@
 (ns tramboard-clj.core.views
   (:use [hiccup core page element]
         [tramboard-clj.core.include])
-  (:require [tramboard-clj.core.zvv :as zvv]))
+  (:require [tramboard-clj.core.zvv :as zvv])
+  (:import com.newrelic.api.agent.Trace))
 
-(defn index-page []
+(defn- index-page* []
   (let [description "Real-time public transport schedule at stops in Switzerland for bus, train, tram, cable car..."
         lang        "en"
         title       "Time for Coffee!"]
@@ -38,10 +39,28 @@
               (com.newrelic.api.agent.NewRelic/getBrowserTimingFooter)]
              (include-javascript)))))
 
-(defn station [id]
+(defn- station* [id]
   {:headers {"Content-Type" "application/json; charset=utf-8"}
    :body (zvv/station id)})
 
-(defn query-stations [query]
+(defn- query-stations* [query]
   {:headers {"Content-Type" "application/json; charset=utf-8"}
    :body (zvv/query-stations query)})
+
+(definterface INR
+  (indexPage [])
+  (station [id])
+  (queryStations [query]))
+
+(deftype NR []
+  INR
+  ;; @Trace maps to Trace {} metadata:
+  (^{Trace {}} indexPage [_]           (index-page*))
+  (^{Trace {}} station [_ id]          (station* id))
+  (^{Trace {}} queryStations [_ query] (query-stations* query)))
+
+(def ^:private nr (NR.))
+
+(defn index-page []          (.indexPage nr))
+(defn station [id]           (.station nr id))
+(defn query-stations [query] (.queryStations nr query))
