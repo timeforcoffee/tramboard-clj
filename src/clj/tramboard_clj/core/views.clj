@@ -48,19 +48,19 @@
    :body (zvv/query-stations query)})
 
 (definterface INR
-  (indexPage [])
-  (station [id])
+  (indexPage     [])
+  (station       [id])
   (queryStations [query]))
 
 (deftype NR []
   INR
   ;; @Trace maps to Trace {} metadata:
-  (^{Trace {}} indexPage [_]           (index-page*))
-  (^{Trace {}} station [_ id]          (station* id))
+  (^{Trace {}} indexPage     [_]       (index-page*))
+  (^{Trace {}} station       [_ id]    (station* id))
   (^{Trace {}} queryStations [_ query] (query-stations* query)))
 
 (def ^:private nr (NR.))
 
-(defn index-page []          (.indexPage nr))
-(defn station [id]           (.station nr id))
+(defn index-page     []      (.indexPage nr))
+(defn station        [id]    (.station nr id))
 (defn query-stations [query] (.queryStations nr query))

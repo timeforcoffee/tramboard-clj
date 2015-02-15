@@ -4,7 +4,8 @@
             [clj-time.core :as t]
             [clj-time.format :as f]
             [clojure.string :as str]
-            [org.httpkit.client :as http]))
+            [org.httpkit.client :as http])
+    (:import com.newrelic.api.agent.Trace))
 
 ;(def http-options {:timeout 200             ; ms
 ;              :basic-auth ["user" "pass"]
@@ -109,11 +110,27 @@
   (let [response    (http/get url)]
     (transform-fn (:body @response))))
 
-(defn station [id]
+(defn- station* [id]
   (let [request-url (str station-base-url id)]
     (do-api-call request-url transform-station-response)))
 
-(defn query-stations [query]
+(defn- query-stations* [query]
   (let [request-url (str query-stations-base-url (codec/url-encode query))]
     (do-api-call request-url transform-query-stations-response)))
+
+
+(definterface INR
+  (station       [id])
+  (queryStations [query]))
+
+(deftype NR []
+  INR
+  ;; @Trace maps to Trace {} metadata:
+  (^{Trace {}} station       [_ id]    (station* id))
+  (^{Trace {}} queryStations [_ query] (query-stations* query)))
+
+(def ^:private nr (NR.))
+
+(defn station        [id]    (.station nr id))
+(defn query-stations [query] (.queryStations nr query))
 
