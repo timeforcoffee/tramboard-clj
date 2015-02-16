@@ -1,8 +1,7 @@
 (ns tramboard-clj.core.views
   (:use [hiccup core page element]
         [tramboard-clj.core.include])
-  (:require [tramboard-clj.core.zvv :as zvv])
-  (:import com.newrelic.api.agent.Trace))
+  (:require [tramboard-clj.core.zvv :as zvv]))
 
 (defn- index-page* []
   (let [description "Real-time public transport schedule at stops in Switzerland for bus, train, tram, cable car..."
@@ -39,20 +38,13 @@
               (com.newrelic.api.agent.NewRelic/getBrowserTimingFooter)]
              (include-javascript)))))
 
-(defn- notice-error [fun & args]
-  (try (apply fun args) (catch Exception e
-                          (do
-                            (println e)
-                            (com.newrelic.api.agent.NewRelic/noticeError e)
-                            (throw e)))))
-
 (defn- station* [id]
   {:headers {"Content-Type" "application/json; charset=utf-8"}
-   :body (notice-error zvv/station id)})
+   :body (zvv/station id)})
 
 (defn- query-stations* [query]
   {:headers {"Content-Type" "application/json; charset=utf-8"}
-   :body (notice-error zvv/query-stations query)})
+   :body (zvv/query-stations query)})
 
 (definterface INR
   (indexPage     [])
