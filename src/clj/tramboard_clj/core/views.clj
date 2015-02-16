@@ -39,13 +39,20 @@
               (com.newrelic.api.agent.NewRelic/getBrowserTimingFooter)]
              (include-javascript)))))
 
+(defn- notice-error [fun & args]
+  (try (apply fun args) (catch Exception e
+                          (do
+                            (println e)
+                            (com.newrelic.api.agent.NewRelic/noticeError e)
+                            (throw e)))))
+
 (defn- station* [id]
   {:headers {"Content-Type" "application/json; charset=utf-8"}
-   :body (zvv/station id)})
+   :body (notice-error zvv/station id)})
 
 (defn- query-stations* [query]
   {:headers {"Content-Type" "application/json; charset=utf-8"}
-   :body (zvv/query-stations query)})
+   :body (notice-error zvv/query-stations query)})
 
 (definterface INR
   (indexPage     [])
