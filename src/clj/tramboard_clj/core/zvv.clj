@@ -4,8 +4,7 @@
             [clj-time.core :as t]
             [clj-time.format :as f]
             [clojure.string :as str]
-            [org.httpkit.client :as http])
-    (:import com.newrelic.api.agent.Trace))
+            [org.httpkit.client :as http]))
 
 ;(def http-options {:timeout 200             ; ms
 ;              :basic-auth ["user" "pass"]
@@ -20,15 +19,15 @@
 
 (def zvv-date-formatter (f/with-zone (f/formatter "dd.MM.yy HH:mm") zvv-timezone))
 
-(defn zvv-parse-datetime [date time]
+(defn- zvv-parse-datetime [date time]
   (if (nil? time)
     nil
     (str (f/parse zvv-date-formatter (str date " " time)))))
 
-(defn sanitize [text]
+(defn- sanitize [text]
   (str/replace (str/replace text "&nbsp;" " ") #"S( )+" "S"))
 
-(defn map-category [text]
+(defn- map-category [text]
   (case text
     "Trm-NF" "tram"
     "Trm"    "tram"
@@ -62,14 +61,14 @@
 
     "train"))
 
-(defn map-accessible [text]
+(defn- map-accessible [text]
   (case text
     "Trm-NF" true
     "Bus-NF" true
     false))
 
 ; TODO add 1 day to realtime if it is smaller than scheduled (scheduled 23h59 + 3min delay ...)
-(defn zvv-departure [zvv-journey]
+(defn- zvv-departure [zvv-journey]
   (let [colors          (vec (remove str/blank? (str/split (zvv-journey "lc") #" ")))
         zvv-date-parser (partial zvv-parse-datetime (zvv-journey "da"))]
     {;:meta zvv-journey
@@ -84,53 +83,36 @@
                  :realtime (zvv-date-parser (get-in zvv-journey ["rt" "dlt"]))}}))
 
 ; TODO tests (=> capture some data from zvv api)
-(defn transform-station-response [response-body]
+(defn- transform-station-response [response-body]
   ;(spit "fixtures/zvv_responses/new.txt" response-body)
   (let [unparsed   (clojure.string/replace-first response-body "journeysObj = " "")
-        ;replace-bs (clojure.string/replace (clojure.string/replace unparsed "{label:" "{\"label\":") ",url:" ",\"url\":")
-        data       (json/parse-string unparsed)
+        replace-bs (clojure.string/replace (clojure.string/replace unparsed "{label:" "{\"label\":") ",url:" ",\"url\":")
+        data       (json/parse-string replace-bs)
         journeys   (data "journey")]
     {:meta {:station_id (data "stationEvaId")
             :station_name (data "stationName")}
      :departures (map zvv-departure journeys)}))
 
-(defn zvv-station [zvv-station]
+(defn- zvv-station [zvv-station]
   (let [id nil]
     {:id    (zvv-station "extId")
      :name  (zvv-station "value")}))
 
-(defn transform-query-stations-response [response-body]
+(defn- transform-query-stations-response [response-body]
   (let [unparsed (reduce #(clojure.string/replace-first %1 %2 "") response-body [";SLs.showSuggestion();" "SLs.sls="])
         data     (json/parse-string unparsed)
         stations (data "suggestions")]
     {:stations (map zvv-station (remove #(or (nil? (% "extId")) (not= "1" (% "type"))) stations))}))
 
 ; TODO error handling
-(defn do-api-call [url transform-fn]
+(defn- do-api-call [url transform-fn]
   (let [response    (http/get url)]
     (transform-fn (:body @response))))
 
-(defn- station* [id]
+(defn station [id]
   (let [request-url (str station-base-url id)]
     (do-api-call request-url transform-station-response)))
 
-(defn- query-stations* [query]
+(defn query-stations [query]
   (let [request-url (str query-stations-base-url (codec/url-encode query))]
     (do-api-call request-url transform-query-stations-response)))
-
-
-(definterface INR
-  (station       [id])
-  (queryStations [query]))
-
-(deftype NR []
-  INR
-  ;; @Trace maps to Trace {} metadata:
-  (^{Trace {}} station       [_ id]    (station* id))
-  (^{Trace {}} queryStations [_ query] (query-stations* query)))
-
-(def ^:private nr (NR.))
-
-(defn station        [id]    (.station nr id))
-(defn query-stations [query] (.queryStations nr query))
-

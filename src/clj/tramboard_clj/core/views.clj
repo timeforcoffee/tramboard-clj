@@ -1,7 +1,8 @@
 (ns tramboard-clj.core.views
   (:use [hiccup core page element]
         [tramboard-clj.core.include])
-  (:require [tramboard-clj.core.zvv :as zvv]))
+  (:require [tramboard-clj.core.zvv :as zvv])
+  (:import com.newrelic.api.agent.Trace))
 
 (defn- index-page* []
   (let [description "Real-time public transport schedule at stops in Switzerland for bus, train, tram, cable car..."
