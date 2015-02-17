@@ -238,6 +238,14 @@
                                                       (assoc-in view [:stops stop-id :excluded-destinations] new-excluded-destinations)))]
                new-current-view)))))
 
+(defn transact-fullscreen [state]
+  (ga "send" "event" "fullscreen" "enter")
+  (om/transact! state :params #(assoc % :display :expanded)))
+
+(defn transact-exit-fullscreen [state]
+  (ga "send" "event" "fullscreen" "exit")
+  (om/transact! state :params #(dissoc % :display)))
+
 (defn transact-remove-filters [view]
   (om/transact! view
                 (fn [view]
@@ -289,7 +297,7 @@
        (map
          (fn [entry]
            (let [scheduled-departure (:scheduled (:departure entry))
-                 ; TODO show something if we don't have realtime infos
+                 is-realtime         (:realtime (:departure entry))
                  realtime-departure  (or (:realtime (:departure entry)) scheduled-departure)
                  departure-timestamp (parse-from-date-time realtime-departure)
                  now                 (now)]
@@ -301,6 +309,7 @@
               :to                  (:to entry)
               :in-minutes          (minutes-from departure-timestamp now)
               :time                (format-to-hour-minute departure-timestamp)
+              :is-realtime         is-realtime
               :undelayed-time      (when (not= realtime-departure scheduled-departure)
                                      (let [scheduled-departure-timestamp (parse-from-date-time scheduled-departure)]
                                        (format-to-hour-minute scheduled-departure-timestamp)))})))))
@@ -390,11 +399,12 @@
     (render [this]
             (println "Rendering row")
 
-            (let [type       (:type arrival)
-                  in-minutes (:in-minutes arrival)
-                  number     (:number arrival)
-                  to         (:to arrival)
-                  accessible (:accessible arrival)]
+            (let [type        (:type arrival)
+                  in-minutes  (:in-minutes arrival)
+                  number      (:number arrival)
+                  to          (:to arrival)
+                  accessible  (:accessible arrival)
+                  is-realtime (:is-realtime arrival)]
               (dom/tr #js {:className "tram-row"}
                       (dom/td #js {:className "first-cell"} (om/build number-icon {:number number :colors (:colors arrival) :type type}))
                       (dom/td #js {:className "station"}
@@ -404,7 +414,7 @@
                                         to (when accessible (dom/i #js {:className "fa fa-wheelchair"}))))
                       (dom/td #js {:className "departure thin"}
                               (dom/div nil (:time arrival)
-                                       (dom/span #js {:className "undelayed"} (:undelayed-time arrival))))
+                                       (dom/span #js {:className "undelayed"} (if-not is-realtime "no real-time data" (:undelayed-time arrival)))))
                       (let [display-in-minutes  (display-in-minutes in-minutes)]
                         (dom/td #js {:className (str "text-right time time" in-minutes)}
                                 (om/build transport-icon {:type type :accessible-text "arriving now"})
@@ -479,8 +489,8 @@
                                                    :onClick (fn [e]
                                                               ; we change the state to hidden
                                                               (if expanded
-                                                                (om/transact! current-state :params #(dissoc % :display ))
-                                                                (om/transact! current-state :params #(assoc % :display :expanded)))
+                                                                (transact-exit-fullscreen current-state)
+                                                                (transact-fullscreen current-state))
                                                               (.preventDefault e))}))
                              (dom/div #js {:className "remove-filter-cell"}
                                        (dom/a #js {:href "#"
@@ -954,7 +964,6 @@
   (om/root split-stationboard app-state
            {:target (. js/document (getElementById "my-app"))
             :tx-listen (fn [{:keys [path new-state]} _]
-                         (println new-state)
                          (. js/localStorage (setItem "views"
                                                      ; here if we don't dissoc the page will reload in the current state
                                                      (pr-str new-state))))}))

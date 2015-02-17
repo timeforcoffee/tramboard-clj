@@ -5,7 +5,7 @@
   (:import com.newrelic.api.agent.Trace))
 
 (defn- index-page* []
-  (let [description "Real-time public transport schedule at stops in Switzerland for bus, train, tram, cable car..."
+  (let [description "Real-time departures of public transport in Switzerland, for bus, train, tram, cable car..."
         lang        "en"
         title       "Time for Coffee!"]
     (html5 {:lang lang}

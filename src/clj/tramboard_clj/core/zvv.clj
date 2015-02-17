@@ -13,7 +13,7 @@
 ;              :headers {"X-Header" "Value"}})
 
 (def query-stations-base-url        "http://online.fahrplan.zvv.ch/bin/ajax-getstop.exe/dny?start=1&tpl=suggest2json&REQ0JourneyStopsS0A=7&getstop=1&noSession=yes&REQ0JourneyStopsB=25&REQ0JourneyStopsS0G=")
-(def station-base-url               "http://online.fahrplan.zvv.ch/bin/stboard.exe/dn?L=vs_stbzvv&boardType=dep&productsFilter=1:1111111111111111&additionalTime=0&disableEquivs=false&maxJourneys=30&start=yes&monitor=1&requestType=0&view=preview&input=")
+(def station-base-url               "http://online.fahrplan.zvv.ch/bin/stboard.exe/dn?L=vs_stbzvv&boardType=dep&productsFilter=1:1111111111111111&additionalTime=0&disableEquivs=false&maxJourneys=40&start=yes&monitor=1&requestType=0&view=preview&input=")
 
 (def zvv-timezone (t/time-zone-for-id "Europe/Zurich"))
 
@@ -61,12 +61,6 @@
 
     "train"))
 
-(defn- map-accessible [text]
-  (case text
-    "Trm-NF" true
-    "Bus-NF" true
-    false))
-
 ; TODO add 1 day to realtime if it is smaller than scheduled (scheduled 23h59 + 3min delay ...)
 (defn- zvv-departure [zvv-journey]
   (let [colors          (vec (remove str/blank? (str/split (zvv-journey "lc") #" ")))
@@ -75,7 +69,7 @@
      :zvv_id (zvv-journey "id")
      :name (sanitize (zvv-journey "pr"))
      :type (map-category (zvv-journey "productCategory"))
-     :accessible (map-accessible (zvv-journey "productCategory"))
+     :accessible (zvv-journey "isNF")
      :colors {:fg (when (> (count colors) 0) (str "#" (colors 0)))
               :bg (when (> (count colors) 1) (str "#" (colors 1)))}
      :to (str/trim (zvv-journey "st"))
