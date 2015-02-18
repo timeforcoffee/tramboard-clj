@@ -419,7 +419,7 @@
                         (dom/td #js {:className (str "text-right time time" in-minutes)}
                                 (om/build transport-icon {:type type :accessible-text "arriving now"})
                                 (dom/div #js {:className "bold pull-right"
-                                              :aria-label (str "arriving in " display-in-minutes " minutes")} display-in-minutes))))))))
+                                              :aria-label (str "arriving in " display-in-minutes " minutes")} ">59"))))))))
 
 (defn arrival-table [{:keys [arrivals current-view current-state]} owner]
   (reify
