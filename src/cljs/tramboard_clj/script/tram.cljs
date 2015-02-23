@@ -26,6 +26,10 @@
 (def refresh-rate 10000)
 (def current-version 1)
 
+(def locations [{:id :ch     :name "Switzerland" :flag-class "ch"  :api "zvv" :active true}
+                {:id :ch_zvv :name "Zürich"      :flag-class "zrh" :api "zvv" :active false}
+                {:id :ch_gva :name "Geneva"      :flag-class "gva" :api "tpg" :active true}])
+
 ; our initial app state
 (defonce app-state
   (atom {:version current-version
@@ -881,24 +885,66 @@
 (defn strong [text]
   (dom/span #js {:className "thin"} text))
 
+; {:id :ch     :name "Switzerland" :flag-class "ch"  :api "zvv" :active true}
+(defn location-dropdown-item [{:keys [id name flag-class]} owner]
+  (reify
+    om/IRender
+    (render [this]
+            (dom/li nil (dom/a #js {:href "#" :onClick (fn [e] (js/alert "prout"))} name)))))
+
+(defn location-dropdown [_ owner {:keys [text]}]
+  (reify
+    om/IInitState
+    (init-state [_]
+                {:open false})
+    om/IRenderState
+    (render-state [this {:keys [open]}]
+                  (dom/span #js {:className "dropdown"
+                                 :onBlur    (fn [e]
+                                              (when-not (om/get-state owner :mouse)
+                                                (om/set-state! owner :open false))
+                                              (.preventDefault e))}
+                            (dom/a #js {:onClick (fn [e]
+                                                   (om/update-state! owner :open #(not %))
+                                                   (.preventDefault e))
+                                        :href "#"
+                                        :className "dropdown-toggle"
+                                        :aria-expanded "false"}
+                                   text (dom/span #js {:className "caret"}))
+                            (apply dom/ul #js {:className "dropdown-menu"
+                                         :role "menu"
+                                         :ref "dropdown-menu"
+                                         :style #js {:display (if open "block" "none")}
+                                         :onMouseEnter (fn [e]
+                                                         (om/set-state! owner :mouse true)
+                                                         (.preventDefault e))
+                                         :onMouseLeave (fn [e]
+                                                         (om/set-state! owner :mouse false)
+                                                         (.preventDefault e))}
+                                    (om/build-all location-dropdown-item (remove #(not (:active %)) locations)))))))
+
 (defn welcome-banner [_ owner]
   (reify
     om/IRender
     (render [this]
-            (dom/h1 #js {:className "ultra-thin welcome-banner text-center"}
-                    (dom/div nil
-                             "Relax and don't wait at the stop for your next "
-                             (strong "bus")   " " (om/build transport-icon {:type "bus"})   ", "
-                             (strong "tram")  " " (om/build transport-icon {:type "tram"})  ", "
-                             (strong "train") " " (om/build transport-icon {:type "train"}) ", "
-                             (strong "boat")  " " (om/build transport-icon {:type "boat"})  " or "
-                             (strong "cable car") " " (om/build transport-icon {:type "cable-car"}) ".")
-                    (dom/div nil "Enter any stop in "
-                             (dom/div #js {:className "phoca-flagbox"}
-                                      ; TODO Check this accessibility
-                                      (dom/span #js {:aria-label "Switzerland"
-                                                     :className "phoca-flag ch"}))
-                             " to get started.")))))
+            (dom/div #js {:className "welcome-banner"}
+                     (dom/h1 #js {:className "ultra-thin welcome-banner text-center"}
+                             (dom/div nil
+                                      "Relax and don't wait at the stop for your next "
+                                      (strong "bus")   " " (om/build transport-icon {:type "bus"})   ", "
+                                      (strong "tram")  " " (om/build transport-icon {:type "tram"})  ", "
+                                      (strong "train") " " (om/build transport-icon {:type "train"}) ", "
+                                      (strong "boat")  " " (om/build transport-icon {:type "boat"})  " or "
+                                      (strong "cable car") " " (om/build transport-icon {:type "cable-car"}) ".")
+                             (dom/div nil "Enter any stop in "
+                                      (dom/div #js {:className "phoca-flagbox"}
+                                               ; TODO Check this accessibility
+                                               (dom/span #js {:aria-label "Switzerland"
+                                                              :className  "phoca-flag ch"}))
+                                      " to get started."))
+                     (dom/h2 #js {:className "ultra-thin text-center"}
+                             (dom/div nil "Don't live there? Pick "
+                                      (om/build location-dropdown nil {:opts {:text "another location"}})))))))
 
 (defn stationboard [{:keys [current-state app]} owner]
   "Takes the app (contains all views, selected view) and renders the whole page, knows what to display based on the routing."

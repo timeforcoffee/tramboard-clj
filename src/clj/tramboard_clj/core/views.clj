@@ -37,7 +37,8 @@
              [:body
               [:div {:id "my-app"}]
               (com.newrelic.api.agent.NewRelic/getBrowserTimingFooter)]
-             (include-javascript)))))
+             (include-javascript)
+             ))))
 
 (defn- station* [id]
   {:headers {"Content-Type" "application/json; charset=utf-8"}
