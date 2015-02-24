@@ -62,7 +62,7 @@
   (if (= 0 (- x (count string))) string (cap (str letter string) x letter)))
 
 (defn- display-in-minutes [in-minutes]
-  (if (< in-minutes 59) in-minutes ">59"))
+  (if (< in-minutes 60) (str in-minutes "’") "..."))
 
 (defn- reset-sharing-infos [view]
   (assoc view :shared-view-id (uuid)))
@@ -329,6 +329,8 @@
                       ; we filter out the things we don't want to see
                       (remove #(let [stop (get (:stops current-view) (:stop-id %))]
                                  (is-in-destinations (:excluded-destinations stop) %)))
+                      ; we filter out the things that left more than 0 minutes ago
+                      (remove #(< (:in-minutes %) 0))
                       (take 30))]
     arrivals))
 
@@ -415,11 +417,10 @@
                       (dom/td #js {:className "departure thin"}
                               (dom/div nil (:time arrival)
                                        (dom/span #js {:className "undelayed"} (if-not is-realtime "no real-time data" (:undelayed-time arrival)))))
-                      (let [display-in-minutes  (display-in-minutes in-minutes)]
-                        (dom/td #js {:className (str "text-right time time" in-minutes)}
-                                (om/build transport-icon {:type type :accessible-text "arriving now"})
-                                (dom/div #js {:className "bold pull-right"
-                                              :aria-label (str "arriving in " display-in-minutes " minutes")} display-in-minutes))))))))
+                      (dom/td #js {:className (str "text-right time time" in-minutes " " (if (> in-minutes 100) "time100"))}
+                              (om/build transport-icon {:type type :accessible-text "arriving now"})
+                              (dom/div #js {:className "bold pull-right"
+                                            :aria-label (str "arriving in " in-minutes " minutes")} (str in-minutes "’"))))))))
 
 (defn arrival-table [{:keys [arrivals current-view current-state]} owner]
   (reify
