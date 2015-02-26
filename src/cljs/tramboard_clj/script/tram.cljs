@@ -271,7 +271,7 @@
         (goog.events/listen
           xhr goog.net.EventType.ERROR
           (fn [e] (println "ERROR")))
-        (.send xhr (str "/api/stations/" value) "GET")))
+        (.send xhr (str "/api/zvv/stations/" value) "GET")))
     (go
       (<! cancel-ch)
       (do
@@ -287,7 +287,7 @@
     (goog.events/listen
       xhr goog.net.EventType.ERROR
       (fn [e] (put! error-ch {:stop-id stop-id :data [] :error (.getLastError xhr)})))
-    (.send xhr (str "/api/stationboard/" stop-id) "GET")
+    (.send xhr (str "/api/zvv/stationboard/" stop-id) "GET")
     (go
       (<! cancel-ch)
       (.abort xhr))))
