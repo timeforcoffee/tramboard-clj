@@ -25,7 +25,9 @@
     (str (f/parse zvv-date-formatter (str date " " time)))))
 
 (defn- sanitize [text]
-  (str/replace (str/replace text "&nbsp;" " ") #"S( )+" "S"))
+  (reduce #(str/replace %1 (%2 0) (%2 1)) 
+          text 
+          [["&nbsp;" " "] [#"S( )+" "S"] ["Bus " ""]]))
 
 (defn- map-category [text]
   (case text
