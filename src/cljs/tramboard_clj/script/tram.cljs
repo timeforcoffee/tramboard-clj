@@ -16,6 +16,7 @@
             [goog.events :as events]
             [goog.history.EventType :as EventType]
             [goog.crypt.base64 :as b64]
+            [tramboard-clj.components.filter :refer [c-filter-editor]]
             [tramboard-clj.script.time :refer [parse-from-date-time format-to-hour-minute display-time minutes-from]]
             [tramboard-clj.script.state :refer [is-home is-edit is-split get-state go-home go-edit go-toggle-split modify-complete-state get-all-states reset-complete-state]])
   (:import [goog.net XhrIo]
@@ -931,6 +932,7 @@
                                                  (om/build recent-boards {:app app :current-state current-state}))
                                         (is-edit current-state)
                                         (dom/div #js {:className "responsive-display"}
+                                                 (om/build c-filter-editor [])
                                                  (om/build stop-heading current-view)
                                                  (om/build arrival-tables-view
                                                            {:current-view current-view :current-state current-state}
