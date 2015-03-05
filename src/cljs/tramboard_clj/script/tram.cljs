@@ -242,14 +242,6 @@
                                                       (assoc-in view [:stops stop-id :excluded-destinations] new-excluded-destinations)))]
                new-current-view)))))
 
-(defn transact-fullscreen [state]
-  (ga "send" "event" "fullscreen" "enter")
-  (om/transact! state :params #(assoc % :display :expanded)))
-
-(defn transact-exit-fullscreen [state]
-  (ga "send" "event" "fullscreen" "exit")
-  (om/transact! state :params #(dissoc % :display)))
-
 (defn transact-remove-filters [view]
   (om/transact! view
                 (fn [view]
@@ -260,6 +252,15 @@
                                            (update-updated-date
                                              (assoc view :stops (apply assoc stops (flatten new-stops-vector)))))]
                     new-current-view))))
+
+(defn transact-fullscreen [state]
+  (ga "send" "event" "fullscreen" "enter")
+  (om/transact! state :params #(assoc % :display :expanded)))
+
+(defn transact-exit-fullscreen [state]
+  (ga "send" "event" "fullscreen" "exit")
+  (om/transact! state :params #(dissoc % :display)))
+
 
 (defn fetch-suggestions [value suggestions-ch cancel-ch transformation-fn]
   (let [xhr        (XhrIo.)
@@ -704,6 +705,46 @@
                           (dom/span #js {:className "glyphicon glyphicon-remove"}))))))
 
 
+
+; {:id :ch     :name "Switzerland" :flag-class "ch"  :api "zvv" :active true}
+(defn location-dropdown-item [{:keys [id name flag-class]} owner]
+  (reify
+    om/IRender
+    (render [this]
+            (dom/li nil (dom/a #js {:href "#" :onClick (fn [e] (js/alert "prout"))} name)))))
+
+(defn location-dropdown [_ owner {:keys [text]}]
+  (reify
+    om/IInitState
+    (init-state [_]
+                {:open false})
+    om/IRenderState
+    (render-state [this {:keys [open]}]
+                  (dom/span #js {:className "dropdown"
+                                 :onBlur    (fn [e]
+                                              (when-not (om/get-state owner :mouse)
+                                                (om/set-state! owner :open false))
+                                              (.preventDefault e))}
+                            (dom/a #js {:onClick (fn [e]
+                                                   (om/update-state! owner :open #(not %))
+                                                   (.preventDefault e))
+                                        :href "#"
+                                        :className "dropdown-toggle"
+                                        :aria-expanded "false"}
+                                   text (dom/span #js {:className "caret"}))
+                            (apply dom/ul #js {:className "dropdown-menu"
+                                         :role "menu"
+                                         :ref "dropdown-menu"
+                                         :style #js {:display (if open "block" "none")}
+                                         :onMouseEnter (fn [e]
+                                                         (om/set-state! owner :mouse true)
+                                                         (.preventDefault e))
+                                         :onMouseLeave (fn [e]
+                                                         (om/set-state! owner :mouse false)
+                                                         (.preventDefault e))}
+                                   (om/build-all location-dropdown-item (remove #(not (:active %)) locations)))))))
+
+
 (defn edit-pane [{:keys [app current-state]} owner]
   "This shows the edit pane to add stops and stuff"
   (let [set-sizes
@@ -748,9 +789,11 @@
       (render-state [_ {:keys [backspace-ch buttons-width input-width]}]
                     (let [configured-views (:configured-views app)
                           current-view     (current-view current-state configured-views)
-                          is-home          (is-home current-state)]
-
+                          is-home          (is-home current-state)
+                          current-location nil]
+                      
                       (println "Rendering edit-pane")
+                      
                       (dom/form #js {:className "edit-form" :role "search"}
                                 (dom/div #js {:className "form-group form-group-lg"}
                                          (dom/label #js {:className "control-label sr-only"
@@ -769,6 +812,22 @@
                                          (dom/div #js {:className (str "text-right ultra-thin credits " (when-not is-home "hidden"))}
                                                   "brought to you by "
                                                   (dom/a #js {:target "_blank" :href "http://twitter.com/fterrier"} "@fterrier")))))))))
+
+
+                      ; (dom/div nil 
+                      ;          (dom/div #js {:className (when-not is-home "hidden")} 
+                      ;                   (if-not (nil? current-location)
+                      ;                     (dom/h1 #js {:className "ultra-thin text-center"}
+                      ;                             (dom/div nil "Enter any stop in "
+                      ;                                      (dom/div #js {:className "phoca-flagbox"}
+                      ;                                               ; TODO Check this accessibility
+                      ;                                               (dom/span #js {:aria-label "Switzerland"
+                      ;                                                              :className  "phoca-flag ch"}))
+                      ;                                      " to get started.")
+                                                  
+                      ;                             (dom/h1 #js {:className "ultra-thin text-center"}
+                      ;                             (dom/div nil "To start, please pick "
+                      ;                                      (om/build location-dropdown nil {:opts {:text "a location"}})))
 
 (defn recent-board-item-stop [stop owner]
   (reify
@@ -885,44 +944,6 @@
 (defn strong [text]
   (dom/span #js {:className "thin"} text))
 
-; {:id :ch     :name "Switzerland" :flag-class "ch"  :api "zvv" :active true}
-(defn location-dropdown-item [{:keys [id name flag-class]} owner]
-  (reify
-    om/IRender
-    (render [this]
-            (dom/li nil (dom/a #js {:href "#" :onClick (fn [e] (js/alert "prout"))} name)))))
-
-(defn location-dropdown [_ owner {:keys [text]}]
-  (reify
-    om/IInitState
-    (init-state [_]
-                {:open false})
-    om/IRenderState
-    (render-state [this {:keys [open]}]
-                  (dom/span #js {:className "dropdown"
-                                 :onBlur    (fn [e]
-                                              (when-not (om/get-state owner :mouse)
-                                                (om/set-state! owner :open false))
-                                              (.preventDefault e))}
-                            (dom/a #js {:onClick (fn [e]
-                                                   (om/update-state! owner :open #(not %))
-                                                   (.preventDefault e))
-                                        :href "#"
-                                        :className "dropdown-toggle"
-                                        :aria-expanded "false"}
-                                   text (dom/span #js {:className "caret"}))
-                            (apply dom/ul #js {:className "dropdown-menu"
-                                         :role "menu"
-                                         :ref "dropdown-menu"
-                                         :style #js {:display (if open "block" "none")}
-                                         :onMouseEnter (fn [e]
-                                                         (om/set-state! owner :mouse true)
-                                                         (.preventDefault e))
-                                         :onMouseLeave (fn [e]
-                                                         (om/set-state! owner :mouse false)
-                                                         (.preventDefault e))}
-                                    (om/build-all location-dropdown-item (remove #(not (:active %)) locations)))))))
-
 (defn welcome-banner [_ owner]
   (reify
     om/IRender
@@ -935,16 +956,7 @@
                                       (strong "tram")  " " (om/build transport-icon {:type "tram"})  ", "
                                       (strong "train") " " (om/build transport-icon {:type "train"}) ", "
                                       (strong "boat")  " " (om/build transport-icon {:type "boat"})  " or "
-                                      (strong "cable car") " " (om/build transport-icon {:type "cable-car"}) ".")
-                             (dom/div nil "Enter any stop in "
-                                      (dom/div #js {:className "phoca-flagbox"}
-                                               ; TODO Check this accessibility
-                                               (dom/span #js {:aria-label "Switzerland"
-                                                              :className  "phoca-flag ch"}))
-                                      " to get started."))
-                     (dom/h2 #js {:className "ultra-thin text-center"}
-                             (dom/div nil "Don't live there? Pick "
-                                      (om/build location-dropdown nil {:opts {:text "another location"}})))))))
+                                      (strong "cable car") " " (om/build transport-icon {:type "cable-car"}) "."))))))
 
 (defn stationboard [{:keys [current-state app]} owner]
   "Takes the app (contains all views, selected view) and renders the whole page, knows what to display based on the routing."
