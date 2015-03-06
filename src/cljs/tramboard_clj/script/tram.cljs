@@ -957,9 +957,17 @@
         (secretary/dispatch! (.-token event))))
     (.setEnabled true)))
 
+(defn debug-app-state [app-state] 
+  (let [complete-state  (:complete-state app-state)
+        state-1         (get-state complete-state :state-1)
+        state-2         (get-state complete-state :state-2)]
+    (if-not (or (:visible state-1) (:visible state-2))
+      (assoc app-state :complete-state (reset-complete-state complete-state))
+      app-state)))
+
 (defn init! []
   (let [saved-state (or (try (reader/read-string (. js/localStorage (getItem "views"))) (catch :default e (println e) {})) {})]
-    (swap! app-state deep-merge saved-state)
+    (swap! app-state deep-merge (debug-app-state saved-state))
     (hook-browser-navigation!)))
 
 (defn main []
