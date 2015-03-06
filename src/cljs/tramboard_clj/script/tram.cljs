@@ -436,7 +436,7 @@
     om/IRender
     (render [this]
             (dom/div #js {:className "stop-heading"}
-                     (dom/h2 #js {:className "heading thin"} (str "Trams / buses / trains departing from " (str/join " / " (map #(:name %) (get-stops-in-order current-view)))))))))
+                     (dom/h2 #js {:className "heading thin"} (str "Departures from " (str/join " / " (map #(:name %) (get-stops-in-order current-view)))))))))
 
 (defn control-bar [{:keys [current-state current-view]} owner {:keys [on-activity-fn]}]
   (reify
