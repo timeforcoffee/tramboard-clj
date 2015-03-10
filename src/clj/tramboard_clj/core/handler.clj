@@ -23,7 +23,8 @@
     (wrap-routes (wrap-routes (GET "/zvv/stations/:query{.+}" [query] (query-stations query)) wrap-json-response) wrap-no-cache)))
 
 (defroutes app-routes
-  (wrap-routes (GET "/" [] (index-page)) wrap-cache)
+  (wrap-routes (GET "/"      [] (index-page)) wrap-cache)
+  (wrap-routes (GET "/about" [] (about-page)) wrap-cache)
   (wrap-routes (route/resources "/public") wrap-cache)
   (route/not-found "404"))
 

@@ -765,7 +765,7 @@
                                                                      :input-placeholder "Enter a stop"}}))
                                          (dom/div #js {:className (str "text-right ultra-thin credits " (when-not is-home "hidden"))}
                                                   "brought to you by "
-                                                  (dom/a #js {:target "_blank" :href "http://twitter.com/fterrier"} "@fterrier")))))))))
+                                                  (dom/a #js {:target "_blank" :href "/about"} "Time for Coffee team")))))))))
 
 (defn recent-board-item-stop [stop owner]
   (reify
