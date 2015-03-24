@@ -572,10 +572,6 @@
                                   (let [{:keys [data stop-id error]} output]
                                     (println (str "Received data for stop: " stop-id))
 
-                                    (go (<! (timeout refresh-rate))
-                                        (println (str "Putting onto fetch channel: " stop-id))
-                                        (put! new-fetch-ch stop-id))
-
                                     ; we just validate here the stop id
                                     (if (and (not error) stop-id)
                                       (do
@@ -598,13 +594,16 @@
                                   (ga "send" "event" "stop" "query" {:dimension1 stop-id})
                                   (fetch-stationboard-data stop-id new-incoming-ch
                                                            new-incoming-ch new-cancel-ch
-                                                           transform-stationboard-data)))
-
+                                                           transform-stationboard-data)
+                                  (go (<! (timeout refresh-rate))
+                                      (println (str "Putting onto fetch channel: " stop-id))
+                                      (put! new-fetch-ch stop-id))))
+                              
                               ; we ask the channel to fetch the new data
                               (doseq [stop-id stop-ids]
                                 (println (str "Initializing fetch loop for: " stop-id))
                                 (put! new-fetch-ch stop-id))
-
+                              
                               (assoc (update-in state [:arrival-channels]
                                                 #(assoc %
                                                    :incoming-ch new-incoming-ch
