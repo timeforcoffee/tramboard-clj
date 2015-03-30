@@ -9,7 +9,7 @@
         lang        "en"
         title       "Time for Coffee!"]
     (html5 {:lang lang}
-           [:head
+           [:head {:profile "http://www.w3.org/2005/10/profile"}
             [:meta {:charset "UTF-8"}]
             [:meta {:http-equiv "Content-Type"    :content "text/html;charset=utf-8"}]
             [:meta {:http-equiv "X-UA-Compatible" :content "IE=edge"}]
@@ -24,6 +24,8 @@
             [:meta {:name "og:title" :content title}]
             [:meta {:name "og:url" :content "http://www.timeforcoffee.ch/"}]
             
+            [:link {:rel "icon" :type "image/png" :href "/favicon.png"}]
+      
             (include-css "//netdna.bootstrapcdn.com/bootstrap/3.3.2/css/bootstrap.min.css")
             (include-css "//maxcdn.bootstrapcdn.com/font-awesome/4.3.0/css/font-awesome.min.css")
             (include-css "/css/styles.css")
