@@ -7,16 +7,16 @@
             [cljs-time.core :refer [minute hour in-minutes interval now after? minus weeks within? days to-default-time-zone]]
             [cljs-time.format :refer [parse unparse formatters formatter show-formatters]]
             [cljs-time.coerce :refer [to-long from-long]]
-            [goog.events :as events]
-            [goog.array :as g-array]
             [cljs-uuid.core :as uuid]
             [arosequist.om-autocomplete :as ac]
             [arosequist.om-autocomplete.bootstrap :as acb]
             [cljs.reader :as reader]
             [secretary.core :as secretary :refer-macros [defroute]]
+            [goog.array :as g-array]
             [goog.events :as events]
             [goog.history.EventType :as EventType]
             [goog.crypt.base64 :as b64]
+            [tramboard-clj.components.filter :refer [c-filter-editor]]
             [tramboard-clj.script.time :refer [parse-from-date-time format-to-hour-minute display-time minutes-from]]
             [tramboard-clj.script.state :refer [is-home is-edit is-split get-state go-home go-edit go-toggle-split modify-complete-state get-all-states reset-complete-state]])
   (:import [goog.net XhrIo]
@@ -62,7 +62,7 @@
   (if (= 0 (- x (count string))) string (cap (str letter string) x letter)))
 
 (defn- display-in-minutes [in-minutes]
-  (if (< in-minutes 59) in-minutes ">59"))
+  (if (< in-minutes 60) (str in-minutes "’") "..."))
 
 (defn- reset-sharing-infos [view]
   (assoc view :shared-view-id (uuid)))
@@ -271,7 +271,7 @@
         (goog.events/listen
           xhr goog.net.EventType.ERROR
           (fn [e] (println "ERROR")))
-        (.send xhr (str "/api/stations/" value) "GET")))
+        (.send xhr (str "/api/zvv/stations/" value) "GET")))
     (go
       (<! cancel-ch)
       (do
@@ -287,7 +287,7 @@
     (goog.events/listen
       xhr goog.net.EventType.ERROR
       (fn [e] (put! error-ch {:stop-id stop-id :data [] :error (.getLastError xhr)})))
-    (.send xhr (str "/api/stationboard/" stop-id) "GET")
+    (.send xhr (str "/api/zvv/stationboard/" stop-id) "GET")
     (go
       (<! cancel-ch)
       (.abort xhr))))
@@ -329,6 +329,8 @@
                       ; we filter out the things we don't want to see
                       (remove #(let [stop (get (:stops current-view) (:stop-id %))]
                                  (is-in-destinations (:excluded-destinations stop) %)))
+                      ; we filter out the things that left more than 0 minutes ago
+                      (remove #(< (:in-minutes %) 0))
                       (take 30))]
     arrivals))
 
@@ -415,11 +417,10 @@
                       (dom/td #js {:className "departure thin"}
                               (dom/div nil (:time arrival)
                                        (dom/span #js {:className "undelayed"} (if-not is-realtime "no real-time data" (:undelayed-time arrival)))))
-                      (let [display-in-minutes  (display-in-minutes in-minutes)]
-                        (dom/td #js {:className (str "text-right time time" in-minutes)}
-                                (om/build transport-icon {:type type :accessible-text "arriving now"})
-                                (dom/div #js {:className "bold pull-right"
-                                              :aria-label (str "arriving in " display-in-minutes " minutes")} display-in-minutes))))))))
+                      (dom/td #js {:className (str "text-right time time" in-minutes " " (if (> in-minutes 100) "time100"))}
+                              (om/build transport-icon {:type type :accessible-text "arriving now"})
+                              (dom/div #js {:className "bold pull-right"
+                                            :aria-label (str "arriving in " in-minutes " minutes")} (str in-minutes "’"))))))))
 
 (defn arrival-table [{:keys [arrivals current-view current-state]} owner]
   (reify
@@ -435,7 +436,7 @@
     om/IRender
     (render [this]
             (dom/div #js {:className "stop-heading"}
-                     (dom/h2 #js {:className "heading thin"} (str "Trams / buses / trains departing from " (str/join " / " (map #(:name %) (get-stops-in-order current-view)))))))))
+                     (dom/h2 #js {:className "heading thin"} (str "Departures from " (str/join " / " (map #(:name %) (get-stops-in-order current-view)))))))))
 
 (defn control-bar [{:keys [current-state current-view]} owner {:keys [on-activity-fn]}]
   (reify
@@ -571,10 +572,6 @@
                                   (let [{:keys [data stop-id error]} output]
                                     (println (str "Received data for stop: " stop-id))
 
-                                    (go (<! (timeout refresh-rate))
-                                        (println (str "Putting onto fetch channel: " stop-id))
-                                        (put! new-fetch-ch stop-id))
-
                                     ; we just validate here the stop id
                                     (if (and (not error) stop-id)
                                       (do
@@ -597,13 +594,16 @@
                                   (ga "send" "event" "stop" "query" {:dimension1 stop-id})
                                   (fetch-stationboard-data stop-id new-incoming-ch
                                                            new-incoming-ch new-cancel-ch
-                                                           transform-stationboard-data)))
-
+                                                           transform-stationboard-data)
+                                  (go (<! (timeout refresh-rate))
+                                      (println (str "Putting onto fetch channel: " stop-id))
+                                      (put! new-fetch-ch stop-id))))
+                              
                               ; we ask the channel to fetch the new data
                               (doseq [stop-id stop-ids]
                                 (println (str "Initializing fetch loop for: " stop-id))
                                 (put! new-fetch-ch stop-id))
-
+                              
                               (assoc (update-in state [:arrival-channels]
                                                 #(assoc %
                                                    :incoming-ch new-incoming-ch
@@ -764,7 +764,7 @@
                                                                      :input-placeholder "Enter a stop"}}))
                                          (dom/div #js {:className (str "text-right ultra-thin credits " (when-not is-home "hidden"))}
                                                   "brought to you by "
-                                                  (dom/a #js {:target "_blank" :href "http://twitter.com/fterrier"} "@fterrier")))))))))
+                                                  (dom/a #js {:target "_blank" :href "/about"} "Time for Coffee team")))))))))
 
 (defn recent-board-item-stop [stop owner]
   (reify
@@ -931,6 +931,7 @@
                                                  (om/build recent-boards {:app app :current-state current-state}))
                                         (is-edit current-state)
                                         (dom/div #js {:className "responsive-display"}
+                                                 (om/build c-filter-editor [])
                                                  (om/build stop-heading current-view)
                                                  (om/build arrival-tables-view
                                                            {:current-view current-view :current-state current-state}
@@ -955,9 +956,17 @@
         (secretary/dispatch! (.-token event))))
     (.setEnabled true)))
 
+(defn debug-app-state [app-state] 
+  (let [complete-state  (:complete-state app-state)
+        state-1         (get-state complete-state :state-1)
+        state-2         (get-state complete-state :state-2)]
+    (if-not (or (:visible state-1) (:visible state-2))
+      (assoc app-state :complete-state (reset-complete-state complete-state))
+      app-state)))
+
 (defn init! []
   (let [saved-state (or (try (reader/read-string (. js/localStorage (getItem "views"))) (catch :default e (println e) {})) {})]
-    (swap! app-state deep-merge saved-state)
+    (swap! app-state deep-merge (debug-app-state saved-state))
     (hook-browser-navigation!)))
 
 (defn main []
