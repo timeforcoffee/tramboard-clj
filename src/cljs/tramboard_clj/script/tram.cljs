@@ -186,7 +186,7 @@
     (.setToken (History.) "")))
 
 (defn- get-share-link [view]
-  (str "http://www.timeforcoffee.ch/" (share-link {:* (export-string-from-view view)})))
+  (str (.. js/window -location -protocol) "//" (.. js/window -location -host) "/" (share-link {:* (export-string-from-view view)})))
 
 ; Those 4 methods modify the view and will remove the shared-view-id param
 ; TODO move to own namespace
@@ -598,12 +598,12 @@
                                   (go (<! (timeout refresh-rate))
                                       (println (str "Putting onto fetch channel: " stop-id))
                                       (put! new-fetch-ch stop-id))))
-                              
+
                               ; we ask the channel to fetch the new data
                               (doseq [stop-id stop-ids]
                                 (println (str "Initializing fetch loop for: " stop-id))
                                 (put! new-fetch-ch stop-id))
-                              
+
                               (assoc (update-in state [:arrival-channels]
                                                 #(assoc %
                                                    :incoming-ch new-incoming-ch
@@ -956,7 +956,7 @@
         (secretary/dispatch! (.-token event))))
     (.setEnabled true)))
 
-(defn debug-app-state [app-state] 
+(defn debug-app-state [app-state]
   (let [complete-state  (:complete-state app-state)
         state-1         (get-state complete-state :state-1)
         state-2         (get-state complete-state :state-2)]
