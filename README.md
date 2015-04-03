@@ -6,7 +6,7 @@ Tramboard is a station board for the trams and public transport in Switzerland. 
 
 This is a rewrite of the original version at [Tramboard](https://github.com/fterrier/tramboard) using clojure and om.
 
-The site is currently deployed on [http://tramboard.herokuapp.com](http://tramboard.herokuapp.com). Here is a quick look :
+The site is currently deployed on [http://www.timeforcoffee.ch](http://tramboard.herokuapp.com). Here is a quick look :
 <img src="screenshot.png" alt="Tramboard app" style="text-align:center;height:400px;"/>
 
 ## How to install locally
