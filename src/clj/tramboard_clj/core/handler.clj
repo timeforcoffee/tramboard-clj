@@ -1,11 +1,17 @@
 (ns tramboard-clj.core.handler
-  (:require [compojure.core :refer :all]
+  (:require [environ.core :refer [env]]
+            [compojure.core :refer :all]
             [compojure.route :as route]
-            [ring.middleware.defaults :refer [wrap-defaults site-defaults api-defaults]]
+            [ring.middleware.defaults :refer [wrap-defaults site-defaults secure-site-defaults api-defaults]]
             [ring.middleware.gzip :refer [wrap-gzip]]
             [ring.middleware.json :refer [wrap-json-response]]
             [ring.middleware.etag :refer [wrap-etag]]
             [tramboard-clj.core.views :refer :all]))
+
+(def env-site-defaults
+  (if (= (env :https) "true")
+    (assoc secure-site-defaults :proxy true)
+    site-defaults))
 
 (defn wrap-no-cache [h]
   (fn [req]
@@ -29,7 +35,7 @@
   (route/not-found "404"))
 
 (def site
-  (wrap-routes app-routes wrap-defaults (assoc site-defaults :cookies false :session false)))
+  (wrap-routes app-routes wrap-defaults (assoc env-site-defaults :cookies false :session false)))
 
 (def api
   (wrap-routes api-routes wrap-defaults api-defaults))

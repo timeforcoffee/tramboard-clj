@@ -8,6 +8,7 @@
                  [compojure "1.3.1"]
                  [com.andrewmcveigh/cljs-time "0.3.0"]
                  [cheshire "5.4.0"]
+                 [environ "1.0.0"]
                  [hiccup "1.0.0"]
                  [http-kit "2.1.18"]
                  [org.clojure/clojure "1.6.0"]
