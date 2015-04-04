@@ -560,6 +560,17 @@
                                (clj->js {:className (str "split-board " (name (get order 0)) "-" (name (get order 1)))}))
                      (map #(om/build stationboard {:current-state % :app app}) states))))))
 
+(defn application [app-state owner]
+  (reify
+    om/IRender
+    (render [this]
+            (let [new-visitor (:new-visitor app-state)]
+              (if
+                new-visitor
+                ; TODO display the location chooser
+                (om/build split-stationboard app-state)
+                (om/build split-stationboard app-state))))))
+
 (defn hook-browser-navigation! []
   (doto (History.)
     (events/listen
@@ -586,7 +597,7 @@
     (hook-browser-navigation!)))
 
 (defn main []
-  (om/root split-stationboard app-state
+  (om/root application app-state
            {:target (. js/document (getElementById "my-app"))
             :tx-listen (fn [{:keys [path new-state]} _]
                          (. js/localStorage (setItem "views"
