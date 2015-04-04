@@ -1,0 +1,232 @@
+(ns tramboard-clj.components.board
+  (:require-macros [cljs.core.async.macros :refer [go]])
+  (:require [om.core :as om :include-macros true]
+            [om.dom :as dom :include-macros true]
+            [cljs-time.core :refer [now]]
+            [cljs.core.async :refer [put! chan <! >! close! timeout]]
+            [tramboard-clj.components.icon :refer [number-icon transport-icon]]
+            [tramboard-clj.script.util :refer [is-in-destinations wait-on-channel ga]]
+            [tramboard-clj.script.client :refer [fetch-stationboard-data]]
+            [tramboard-clj.script.time :refer [parse-from-date-time format-to-hour-minute minutes-from]]
+            [tramboard-clj.script.util :refer [wait-on-channel]]))
+
+(defn- display-in-minutes [in-minutes]
+  (if (< in-minutes 60) (str in-minutes "’") "..."))
+
+(defn- transform-stationboard-data [json-data]
+  (->> (:departures json-data)
+       (map
+         (fn [entry]
+           (let [scheduled-departure (:scheduled (:departure entry))
+                 is-realtime         (:realtime (:departure entry))
+                 realtime-departure  (or (:realtime (:departure entry)) scheduled-departure)
+                 departure-timestamp (parse-from-date-time realtime-departure)
+                 now                 (now)]
+             {:departure-timestamp departure-timestamp
+              :colors              (:colors entry)
+              :type                (:type entry)
+              :accessible          (:accessible entry)
+              :number              (:name entry)
+              :to                  (:to entry)
+              :in-minutes          (minutes-from departure-timestamp now)
+              :time                (format-to-hour-minute departure-timestamp)
+              :is-realtime         is-realtime
+              :undelayed-time      (when (not= realtime-departure scheduled-departure)
+                                     (let [scheduled-departure-timestamp (parse-from-date-time scheduled-departure)]
+                                       (format-to-hour-minute scheduled-departure-timestamp)))})))))
+
+(defn- merge-station-data-and-set-loading [station-data ids]
+  (let [station-data-without-removed-ids (into {} (filter #(contains? ids (key %)) station-data))
+        ids-without-loaded-stations      (remove #(contains? station-data %) ids)
+        new-station-data                 (merge station-data-without-removed-ids (into {} (map (fn [id] [id :loading]) ids-without-loaded-stations)))]
+    new-station-data))
+
+(defn- arrivals-from-station-data [station-data current-view]
+  (let [arrivals (->> station-data
+                      (remove #(or (= :loading (val %)) (= :error (val %))))
+                      (map (fn [station-data-entry] (map #(assoc % :stop-id (key station-data-entry)) (val station-data-entry))))
+                      (flatten)
+                      (sort-by :departure-timestamp)
+                      ; we filter out the things we don't want to see
+                      (remove #(let [stop (get (:stops current-view) (:stop-id %))]
+                                 (is-in-destinations (:excluded-destinations stop) %)))
+                      ; we filter out the things that left more than 0 minutes ago
+                      (remove #(< (:in-minutes %) 0))
+                      (take 30))]
+    arrivals))
+
+
+(defn- are-all-loading [station-data]
+  (empty? (remove #(= :loading (val %)) station-data)))
+
+(defn- are-all-error-or-empty [station-data]
+  (empty? (remove #(or (= :error (val %)) (and (not= :loading (val %)) (empty? (val %)))) station-data)))
+
+(defn- exclude-destination-link [{:keys [arrival current-view]} owner]
+  (reify
+    om/IRenderState
+    (render-state [this {:keys [add-filter-ch]}]
+            (let [exclude-text (str "filter " (:to arrival) " from view")]
+              (dom/a #js {:href "#"
+                          :className "link-icon"
+                          :aria-label exclude-text
+                          :onClick (fn [e]
+                                     (put! add-filter-ch {:view current-view :destination arrival})
+                                     (.preventDefault e))} "✖")))))
+
+(defn- arrival-row [{:keys [arrival current-view] :as app} owner {:keys [add-filter-ch]}]
+  (reify
+    om/IRender
+    (render [this]
+            (println "Rendering row")
+
+            (let [type        (:type arrival)
+                  in-minutes  (:in-minutes arrival)
+                  number      (:number arrival)
+                  to          (:to arrival)
+                  accessible  (:accessible arrival)
+                  is-realtime (:is-realtime arrival)]
+              (dom/tr #js {:className "tram-row"}
+                      (dom/td #js {:className "first-cell"} (om/build number-icon {:number number :colors (:colors arrival) :type type}))
+                      (dom/td #js {:className "station"}
+                              (dom/span #js {:className "exclude-link"} (om/build exclude-destination-link app {:init-state {:add-filter-ch add-filter-ch}}))
+                              (dom/span #js {:className "station-name"
+                                             :aria-label (str "destination " to (when accessible (str ". this " type " is accessible by wheelchair")))}
+                                        to (when accessible (dom/i #js {:className "fa fa-wheelchair"}))))
+                      (dom/td #js {:className "departure thin"}
+                              (dom/div nil (:time arrival)
+                                       (dom/span #js {:className "undelayed"} (if-not is-realtime "no real-time data" (:undelayed-time arrival)))))
+                      (dom/td #js {:className (str "text-right time time" in-minutes " " (if (> in-minutes 100) "time100"))}
+                              (om/build transport-icon {:type type :accessible-text "arriving now"})
+                              (dom/div #js {:className "bold pull-right"
+                                            :aria-label (str "arriving in " in-minutes " minutes")} (str in-minutes "’"))))))))
+
+(defn- arrival-table [{:keys [arrivals current-view]} owner opts]
+  (reify
+    om/IRender
+    (render [this]
+            (dom/table #js {:className "tram-table"}
+                       (apply dom/tbody nil
+                              (map #(om/build arrival-row
+                                              {:arrival % :current-view current-view} {:opts opts}) arrivals))))))
+
+
+(defn arrival-tables-view [{:keys [current-view]} owner {:keys [refresh-rate add-filter-ch]}]
+  "Takes as input a set of views (station id) and the size of the pane and renders the table views."
+  (let [initialize
+        (fn [current current-owner]
+          (let [stop-ids (set (keys (:stops current)))]
+            (let [{:keys [view-change-ch station-data]} (om/get-state owner)]
+              (when (not= stop-ids (set (keys station-data)))
+                (println (str "Initializing arrival tables with stops: " stop-ids))
+                (put! view-change-ch stop-ids)))))]
+    (reify
+      om/IInitState
+      (init-state [_]
+                  (println (str "Resetting state"))
+                  {:station-data {} :arrival-channels {} :view-change-ch (chan)})
+      om/IWillMount
+      (will-mount [_]
+                  ; the is the control channel loop
+                  (let [{:keys [view-change-ch]} (om/get-state owner)]
+                    (wait-on-channel
+                      view-change-ch
+                      (fn [stop-ids]
+                        (println (str "Got view-change message with stops: " stop-ids))
+                        (om/update-state!
+                          owner
+                          (fn [state]
+                            (let [old-arrival-channels  (:arrival-channels state)
+                                  old-cancel-ch         (:cancel-ch old-arrival-channels)
+                                  old-incoming-ch       (:incoming-ch old-arrival-channels)
+                                  old-fetch-ch          (:fetch-ch old-arrival-channels)
+                                  new-cancel-ch         (chan)
+                                  new-incoming-ch       (chan)
+                                  new-fetch-ch          (chan)
+                                  station-data          (:station-data state)]
+                              (when old-cancel-ch   (close! old-cancel-ch))
+                              (when old-incoming-ch (close! old-incoming-ch))
+                              (when old-fetch-ch    (close! old-fetch-ch))
+                              ; we initialize the incoming channel loop
+                              (wait-on-channel
+                                new-incoming-ch
+                                (fn [output]
+                                  (let [{:keys [data stop-id error]} output]
+                                    (println (str "Received data for stop: " stop-id))
+
+                                    ; we just validate here the stop id
+                                    (if (and (not error) stop-id)
+                                      (do
+                                        (om/update-state! owner :station-data #(assoc % stop-id data))
+                                        ; we update the list of existing destinations
+                                        (om/transact! current-view [:stops stop-id]
+                                                      (fn [stop]
+                                                        ; we add all the known destinations to the stop
+                                                        (let [existing-known-destinations (or (:known-destinations stop) #{})
+                                                              new-known-destinations      (map #(select-keys % [:to :number :colors :type]) data)]
+                                                          (assoc stop
+                                                            :known-destinations
+                                                            (into existing-known-destinations new-known-destinations))))))
+                                      (om/update-state! owner :station-data #(assoc % stop-id :error))))))
+                              ; we initialize the fetch loop
+                              (wait-on-channel
+                                new-fetch-ch
+                                (fn [stop-id]
+                                  (println (str "Received fetch message for stop: " stop-id))
+                                  (ga "send" "event" "stop" "query" {:dimension1 stop-id})
+                                  (fetch-stationboard-data stop-id new-incoming-ch
+                                                           new-incoming-ch new-cancel-ch
+                                                           transform-stationboard-data)
+                                  (go (<! (timeout refresh-rate))
+                                      (println (str "Putting onto fetch channel: " stop-id))
+                                      (put! new-fetch-ch stop-id))))
+
+                              ; we ask the channel to fetch the new data
+                              (doseq [stop-id stop-ids]
+                                (println (str "Initializing fetch loop for: " stop-id))
+                                (put! new-fetch-ch stop-id))
+
+                              (assoc (update-in state [:arrival-channels]
+                                                #(assoc %
+                                                   :incoming-ch new-incoming-ch
+                                                   :cancel-ch   new-cancel-ch
+                                                   :fetch-ch    new-fetch-ch))
+                                :station-data (merge-station-data-and-set-loading station-data stop-ids)))))))
+                    (println (str "Initializing on WillMount"))
+                    (initialize current-view owner)))
+      om/IWillReceiveProps
+      (will-receive-props [_ {:keys [current-view]}]
+                          (println (str "Initializing on WillReceiveProps"))
+                          (initialize current-view owner))
+      om/IWillUnmount
+      (will-unmount [_]
+                    (println "Closing all channels on WillUnmount")
+                    ; we kill the channel
+                    (let [{:keys [view-change-ch arrival-channels]} (om/get-state owner)]
+                      (close! view-change-ch)
+                      (let [cancel-ch   (:cancel-ch arrival-channels)
+                            incoming-ch (:incoming-ch arrival-channels)
+                            fetch-ch    (:fetch-ch arrival-channels)]
+                        (when cancel-ch (close! cancel-ch))
+                        (when incoming-ch (close! incoming-ch))
+                        (when fetch-ch (close! fetch-ch)))))
+      om/IRenderState
+      (render-state [this {:keys [station-data activity-ch]}]
+
+                    (let [arrivals  (arrivals-from-station-data station-data current-view)
+                          on-action (fn [preventDefault e]
+                                      (put! activity-ch true)
+                                      (when preventDefault (.preventDefault e)))
+                          loading   (are-all-loading station-data)
+                          error     (are-all-error-or-empty station-data)]
+
+                      (println "Rendering arrival table")
+
+                      (dom/div #js {:onMouseMove #(on-action true %)
+                                    :onClick #(on-action true %)
+                                    :onTouchStart #(on-action false %)}
+                               (dom/div #js {:className (str "text-center ultra-thin loading " (when-not loading "hidden"))} "Your departures are loading...")
+                               (dom/div #js {:className (str "text-center ultra-thin loading " (when (or (not error) loading) "hidden"))} "Sorry, no departures are available at this time...")
+                               (om/build arrival-table
+                                         {:arrivals arrivals :current-view current-view}
+                                         {:opts {:add-filter-ch add-filter-ch}})))))))
