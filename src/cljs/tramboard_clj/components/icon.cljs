@@ -1,6 +1,6 @@
 (ns tramboard-clj.components.icon
   (:require [clojure.string :as str]
-    		[om.core :as om :include-macros true]
+            [om.core :as om :include-macros true]
             [om.dom :as dom :include-macros true]))
 
 (defn- is-white [color]

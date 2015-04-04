@@ -1,8 +1,7 @@
 (ns tramboard-clj.components.filter
   (:require [om.core :as om :include-macros true]
             [om.dom :as dom :include-macros true]
-            [clojure.string :as str]
-            [tramboard-clj.script.state :refer [is-home is-edit is-split get-state go-home go-edit go-toggle-split modify-complete-state get-all-states reset-complete-state]]))
+            [clojure.string :as str]))
 
 (defn c-filter-editor []
   ""

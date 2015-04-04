@@ -62,7 +62,7 @@
 (defn- are-all-error-or-empty [station-data]
   (empty? (remove #(or (= :error (val %)) (and (not= :loading (val %)) (empty? (val %)))) station-data)))
 
-(defn- exclude-destination-link [{:keys [arrival current-view]} owner]
+(defn- exclude-destination-link [{:keys [arrival]} owner]
   (reify
     om/IRenderState
     (render-state [this {:keys [add-filter-ch]}]
@@ -71,10 +71,13 @@
                           :className "link-icon"
                           :aria-label exclude-text
                           :onClick (fn [e]
-                                     (put! add-filter-ch {:view current-view :destination arrival})
+                                     ; TODO here we could do it differently, this code should be allowed
+                                     ; to modify the current-view directly, but then the rest of the application
+                                     ; should listen to changes on the current-view and adapt accordingly
+                                     (put! add-filter-ch {:destination arrival})
                                      (.preventDefault e))} "✖")))))
 
-(defn- arrival-row [{:keys [arrival current-view] :as app} owner {:keys [add-filter-ch]}]
+(defn- arrival-row [{:keys [arrival]} owner {:keys [add-filter-ch]}]
   (reify
     om/IRender
     (render [this]
@@ -89,7 +92,7 @@
               (dom/tr #js {:className "tram-row"}
                       (dom/td #js {:className "first-cell"} (om/build number-icon {:number number :colors (:colors arrival) :type type}))
                       (dom/td #js {:className "station"}
-                              (dom/span #js {:className "exclude-link"} (om/build exclude-destination-link app {:init-state {:add-filter-ch add-filter-ch}}))
+                              (dom/span #js {:className "exclude-link"} (om/build exclude-destination-link {:arrival arrival} {:init-state {:add-filter-ch add-filter-ch}}))
                               (dom/span #js {:className "station-name"
                                              :aria-label (str "destination " to (when accessible (str ". this " type " is accessible by wheelchair")))}
                                         to (when accessible (dom/i #js {:className "fa fa-wheelchair"}))))
@@ -101,17 +104,16 @@
                               (dom/div #js {:className "bold pull-right"
                                             :aria-label (str "arriving in " in-minutes " minutes")} (str in-minutes "’"))))))))
 
-(defn- arrival-table [{:keys [arrivals current-view]} owner opts]
+(defn- arrival-table [{:keys [arrivals]} owner opts]
   (reify
     om/IRender
     (render [this]
             (dom/table #js {:className "tram-table"}
                        (apply dom/tbody nil
-                              (map #(om/build arrival-row
-                                              {:arrival % :current-view current-view} {:opts opts}) arrivals))))))
+                              (map #(om/build arrival-row {:arrival %} {:opts opts}) arrivals))))))
 
 
-(defn arrival-tables-view [{:keys [current-view]} owner {:keys [refresh-rate add-filter-ch]}]
+(defn arrival-tables-view [{:keys [current-view]} owner {:keys [refresh-rate]}]
   "Takes as input a set of views (station id) and the size of the pane and renders the table views."
   (let [initialize
         (fn [current current-owner]
@@ -211,7 +213,7 @@
                         (when incoming-ch (close! incoming-ch))
                         (when fetch-ch (close! fetch-ch)))))
       om/IRenderState
-      (render-state [this {:keys [station-data activity-ch]}]
+      (render-state [this {:keys [station-data activity-ch add-filter-ch]}]
 
                     (let [arrivals  (arrivals-from-station-data station-data current-view)
                           on-action (fn [preventDefault e]
@@ -227,6 +229,4 @@
                                     :onTouchStart #(on-action false %)}
                                (dom/div #js {:className (str "text-center ultra-thin loading " (when-not loading "hidden"))} "Your departures are loading...")
                                (dom/div #js {:className (str "text-center ultra-thin loading " (when (or (not error) loading) "hidden"))} "Sorry, no departures are available at this time...")
-                               (om/build arrival-table
-                                         {:arrivals arrivals :current-view current-view}
-                                         {:opts {:add-filter-ch add-filter-ch}})))))))
+                               (om/build arrival-table {:arrivals arrivals} {:opts {:add-filter-ch add-filter-ch}})))))))

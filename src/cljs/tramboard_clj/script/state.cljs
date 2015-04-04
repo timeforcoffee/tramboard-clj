@@ -15,9 +15,6 @@
 (defn is-home [state]
   (= :home (:state state)))
 
-(defn is-edit [state]
-  (= :edit (:state state)))
-
 (defn is-split [complete-state]
   (let [split-states (:split-states complete-state)
         state-1      (get split-states :state-1)

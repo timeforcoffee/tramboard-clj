@@ -7,23 +7,20 @@
             [cljs-time.core :refer [now]]
             [cljs-time.coerce :refer [to-long from-long]]
             [cljs-uuid.core :as uuid]
-            [arosequist.om-autocomplete :as ac]
-            [arosequist.om-autocomplete.bootstrap :as acb]
             [cljs.reader :as reader]
             [secretary.core :as secretary :refer-macros [defroute]]
-            [goog.array :as g-array]
             [goog.events :as events]
             [goog.history.EventType :as EventType]
             [goog.crypt.base64 :as b64]
             [tramboard-clj.components.icon :refer [number-icon transport-icon]]
             [tramboard-clj.components.filter :refer [c-filter-editor]]
+            [tramboard-clj.components.edit :refer [edit-pane]]
+            [tramboard-clj.components.menu :refer [menu-bar menu-icon]]
             [tramboard-clj.components.board :refer [arrival-tables-view]]
             [tramboard-clj.script.time :refer [display-time]]
-            [tramboard-clj.script.client :refer [fetch-suggestions]]
-            [tramboard-clj.script.util :refer [is-in-destinations wait-on-channel ga]]
-            [tramboard-clj.script.state :refer [is-home is-edit is-split get-state go-home go-edit go-toggle-split modify-complete-state get-all-states reset-complete-state]])
-  (:import [goog.net XhrIo]
-           goog.History))
+            [tramboard-clj.script.util :refer [is-in-destinations wait-on-channel ga get-stops-in-order]]
+            [tramboard-clj.script.state :refer [is-home is-split get-state go-home go-edit go-toggle-split modify-complete-state get-all-states reset-complete-state]])
+  (:import goog.History))
 
 ; some global constants here
 (def refresh-rate 10000)
@@ -60,9 +57,6 @@
 (defn current-view [current-state configured-views]
   (let [view-id (:view-id (:params current-state))]
     (get configured-views view-id)))
-
-(defn get-stops-in-order [view]
-  (map #(get (:stops view) %) (:stops-order view)))
 
 (defn- simplify-view [view]
   "Removes known-destinations and last-updated from the view"
@@ -176,7 +170,7 @@
           (let [configured-views     (:configured-views app)
                 complete-state       (:complete-state app)
                 current-state        (get-state complete-state (:state-id state))
-                is-new-view          (not (is-edit current-state))
+                is-new-view          (is-home current-state)
                 edit-view-id         (:view-id (:params current-state))
                 current-view         (if is-new-view (create-new-view nil) (get configured-views edit-view-id))
                 view-id              (:view-id current-view)
@@ -313,121 +307,6 @@
                                                                                       :share-input-visible share-input-visible)))))})))))))
 
 
-(defn autocomplete [{:keys [app current-state]} owner {:keys [input-id input-placeholder]}]
-  (reify
-    om/IInitState
-    (init-state [_]
-                {:result-ch (chan)})
-    om/IWillMount
-    (will-mount [_]
-                (let [result-ch (om/get-state owner :result-ch)]
-                  (wait-on-channel
-                    result-ch
-                    (fn [output]
-                      (let [[idx result] output]
-                        (when (not (nil? result))
-                          (transact-add-stop app current-state result)))))))
-    om/IRenderState
-    (render-state [_ {:keys [result-ch backspace-ch input-style]}]
-                  (om/build ac/autocomplete {}
-                            (acb/add-bootstrap-m
-                              {:state {:input-state {:style input-style}}
-                               :opts
-                               {:suggestions-fn (fn [value suggestions-ch cancel-ch]
-                                                  (if (str/blank? value) (put! suggestions-ch [])
-                                                    (fetch-suggestions value suggestions-ch cancel-ch identity)))
-                                :result-ch      result-ch
-                                :result-text-fn (fn [item _] (:name item))
-                                :input-opts     {:placeholder    input-placeholder
-                                                 :id             input-id
-                                                 :on-key-down    (fn [e value handler]
-                                                                   (let [keyCode (.-keyCode e)]
-                                                                     (case (.-keyCode e)
-                                                                       8  (when (str/blank? value) (put! backspace-ch true))
-                                                                       (handler e))))}}})))))
-
-(defn edit-remove-button [{:keys [current-stop app current-state]} owner]
-  (reify
-    om/IRender
-    (render [this]
-            (let [stop-id (:id current-stop)
-                  name    (:name current-stop)]
-              (dom/button #js {:className "btn btn-primary"
-                               :type "button"
-                               :aria-label (str "remove " name)
-                               :onClick (fn [e]
-                                          (transact-remove-stop app current-state stop-id)
-                                          (.preventDefault e))}
-                          name
-                          (dom/span #js {:className "glyphicon glyphicon-remove"}))))))
-
-
-(defn edit-pane [{:keys [app current-state]} owner]
-  "This shows the edit pane to add stops and stuff"
-  (let [set-sizes
-        (fn [current-owner prev-state]
-          (let [button-padding     4   ; TODO link this to CSS somehow
-                min-input-width    200 ; TODO link this to CSS somehow
-                input-padding      42  ; TODO link this to CSS somehow
-                container          (om/get-node current-owner "container")
-                container-width    (.-offsetWidth container)
-                buttons            (g-array/toArray (.-children (om/get-node current-owner "buttons")))
-                buttons-width      (apply + (map #(+ button-padding (.-offsetWidth %)) buttons))
-                new-buttons-width  (if (< container-width buttons-width) container-width buttons-width)
-                prev-buttons-width (:buttons-width prev-state)
-                new-input-width    (- (if (< (- container-width new-buttons-width) min-input-width) container-width (- container-width new-buttons-width)) input-padding)
-                prev-input-width   (:input-width prev-state)]
-            (when (or (nil? prev-buttons-width) (not= prev-buttons-width new-buttons-width))
-              (om/set-state! current-owner :buttons-width new-buttons-width))
-            (when (or (nil? prev-input-width) (not= prev-input-width new-input-width))
-              (om/set-state! current-owner :input-width new-input-width))))]
-    (reify
-      om/IInitState
-      (init-state [_]
-                  {:backspace-ch (chan)})
-      om/IWillMount
-      (will-mount  [_]
-                  (let [backspace-ch (om/get-state owner :backspace-ch)]
-                    (wait-on-channel
-                      backspace-ch
-                      (fn [backspace]
-                        (when (not (nil? backspace)) (transact-remove-stop app current-state nil))))))
-      om/IWillUnmount
-      (will-unmount [_]
-                    (let [{:keys [backspace-ch]} (om/get-state owner)]
-                      (close! backspace-ch)))
-      om/IDidMount
-      (did-mount [_]
-                 (set-sizes owner (om/get-state owner)))
-      om/IDidUpdate
-      (did-update [_ _ prev-state]
-                  (set-sizes owner prev-state))
-      om/IRenderState
-      (render-state [_ {:keys [backspace-ch buttons-width input-width]}]
-                    (let [configured-views (:configured-views app)
-                          current-view     (current-view current-state configured-views)
-                          is-home          (is-home current-state)]
-
-                      (println "Rendering edit-pane")
-                      (dom/form #js {:className "edit-form" :role "search"}
-                                (dom/div #js {:className "form-group form-group-lg"}
-                                         (dom/label #js {:className "control-label sr-only"
-                                                         :htmlFor   "stopInput"} "Enter a stop")
-                                         (dom/span #js {:className "form-control thin"
-                                                        :ref       "container"}
-                                                   (apply dom/span #js {:className "buttons"
-                                                                        :ref       "buttons"
-                                                                        :style     #js {:width (str buttons-width "px")}}
-                                                          (map #(om/build edit-remove-button {:app app :current-stop % :configured-views configured-views :current-state current-state}) (get-stops-in-order current-view)))
-                                                   (om/build autocomplete {:app app :configured-views configured-views :current-state current-state}
-                                                             {:init-state {:backspace-ch   backspace-ch}
-                                                              :state {:input-style #js {:width (str input-width "px")}}
-                                                              :opts {:input-id          "stopInput"
-                                                                     :input-placeholder "Enter a stop"}}))
-                                         (dom/div #js {:className (str "text-right ultra-thin credits " (when-not is-home "hidden"))}
-                                                  "brought to you by "
-                                                  (dom/a #js {:target "_blank" :href "/about"} "Time for Coffee team")))))))))
-
 (defn recent-board-item-stop [stop owner]
   (reify
     om/IRender
@@ -444,24 +323,21 @@
 (defn- get-all-excluded-destinations [view]
   (remove nil? (flatten (map #(:excluded-destinations (val %)) (:stops view)))))
 
-(defn recent-board-item [{:keys [configured-view current-state]} owner]
+(defn recent-board-item [{:keys [view current-state]} owner]
   (reify
     om/IRender
     (render [this]
             (dom/div #js {:className "recent-board"}
                      (dom/a #js {:href "#"
                                  :onClick (fn [e]
-                                            (om/transact! current-state #(go-edit % (:view-id configured-view)))
+                                            (om/transact! current-state #(go-edit % (:view-id view)))
                                             (.preventDefault e))}
                             ; a list of all stops
                             (dom/h2 #js {:className "thin"}
-                                    (str (str/join " / " (map #(:name %) (get-stops-in-order configured-view)))
-                                         ; TODO maybe do this ?
-                                         ;(when (not (empty? (get-all-excluded-destinations configured-view))) " (with filters)")
-                                    ))
+                                    (str (str/join " / " (map #(:name %) (get-stops-in-order view)))))
                             ; a thumbnail of all trams
                             (dom/div #js {:className "number-list"}
-                                     (let [numbers         (->> (:stops configured-view)
+                                     (let [numbers         (->> (:stops view)
                                                                 (map #(get-destinations-not-excluded (val %)))
                                                                 (reduce into #{})
                                                                 (map #(select-keys % [:number :colors :type]))
@@ -471,74 +347,14 @@
                                            numbers-to-show (if too-big (conj (vec (take 8 numbers)) {:number "..."}) numbers)]
                                        (apply dom/ul #js {:className "list-inline"} (om/build-all recent-board-item-number numbers-to-show)))))))))
 
-(defn recent-boards [{:keys [app current-state]} owner]
+(defn recent-boards [{:keys [recent-views current-state]} owner]
   (reify
     om/IRender
     (render [this]
-            (let [configured-views (:configured-views app)
-                  complete-state   (:complete-state app)
-                  recent-views     (get-recent-board-views configured-views complete-state)]
-              (apply dom/div nil
-                     (dom/div #js {:className "heading"}
-                              (dom/h1 #js {:className "heading thin"} "Your recent boards"))
-                     (map #(om/build recent-board-item {:configured-view % :current-state current-state}) recent-views))))))
-
-(defn menu-icon [_ owner {:keys [on-click]}]
-  (reify
-    om/IRenderState
-    (render-state [this {:keys [span-class icon-class hidden-text]}]
-                  (dom/span #js {:className span-class}
-                            (dom/a #js {:className (str "link-icon glyphicon " icon-class)
-                                        :href "#"
-                                        :aria-label hidden-text
-                                        :onClick on-click})))))
-
-
-; TODO change this so it has as input: 1. display-home 2. display-split 3. title
-(defn menu-bar [{:keys [app current-state]} owner]
-  (reify
-    om/IRender
-    (render [this]
-            (let [complete-state    (:complete-state app)
-                  is-split          (is-split complete-state)
-                  split-screen-icon (om/build menu-icon nil
-                                              {:state {:span-class "split-link pull-right"
-                                                       :icon-class (if-not is-split "fa fa-columns" "glyphicon-remove-circle")
-                                                       :hidden-text "split screen"}
-                                               :opts  {:on-click (fn [e]
-                                                                   (om/transact! complete-state #(go-toggle-split % current-state))
-                                                                   (.preventDefault e))}})]
-              (dom/header #js {:className "menu-bar"}
-                          (dom/div #js {:className "container-fluid"}
-                                   (cond
-                                     (is-edit current-state)
-                                     (let [configured-views  (:configured-views app)
-                                           current-view      (current-view current-state configured-views)
-                                           back-icon         (om/build menu-icon nil
-                                                                       {:state {:span-class "back-link pull-left"
-                                                                                :icon-class "glyphicon-home"
-                                                                                :hidden-text "go back"}
-                                                                        :opts  {:on-click (fn [e]
-                                                                                            (om/transact! current-state #(go-home %))
-                                                                                            (.preventDefault e))}})]
-                                       (dom/div nil
-                                                back-icon
-                                                (dom/span nil
-                                                          (if-not is-split (dom/div #js {:className "bold"} "Your current board")
-                                                            (dom/div nil
-                                                                     (dom/div #js {:className "bold title-split-1"} "Your left board")
-                                                                     (dom/div #js {:className "bold title-split-2"} "Your right board")))
-                                                          (dom/div #js {:className "thin"} (str "saved "
-                                                                                                (display-time (:last-updated current-view)))))
-                                                split-screen-icon))
-                                     (is-home current-state)
-                                     (dom/div nil
-                                              (dom/span #js {:className "text-middle bold"}
-                                                        (if-not is-split "You've got Time for Coffee!"
-                                                          (dom/div nil
-                                                                   (dom/div #js {:className "title-split-1"} "Your left board")
-                                                                   (dom/div #js {:className "title-split-2"} "Your right board"))))
-                                              split-screen-icon))))))))
+            (apply dom/div nil
+                   (dom/div #js {:className "heading"}
+                            (dom/h1 #js {:className "heading thin"} "Your recent boards"))
+                   (map #(om/build recent-board-item {:view % :current-state current-state}) recent-views)))))
 
 (defn strong [text]
   (dom/span #js {:className "thin"} text))
@@ -559,18 +375,18 @@
                              (dom/div #js {:className "phoca-flagbox"}
                                       ; TODO Check this accessibility
                                       (dom/span #js {:aria-label "Switzerland"
-                                                     :className "phoca-flag ch"}))
+                                                     :className  "phoca-flag ch"}))
                              " to get started.")))))
 
-(defn stationboard [{:keys [current-state app]} owner]
-  "Takes the app (contains all views, selected view) and renders the whole page, knows what to display based on the routing."
+(defn stationboard-pane [{:keys [current-view current-state]} owner]
   (reify
     om/IInitState
     (init-state [_]
                 {:activity-ch (chan) :add-filter-ch (chan)})
     om/IWillMount
     (will-mount [_]
-                (let [{:keys [activity-ch add-filter-ch]} (om/get-state owner)]
+                (let [{:keys [activity-ch
+                              add-filter-ch remove-filter-ch]} (om/get-state owner)]
                   (wait-on-channel
                     activity-ch
                     (fn [_] (om/update-state!
@@ -591,49 +407,147 @@
                                     :hide-ch new-hide-ch))))))
                   (wait-on-channel
                     add-filter-ch
-                    (fn [{:keys [:view :destination]}]
-                      (transact-add-filter view destination)))))
+                    (fn [{:keys [destination]}]
+                      (transact-add-filter current-view destination)))
+                  (wait-on-channel
+                    remove-filter-ch
+                    (fn [_]
+                      (transact-remove-filters current-view)))))
     om/IWillUnmount
     (will-unmount [this]
-                  (let [{:keys [hide-ch activity-ch add-filter-ch]} (om/get-state owner)]
+                  (let [{:keys [hide-ch activity-ch
+                                add-filter-ch remove-filter-ch]} (om/get-state owner)]
                     (close! activity-ch)
                     (close! add-filter-ch)
                     (when hide-ch (close! hide-ch))))
     om/IRenderState
-    (render-state [this {:keys [activity activity-ch add-filter-ch]}]
+    (render-state [this {:keys [activity activity-ch add-filter-ch remove-filter-ch add-stop-ch remove-stop-ch]}]
+                  (println "Rendering stationboard pane")
+                  (dom/div #js {:className (str "container-fluid " (when (= activity :idle) "activity-idle"))}
+                           (om/build edit-pane
+                                     {:stops (get-stops-in-order current-view)}
+                                     {:opts {:display-credits false}
+                                      :init-state {:add-stop-ch add-stop-ch
+                                                   :remove-stop-ch remove-stop-ch}
+                                      ; forces re-render
+                                      :state {:random (rand)}})
+                           (dom/div #js {:className "responsive-display"}
+                                    (om/build c-filter-editor [])
+                                    (om/build stop-heading current-view)
+                                    (om/build control-bar
+                                              {:current-state current-state :current-view current-view}
+                                              {:init-state {:remove-filter-ch remove-filter-ch}})
+                                    (om/build arrival-tables-view
+                                              {:current-view current-view}
+                                              {:init-state {:activity-ch activity-ch :add-filter-ch add-filter-ch}
+                                               :opts {:refresh-rate refresh-rate}}))))))
+
+(defn welcome-pane [{:keys [recent-views current-state]} owner]
+  (reify
+    om/IRenderState
+    (render-state [this {:keys [add-stop-ch remove-stop-ch display-banner display-credits]}]
+                  (println "Rendering welcome pane")
+                  (dom/div #js {:className "container-fluid"}
+                           ; TODO review this
+                           (dom/div #js {:className (str "responsive-display " (when-not display-banner "hidden"))}
+                                    (om/build welcome-banner nil))
+                           (om/build edit-pane
+                                     {:stops []}
+                                     {:opts {:display-credits display-credits}
+                                      :init-state {:add-stop-ch add-stop-ch
+                                                   :remove-stop-ch remove-stop-ch}
+                                      ; forces re-render
+                                      :state {:random (rand)}})
+                           (dom/div #js {:className (str "responsive-display " (when (empty? recent-views) "hidden"))}
+                                    (om/build recent-boards {:recent-views recent-views :current-state current-state}))))))
+
+(defn build-title-edit [is-split last-updated]
+  (dom/span nil
+            (if-not is-split (dom/div #js {:className "bold"} "Your current board")
+              (dom/div nil
+                       (dom/div #js {:className "bold title-split-1"} "Your left board")
+                       (dom/div #js {:className "bold title-split-2"} "Your right board")))
+            (dom/div #js {:className "thin"} (str "saved "
+                                                  (display-time last-updated)))))
+
+(defn build-title-home [is-split]
+  (dom/span #js {:className "text-middle bold"}
+            (if-not is-split "You've got Time for Coffee!"
+              (dom/div nil
+                       (dom/div #js {:className "title-split-1"} "Your left board")
+                       (dom/div #js {:className "title-split-2"} "Your right board")))))
+
+(defn stationboard [{:keys [current-state app]} owner]
+  "Takes the app (contains all views, selected view) and renders the whole page"
+  (reify
+    om/IInitState
+    (init-state [_]
+                {:add-stop-ch (chan) :remove-stop-ch (chan) })
+    om/IWillMount
+    (will-mount [_]
+                (let [{:keys [add-stop-ch remove-stop-ch]} (om/get-state owner)]
+                  ; TODO allow the children here to modify their views directly
+                  ; and listen on those view changes, see board.cljs and above for comment
+                  (wait-on-channel
+                    add-stop-ch
+                    (fn [{:keys [stop]}]
+                      (transact-add-stop app current-state stop)))
+                  (wait-on-channel
+                    remove-stop-ch
+                    (fn [{:keys [stop-id]}]
+                      (transact-remove-stop app current-state stop-id)))))
+    om/IWillUnmount
+    (will-unmount [this]
+                  (let [{:keys [hide-ch
+                                add-stop-ch remove-stop-ch]} (om/get-state owner)]
+                    (close! add-stop-ch)
+                    (close! remove-stop-ch)
+                    (when hide-ch (close! hide-ch))))
+    om/IRenderState
+    (render-state [this {:keys [activity activity-ch add-filter-ch remove-filter-ch add-stop-ch remove-stop-ch]}]
                   ; those all depend on the screen that's displayed
                   (let [configured-views (:configured-views app)
                         complete-state   (:complete-state app)
                         current-view     (current-view current-state configured-views)
                         display          (:display (:params current-state))
-                        recent-views     (get-recent-board-views configured-views complete-state)
-                        display-banner   (and (is-home current-state) (not (is-split complete-state)))]
+                        is-home          (is-home current-state)
+                        is-split         (is-split complete-state)
+                        display-banner   (and is-home (not is-split))
+                        split-icon       (om/build menu-icon nil
+                                                   {:state {:icon-class (if-not is-split "fa fa-columns" "glyphicon-remove-circle")
+                                                            :hidden-text "split screen"}
+                                                    :opts  {:on-click (fn [e]
+                                                                        (om/transact! complete-state #(go-toggle-split % current-state))
+                                                                        (.preventDefault e))}})
+                        home-icon        (om/build menu-icon nil
+                                                   {:state {:icon-class "glyphicon-home"
+                                                            :hidden-text "go back"}
+                                                    :opts  {:on-click (fn [e]
+                                                                        (om/transact! current-state #(go-home %))
+                                                                        (.preventDefault e))}})
+                        title            (if is-home (build-title-home is-split) (build-title-edit is-split (:last-updated current-view)))]
 
                     (println "Rendering stationboard")
                     (dom/div (clj->js {:className
                                        (str (when-not (:visible current-state) "hidden") " "
                                             (when (= display :expanded) "display-expanded") " "
-                                            (when (= activity :idle)    "activity-idle") " "
                                             (name (:state-id current-state)))})
 
-                             (om/build menu-bar {:app app :current-state current-state})
-                             (dom/div #js {:className "container-fluid"}
-                                      (dom/div #js {:className (str "responsive-display " (when-not display-banner "hidden"))}
-                                               (om/build welcome-banner nil))
-                                      (om/build edit-pane {:app app :current-state current-state})
-                                      (cond
-                                        (is-home current-state)
-                                        (dom/div #js {:className (str "responsive-display " (when (empty? recent-views) "hidden"))}
-                                                 (om/build recent-boards {:app app :current-state current-state}))
-                                        (is-edit current-state)
-                                        (dom/div #js {:className "responsive-display"}
-                                                 (om/build c-filter-editor [])
-                                                 (om/build stop-heading current-view)
-                                                 (om/build control-bar {:current-state current-state :current-view current-view})
-                                                 (om/build arrival-tables-view
-                                                           {:current-view current-view}
-                                                           {:init-state {:activity-ch activity-ch}
-                                                            :opts {:refresh-rate refresh-rate :add-filter-ch add-filter-ch}})))))))))
+                             (om/build menu-bar nil {:state {:right-icon split-icon
+                                                             :left-icon (when-not is-home home-icon)
+                                                             :title title}})
+                             (if
+                               is-home
+                               (om/build welcome-pane
+                                         {:recent-views (get-recent-board-views configured-views complete-state)
+                                          :current-state current-state}
+                                         {:init-state {:add-stop-ch add-stop-ch :remove-stop-ch remove-stop-ch}
+                                          :state {:display-banner display-banner
+                                                  :display-credits (not is-split)}})
+                               (om/build stationboard-pane
+                                         {:current-view current-view
+                                          :current-state current-state}
+                                         {:init-state {:add-stop-ch add-stop-ch :remove-stop-ch remove-stop-ch}})))))))
 
 (defn split-stationboard [{:keys [complete-state] :as app} owner]
   (reify
@@ -646,17 +560,6 @@
                                (clj->js {:className (str "split-board " (name (get order 0)) "-" (name (get order 1)))}))
                      (map #(om/build stationboard {:current-state % :app app}) states))))))
 
-(defn application [app-state owner]
-  (reify
-    om/IRender
-    (render [this]
-            (let [ask-location (:ask-location app-state)]
-              (if
-                ; ask-location
-                false
-                (dom/div nil "PROUT")
-                (om/build split-stationboard app-state))))))
-
 (defn hook-browser-navigation! []
   (doto (History.)
     (events/listen
@@ -665,9 +568,9 @@
         (secretary/dispatch! (.-token event))))
     (.setEnabled true)))
 
-(defn check-if-should-ask-location [app-state]
-  (let [ask-location (if (empty? app-state) true false)]
-    (assoc app-state :ask-location ask-location)))
+(defn check-if-new-visitor [app-state]
+  (let [new-visitor (if (empty? app-state) true false)]
+    (assoc app-state :new-visitor  new-visitor)))
 
 (defn debug-app-state [app-state]
   (let [complete-state  (:complete-state app-state)
@@ -679,11 +582,11 @@
 
 (defn init! []
   (let [saved-state (or (try (reader/read-string (. js/localStorage (getItem "views"))) (catch :default e (println e) {})) {})]
-    (swap! app-state deep-merge ((comp debug-app-state check-if-should-ask-location) saved-state))
+    (swap! app-state deep-merge ((comp debug-app-state check-if-new-visitor) saved-state))
     (hook-browser-navigation!)))
 
 (defn main []
-  (om/root application app-state
+  (om/root split-stationboard app-state
            {:target (. js/document (getElementById "my-app"))
             :tx-listen (fn [{:keys [path new-state]} _]
                          (. js/localStorage (setItem "views"
