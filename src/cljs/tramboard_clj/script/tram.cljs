@@ -15,8 +15,9 @@
             [tramboard-clj.components.icon :refer [number-icon transport-icon]]
             [tramboard-clj.components.filter :refer [c-filter-editor]]
             [tramboard-clj.components.edit :refer [edit-pane]]
-            [tramboard-clj.components.menu :refer [menu-bar menu-icon]]
+            [tramboard-clj.components.util :refer [menu-bar menu-icon slogan flag]]
             [tramboard-clj.components.board :refer [arrival-tables-view]]
+            [tramboard-clj.components.location :refer [choose-location-pane]]
             [tramboard-clj.script.time :refer [display-time]]
             [tramboard-clj.script.util :refer [is-in-destinations wait-on-channel ga get-stops-in-order]]
             [tramboard-clj.script.state :refer [is-home is-split get-state go-home go-edit go-toggle-split modify-complete-state get-all-states reset-complete-state]])
@@ -25,6 +26,11 @@
 ; some global constants here
 (def refresh-rate 10000)
 (def current-version 1)
+
+(defonce locations
+  [{:id :ch_zh  :name "Zurich"      :flag-class "ch_zh"  :api "zvv" :active true}
+   {:id :ch_ge  :name "Geneva"      :flag-class "ch_ge"  :api "gva" :active true}
+   {:id :ch     :name "Switzerland" :flag-class "ch"  :api "zvv" :active true}])
 
 ; our initial app state
 (defonce app-state
@@ -239,6 +245,7 @@
             (dom/div #js {:className "stop-heading"}
                      (dom/h2 #js {:className "heading thin"} (str "Departures from " (str/join " / " (map #(:name %) (get-stops-in-order current-view)))))))))
 
+; TODO remove current-state
 (defn control-bar [{:keys [current-state current-view]} owner]
   (reify
     om/IDidUpdate
@@ -255,7 +262,7 @@
                       (when (not= prev-share-input-value new-share-input-value)
                         (om/set-state! owner :share-input-value new-share-input-value))))))
     om/IRenderState
-    (render-state [this {:keys [share-input-value share-input-visible]}]
+    (render-state [this {:keys [share-input-value share-input-visible remove-filter-ch]}]
                   (let [excluded-destinations (remove nil? (flatten (map #(:excluded-destinations (val %)) (:stops current-view))))
                         expanded              (= :expanded (:display (:params current-state)))
                         fullscreen-text       (if expanded "exit fullscreen" "fullscreen")]
@@ -275,7 +282,7 @@
                                                    :className "remove-filter link-icon"
                                                    :onClick (fn [e]
                                                               (.preventDefault e)
-                                                              (transact-remove-filters current-view))}
+                                                              (put! remove-filter-ch {}))}
                                               (dom/span #js {:className (when (empty? excluded-destinations) "hidden")}
                                                         (dom/span #js {:className "remove-filter-image"} "✖") (dom/span #js {:className "remove-filter-text thin"} "remove filters"))))
                              (dom/div #js {:className "input-cell"}
@@ -347,6 +354,7 @@
                                            numbers-to-show (if too-big (conj (vec (take 8 numbers)) {:number "..."}) numbers)]
                                        (apply dom/ul #js {:className "list-inline"} (om/build-all recent-board-item-number numbers-to-show)))))))))
 
+; TODO move to own namespace, remove current-state
 (defn recent-boards [{:keys [recent-views current-state]} owner]
   (reify
     om/IRender
@@ -356,28 +364,7 @@
                             (dom/h1 #js {:className "heading thin"} "Your recent boards"))
                    (map #(om/build recent-board-item {:view % :current-state current-state}) recent-views)))))
 
-(defn strong [text]
-  (dom/span #js {:className "thin"} text))
-
-(defn welcome-banner [_ owner]
-  (reify
-    om/IRender
-    (render [this]
-            (dom/h1 #js {:className "ultra-thin welcome-banner text-center"}
-                    (dom/div nil
-                             "Relax and don't wait at the stop for your next "
-                             (strong "bus")   " " (om/build transport-icon {:type "bus"})   ", "
-                             (strong "tram")  " " (om/build transport-icon {:type "tram"})  ", "
-                             (strong "train") " " (om/build transport-icon {:type "train"}) ", "
-                             (strong "boat")  " " (om/build transport-icon {:type "boat"})  " or "
-                             (strong "cable car") " " (om/build transport-icon {:type "cable-car"}) ".")
-                    (dom/div nil "Enter any stop in "
-                             (dom/div #js {:className "phoca-flagbox"}
-                                      ; TODO Check this accessibility
-                                      (dom/span #js {:aria-label "Switzerland"
-                                                     :className  "phoca-flag ch"}))
-                             " to get started.")))))
-
+; TODO move to own namespace, remove current-state
 (defn stationboard-pane [{:keys [current-view current-state]} owner]
   (reify
     om/IInitState
@@ -435,31 +422,42 @@
                                     (om/build c-filter-editor [])
                                     (om/build stop-heading current-view)
                                     (om/build control-bar
-                                              {:current-state current-state :current-view current-view}
+                                              {:current-view current-view :current-state current-state}
                                               {:init-state {:remove-filter-ch remove-filter-ch}})
                                     (om/build arrival-tables-view
                                               {:current-view current-view}
                                               {:init-state {:activity-ch activity-ch :add-filter-ch add-filter-ch}
                                                :opts {:refresh-rate refresh-rate}}))))))
 
+(defn enter-stop-heading [_ owner]
+  (reify
+    om/IRender
+    (render [this]
+            (dom/h1 #js {:className "ultra-thin welcome-banner text-center"}
+                    (dom/div nil "Enter any stop in "
+                             (om/build flag {:country "ch" :label "Switzerland"})
+                             " to get started.")))))
+
+; TODO move to own namespace, remove current-state
 (defn welcome-pane [{:keys [recent-views current-state]} owner]
   (reify
     om/IRenderState
     (render-state [this {:keys [add-stop-ch remove-stop-ch display-banner display-credits]}]
                   (println "Rendering welcome pane")
                   (dom/div #js {:className "container-fluid"}
-                           ; TODO review this
-                           (dom/div #js {:className (str "responsive-display " (when-not display-banner "hidden"))}
-                                    (om/build welcome-banner nil))
-                           (om/build edit-pane
-                                     {:stops []}
-                                     {:opts {:display-credits display-credits}
-                                      :init-state {:add-stop-ch add-stop-ch
-                                                   :remove-stop-ch remove-stop-ch}
-                                      ; forces re-render
-                                      :state {:random (rand)}})
-                           (dom/div #js {:className (str "responsive-display " (when (empty? recent-views) "hidden"))}
-                                    (om/build recent-boards {:recent-views recent-views :current-state current-state}))))))
+                           (dom/div #js {:className "responsive-display"}
+                                    (dom/div #js {:className (when-not display-banner "hidden")}
+                                             (om/build slogan nil)
+                                             (om/build enter-stop-heading nil))
+                                    (om/build edit-pane
+                                              {:stops []}
+                                              {:opts {:display-credits display-credits}
+                                               :init-state {:add-stop-ch add-stop-ch
+                                                            :remove-stop-ch remove-stop-ch}
+                                               ; forces re-render
+                                               :state {:random (rand)}})
+                                    (dom/div #js {:className (when (empty? recent-views) "hidden")}
+                                             (om/build recent-boards {:recent-views recent-views :current-state current-state})))))))
 
 (defn build-title-edit [is-split last-updated]
   (dom/span nil
@@ -560,15 +558,23 @@
                                (clj->js {:className (str "split-board " (name (get order 0)) "-" (name (get order 1)))}))
                      (map #(om/build stationboard {:current-state % :app app}) states))))))
 
+(defn choose-location [{:keys [complete-state] :as app} owner]
+  (reify
+    om/IRender
+    (render [this]
+            (dom/div nil
+                     (om/build menu-bar nil {:state {:right-icon nil
+                                                     :left-icon nil
+                                                     :title (dom/div #js {:className "text-middle bold"} "You've got Time for Coffee!")}})
+                     (om/build choose-location-pane {:locations locations})))))
+
 (defn application [app-state owner]
   (reify
     om/IRender
     (render [this]
             (let [new-visitor (:new-visitor app-state)]
-              (if
-                new-visitor
-                ; TODO display the location chooser
-                (om/build split-stationboard app-state)
+              (if new-visitor
+                (om/build choose-location app-state)
                 (om/build split-stationboard app-state))))))
 
 (defn hook-browser-navigation! []
