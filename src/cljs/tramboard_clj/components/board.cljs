@@ -175,7 +175,8 @@
                                 new-fetch-ch
                                 (fn [stop-id]
                                   (println (str "Received fetch message for stop: " stop-id))
-                                  (ga "send" "event" "stop" "query" {:dimension1 stop-id})
+                                  (ga "send" "event" "stop" "query" {:dimension1 stop-id
+                                                                     "nonInteraction" 1})
                                   (fetch-stationboard-data stop-id new-incoming-ch
                                                            new-incoming-ch new-cancel-ch
                                                            transform-stationboard-data)
