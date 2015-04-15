@@ -1,5 +1,6 @@
 (ns tramboard-clj.components.location
   (:require [clojure.string :as str]
+            [cljs.core.async :refer [put!]]
             [tramboard-clj.components.util :refer [slogan flag]]
             [om.core :as om :include-macros true]
             [om.dom :as dom :include-macros true]))
@@ -8,11 +9,14 @@
 ; {:id :ch     :name "Switzerland" :flag-class "ch"  :api "zvv" :active true}
 (defn- location-item [{:keys [id name flag-class]} owner]
   (reify
-    om/IRender
-    (render [this]
-            (dom/li nil (dom/a #js {:href "#" :onClick (fn [e] (js/alert "prout"))} (om/build flag {:country flag-class :label name}) " " name)))))
+    om/IRenderState
+    (render-state [this {:keys [location-ch]}]
+            (dom/li nil (dom/a #js {:href "#" :onClick (fn [e]
+                                                         (put! location-ch {:id id})
+                                                         (.preventDefault e))}
+                               (om/build flag {:country flag-class :label name}) " " name)))))
 
-(defn- location-picker [{:keys [locations]} owner]
+(defn location-picker [{:keys [locations]} owner]
   (reify
     om/IInitState
     (init-state [_]
@@ -45,13 +49,16 @@
 
 (defn choose-location-pane [{:keys [locations] :as app} owner]
   (reify
-    om/IRender
-    (render [this]
+    om/IRenderState
+    (render-state [this {:keys [location-ch]}]
             (dom/div #js {:className "container-fluid"}
                      (dom/div #js {:className "responsive-display"}
                               (om/build slogan nil)
                               (dom/h1 #js {:className "ultra-thin text-center"}
-                                      (dom/div nil "Pick your location (you can change later)")
+                                      (dom/div nil "Pick your current location:"))
+                              (dom/h4 #js {:className "text-center thin"}
+                                       "(you can change it later)")
 
-                                      (apply dom/ul #js {:className "list-unstyled"}
-                                             (om/build-all location-item locations))))))))
+                              (dom/h1 #js {:className "ultra-thin text-center"}
+                                      (apply dom/ul #js {:className "list-unstyled text-left inline-block"}
+                                             (om/build-all location-item locations {:init-state {:location-ch location-ch}}))))))))

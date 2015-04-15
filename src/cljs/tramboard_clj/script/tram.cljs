@@ -28,9 +28,9 @@
 (def current-version 1)
 
 (defonce locations
-  [{:id :ch_zh  :name "Zurich"      :flag-class "ch_zh"  :api "zvv" :active true}
-   {:id :ch_ge  :name "Geneva"      :flag-class "ch_ge"  :api "gva" :active true}
-   {:id :ch     :name "Switzerland" :flag-class "ch"  :api "zvv" :active true}])
+  [{:id :ch_zh  :name "Zurich City & Canton" :short-label "Zurich"      :flag-class "ch_zh" :api "zvv" :active true}
+   {:id :ch_ge  :name "Geneva City & Canton" :short-label "Geneva"      :flag-class "ch_ge" :api "gva" :active true}
+   {:id :ch     :name "Rest of Switzerland"  :short-label "Switzerland" :flag-class "ch"    :api "zvv" :active true}])
 
 ; our initial app state
 (defonce app-state
@@ -41,6 +41,10 @@
          :complete-state {:split-states {:state-1 {:state-id :state-1 :state :home :params {} :visible true}
                                          :state-2 {:state-id :state-2 :state :home :params {} :visible false}}
                           :order [:state-1 :state-2]}}))
+
+(defn- get-location [location-id]
+  (let [found-locations (filter #(= location-id (:id %)) locations)]
+    (if (empty? found-locations) (get-location :ch) (first found-locations))))
 
 (defn- uuid [] (str (uuid/make-random)))
 
@@ -365,7 +369,7 @@
                    (map #(om/build recent-board-item {:view % :current-state current-state}) recent-views)))))
 
 ; TODO move to own namespace, remove current-state
-(defn stationboard-pane [{:keys [current-view current-state]} owner]
+(defn stationboard-pane [{:keys [current-view location current-state]} owner]
   (reify
     om/IInitState
     (init-state [_]
@@ -412,7 +416,8 @@
                   (println "Rendering stationboard pane")
                   (dom/div #js {:className (str "container-fluid " (when (= activity :idle) "activity-idle"))}
                            (om/build edit-pane
-                                     {:stops (get-stops-in-order current-view)}
+                                     {:stops (get-stops-in-order current-view)
+                                      :location location}
                                      {:opts {:display-credits false}
                                       :init-state {:add-stop-ch add-stop-ch
                                                    :remove-stop-ch remove-stop-ch}
@@ -429,17 +434,17 @@
                                               {:init-state {:activity-ch activity-ch :add-filter-ch add-filter-ch}
                                                :opts {:refresh-rate refresh-rate}}))))))
 
-(defn enter-stop-heading [_ owner]
+(defn enter-stop-heading [{:keys [location]} owner]
   (reify
     om/IRender
     (render [this]
             (dom/h1 #js {:className "ultra-thin welcome-banner text-center"}
                     (dom/div nil "Enter any stop in "
-                             (om/build flag {:country "ch" :label "Switzerland"})
+                             (om/build flag {:country (:flag-class location) :label (:short-label location)})
                              " to get started.")))))
 
 ; TODO move to own namespace, remove current-state
-(defn welcome-pane [{:keys [recent-views current-state]} owner]
+(defn welcome-pane [{:keys [recent-views location current-state]} owner]
   (reify
     om/IRenderState
     (render-state [this {:keys [add-stop-ch remove-stop-ch display-banner display-credits]}]
@@ -448,9 +453,9 @@
                            (dom/div #js {:className "responsive-display"}
                                     (dom/div #js {:className (when-not display-banner "hidden")}
                                              (om/build slogan nil)
-                                             (om/build enter-stop-heading nil))
+                                             (om/build enter-stop-heading {:location location}))
                                     (om/build edit-pane
-                                              {:stops []}
+                                              {:stops [] :location location}
                                               {:opts {:display-credits display-credits}
                                                :init-state {:add-stop-ch add-stop-ch
                                                             :remove-stop-ch remove-stop-ch}
@@ -504,7 +509,8 @@
     om/IRenderState
     (render-state [this {:keys [activity activity-ch add-filter-ch remove-filter-ch add-stop-ch remove-stop-ch]}]
                   ; those all depend on the screen that's displayed
-                  (let [configured-views (:configured-views app)
+                  (let [location         (get-location (:location-id app))
+                        configured-views (:configured-views app)
                         complete-state   (:complete-state app)
                         current-view     (current-view current-state configured-views)
                         display          (:display (:params current-state))
@@ -538,12 +544,14 @@
                                is-home
                                (om/build welcome-pane
                                          {:recent-views (get-recent-board-views configured-views complete-state)
+                                          :location location
                                           :current-state current-state}
                                          {:init-state {:add-stop-ch add-stop-ch :remove-stop-ch remove-stop-ch}
                                           :state {:display-banner display-banner
                                                   :display-credits (not is-split)}})
                                (om/build stationboard-pane
                                          {:current-view current-view
+                                          :location location
                                           :current-state current-state}
                                          {:init-state {:add-stop-ch add-stop-ch :remove-stop-ch remove-stop-ch}})))))))
 
@@ -558,20 +566,42 @@
                                (clj->js {:className (str "split-board " (name (get order 0)) "-" (name (get order 1)))}))
                      (map #(om/build stationboard {:current-state % :app app}) states))))))
 
+(defn check-if-new-visitor [app-state]
+  (let [new-visitor (if (empty? app-state) true false)]
+    (assoc app-state :new-visitor  new-visitor)))
+
+
 (defn choose-location [{:keys [complete-state] :as app} owner]
   (reify
-    om/IRender
-    (render [this]
+    om/IInitState
+    (init-state [_]
+                {:location-ch (chan)})
+    om/IWillMount
+    (will-mount [_]
+                (let [{:keys [location-ch]} (om/get-state owner)]
+                  (wait-on-channel
+                    location-ch
+                    (fn [{:keys [id]}]
+                      (om/transact! app #(check-if-new-visitor (assoc % :location-id id)))))))
+    om/IWillUnmount
+    (will-unmount [this]
+                  (let [{:keys [location-ch]} (om/get-state owner)]
+                    (close! location-ch)))
+    om/IRenderState
+    (render-state [this {:keys [location-ch]}]
             (dom/div nil
                      (om/build menu-bar nil {:state {:right-icon nil
                                                      :left-icon nil
                                                      :title (dom/div #js {:className "text-middle bold"} "You've got Time for Coffee!")}})
-                     (om/build choose-location-pane {:locations locations})))))
+                     (om/build choose-location-pane
+                               {:locations locations}
+                               {:init-state {:location-ch location-ch}})))))
 
 (defn application [app-state owner]
   (reify
     om/IRender
     (render [this]
+            (println app-state)
             (let [new-visitor (:new-visitor app-state)]
               (if new-visitor
                 (om/build choose-location app-state)
@@ -584,10 +614,6 @@
       (fn [event]
         (secretary/dispatch! (.-token event))))
     (.setEnabled true)))
-
-(defn check-if-new-visitor [app-state]
-  (let [new-visitor (if (empty? app-state) true false)]
-    (assoc app-state :new-visitor  new-visitor)))
 
 (defn debug-app-state [app-state]
   (let [complete-state  (:complete-state app-state)

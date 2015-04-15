@@ -6,6 +6,7 @@
             [goog.array :as g-array]
             [tramboard-clj.script.client :refer [fetch-suggestions]]
             [tramboard-clj.script.util :refer [wait-on-channel get-stops-in-order]]
+            [tramboard-clj.components.util :refer [flag]]
             [arosequist.om-autocomplete :as ac]
             [arosequist.om-autocomplete.bootstrap :as acb]))
 
@@ -46,19 +47,19 @@
   (reify
     om/IRenderState
     (render-state [this {:keys [remove-stop-ch]}]
-            (let [stop-id (:id current-stop)
-                  name    (:name current-stop)]
-              (dom/button #js {:className "btn btn-primary"
-                               :type "button"
-                               :aria-label (str "remove " name)
-                               :onClick (fn [e]
-                                          (put! remove-stop-ch {:stop-id stop-id})
-                                          (.preventDefault e))}
-                          name
-                          (dom/span #js {:className "glyphicon glyphicon-remove"}))))))
+                  (let [stop-id (:id current-stop)
+                        name    (:name current-stop)]
+                    (dom/button #js {:className "btn btn-primary"
+                                     :type "button"
+                                     :aria-label (str "remove " name)
+                                     :onClick (fn [e]
+                                                (put! remove-stop-ch {:stop-id stop-id})
+                                                (.preventDefault e))}
+                                name
+                                (dom/span #js {:className "glyphicon glyphicon-remove"}))))))
 
 
-(defn edit-pane [{:keys [stops]} owner {:keys [display-credits]}]
+(defn edit-pane [{:keys [stops location]} owner {:keys [display-credits]}]
   "This shows the edit pane to add stops and stuff"
   (let [set-sizes
         (fn [current-owner prev-state]
@@ -121,7 +122,9 @@
                                                            {:init-state {:backspace-ch backspace-ch :add-stop-ch add-stop-ch}
                                                             :state {:input-style #js {:width (str input-width "px")}}
                                                             :opts {:input-id          "stopInput"
-                                                                   :input-placeholder "Enter a stop"}}))
+                                                                   :input-placeholder "Enter a stop"}})
+                                                 (dom/span #js {:className ""}
+                                                           (om/build flag {:country (:flag-class location) :label (:short-label location)})))
                                        (dom/div #js {:className (str "text-right ultra-thin credits " (when-not display-credits "hidden"))}
                                                 "brought to you by "
                                                 (dom/a #js {:target "_blank" :href "/about"} "Time for Coffee team"))))))))
