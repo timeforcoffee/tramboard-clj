@@ -15,9 +15,6 @@
 (defn is-home [state]
   (= :home (:state state)))
 
-(defn is-edit [state]
-  (= :edit (:state state)))
-
 (defn is-split [complete-state]
   (let [split-states (:split-states complete-state)
         state-1      (get split-states :state-1)
@@ -61,8 +58,8 @@
   (let [state-1            (get-state complete-state :state-1)
         state-2            (get-state complete-state :state-2)
         new-complete-state (reduce #(assoc-in %1 (%2 0) (%2 1)) complete-state
-                                   [[[:split-states :state-1] (go-home state-1)]
-                                    [[:split-states :state-2] (go-hide state-2)]])]
+                                   [[[:split-states :state-1] (go-show (go-home state-1))]
+                                    [[:split-states :state-2] (go-hide (go-home state-2))]])]
     (assoc new-complete-state :order [:state-1 :state-2])))
 
 (defn modify-complete-state [complete-state state fun]
