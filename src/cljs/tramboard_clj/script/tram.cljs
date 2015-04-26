@@ -431,8 +431,8 @@
                                                    :remove-stop-ch remove-stop-ch}
                                       ; forces re-render
                                       :state {:random (rand)}})
+                           (om/build c-filter-editor current-view {:init-state {:add-filter-ch add-filter-ch}})
                            (dom/div #js {:className "responsive-display"}
-                                    (om/build c-filter-editor [])
                                     (om/build stop-heading current-view)
                                     (om/build control-bar
                                               {:current-state current-state :current-view current-view}
