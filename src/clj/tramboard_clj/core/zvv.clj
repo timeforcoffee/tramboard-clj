@@ -25,8 +25,8 @@
     (str (f/parse zvv-date-formatter (str date " " time)))))
 
 (defn- sanitize [text]
-  (reduce #(str/replace %1 (%2 0) (%2 1)) 
-          text 
+  (reduce #(str/replace %1 (%2 0) (%2 1))
+          text
           [["&nbsp;" " "] [#"S( )+" "S"] ["Bus " ""]]))
 
 (defn- map-category [text]
@@ -89,7 +89,7 @@
             :station_name (data "stationName")}
      :departures (map zvv-departure journeys)}))
 
-(defn- to-coordinate [string] 
+(defn- to-coordinate [string]
   (if (nil? string) nil
     (double (/ (read-string string) 1000000))))
 
@@ -110,10 +110,21 @@
   (let [response    (http/get url)]
     (transform-fn (:body @response))))
 
+; (defn station [id]
+;   (let [request-url (str station-base-url id)]
+;     (do-api-call request-url transform-station-response)))
+
+(def fixtures
+  {:station-8588078 (slurp "fixtures/api_responses/8588078.json")
+   :central         (slurp "fixtures/api_responses/central.json")})
+
+
 (defn station [id]
-  (let [request-url (str station-base-url id)]
-    (do-api-call request-url transform-station-response)))
+  (:station-8588078 fixtures))
+
+; (defn query-stations [query]
+;   (let [request-url (str query-stations-base-url (codec/url-encode query))]
+;     (do-api-call request-url transform-query-stations-response)))
 
 (defn query-stations [query]
-  (let [request-url (str query-stations-base-url (codec/url-encode query))]
-    (do-api-call request-url transform-query-stations-response)))
+  (:central fixtures))
