@@ -199,8 +199,7 @@
 (defn transact-add-filter [view arrival]
   (let [stop-id     (:stop-id arrival)
         number      (:number arrival)
-        destination (:to arrival)
-        colors      (:colors arrival)]
+        destination (:to arrival)]
     (om/transact!
       view (fn [view]
              ; we add the filter
