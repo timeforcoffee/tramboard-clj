@@ -7,7 +7,7 @@
             [clojure.string :as str]))
 
 ; TODO stop / stop-id should probably not be hardcoded
-(defn- destination-editor [{:keys [destination checked]}]
+(defn- destination-editor [{:keys [stop destination checked]}]
   (reify
     om/IRenderState
     (render-state [this {:keys [add-filter-ch]}]
@@ -19,7 +19,7 @@
                      (dom/div #js {:className ""} (dom/input #js {:type "checkbox"
                                                                   :checked checked
                                                                   :onClick (fn [e]
-                                                                             (put! add-filter-ch {:destination {:stop-id "008588078"
+                                                                             (put! add-filter-ch {:destination {:stop-id (:id stop)
                                                                                                   :number (:number destination)
                                                                                                   :to (:to destination)}})
                                                                              (.preventDefault e))}))))))
@@ -32,7 +32,7 @@
             (println "filter stop" stop)
             (apply dom/div #js {:className "stop"}
                    (dom/div #js {:className "stop-name"} (:name stop))
-                   (map #(om/build destination-editor {:destination % :checked (is-in-destinations (:excluded-destinations stop) %)} {:init-state {:add-filter-ch add-filter-ch}}) (:known-destinations stop))))))
+                   (map #(om/build destination-editor {:stop stop :destination % :checked (is-in-destinations (:excluded-destinations stop) %)} {:init-state {:add-filter-ch add-filter-ch}}) (:known-destinations stop))))))
 
 
 
