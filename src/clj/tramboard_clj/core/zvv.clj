@@ -110,21 +110,21 @@
   (let [response    (http/get url)]
     (transform-fn (:body @response))))
 
-; (defn station [id]
-;   (let [request-url (str station-base-url id)]
-;     (do-api-call request-url transform-station-response)))
-
-(def fixtures
-  {:station-8588078 (slurp "fixtures/api_responses/8588078.json")
-   :central         (slurp "fixtures/api_responses/central.json")})
-
-
 (defn station [id]
-  (:station-8588078 fixtures))
-
-; (defn query-stations [query]
-;   (let [request-url (str query-stations-base-url (codec/url-encode query))]
-;     (do-api-call request-url transform-query-stations-response)))
+  (let [request-url (str station-base-url id)]
+    (do-api-call request-url transform-station-response)))
 
 (defn query-stations [query]
-  (:central fixtures))
+  (let [request-url (str query-stations-base-url (codec/url-encode query))]
+    (do-api-call request-url transform-query-stations-response)))
+
+
+; (def fixtures
+;   {:station-8588078 (slurp "fixtures/api_responses/8588078.json")
+;    :central         (slurp "fixtures/api_responses/central.json")})
+
+; (defn station [id]
+;   (:station-8588078 fixtures))
+
+; (defn query-stations [query]
+;   (:central fixtures))
