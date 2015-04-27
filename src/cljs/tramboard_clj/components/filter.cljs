@@ -32,7 +32,12 @@
             (println "filter stop" stop)
             (apply dom/div #js {:className "stop"}
                    (dom/div #js {:className "stop-name"} (:name stop))
-                   (map #(om/build destination-editor {:stop stop :destination % :checked (is-in-destinations (:excluded-destinations stop) %)} {:init-state {:add-filter-ch add-filter-ch}}) (:known-destinations stop))))))
+                   (map #(om/build destination-editor
+                                   {:stop stop
+                                    :destination %
+                                    :checked (is-in-destinations (:excluded-destinations stop) %)}
+                                   {:init-state {:add-filter-ch add-filter-ch}})
+                        (sort-by :number (sort-by :to (:known-destinations stop))))))))
 
 
 
