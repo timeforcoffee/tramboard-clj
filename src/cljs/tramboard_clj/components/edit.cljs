@@ -58,7 +58,6 @@
                                 name
                                 (dom/span #js {:className "glyphicon glyphicon-remove"}))))))
 
-
 (defn edit-pane [{:keys [stops location]} owner {:keys [display-credits]}]
   "This shows the edit pane to add stops and stuff"
   (let [set-sizes
@@ -124,7 +123,4 @@
                                                             :opts {:input-id          "stopInput"
                                                                    :input-placeholder "Enter a stop"}})
                                                  (dom/span #js {:className ""}
-                                                           (om/build flag {:country (:flag-class location) :label (:short-label location)})))
-                                       (dom/div #js {:className (str "text-right ultra-thin credits " (when-not display-credits "hidden"))}
-                                                "brought to you by "
-                                                (dom/a #js {:target "_blank" :href "/about"} "Time for Coffee team"))))))))
+                                                           (om/build flag {:country (:flag-class location) :label (:short-label location)})))))))))

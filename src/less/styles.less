@@ -5,16 +5,29 @@
 @big-font-size: 1.95em;
 @small-font-size: 1.4em;
 
+@gray: #F5F5F5;
+
 /* end of variables */
 
 @import "_filter.less";
 
-header {
-	margin-bottom: 14px;
+body {
+	background-color: @gray;
+}
+
+.pane {
+	background-color: white;
+	padding-top: 18px;
+	padding-bottom: 48px;
 }
 
 .heading {
 	margin-bottom: 24px;
+}
+
+footer {
+	padding-top: 14px;
+	height: 40px;
 }
 
 /* generic styles */
@@ -150,10 +163,8 @@ a .link-icon a.link-icon, a:hover .link-icon, a.link-icon:hover, a:visited .link
 
 .menu-bar {
 	padding-top: 4px;
-	padding-bottom: 4px;
 	padding-left: 4px;
 	text-align: center;
-	background-color: #F5F5F5;
 	height: 48px;
 
 	span {
@@ -255,7 +266,7 @@ a .link-icon a.link-icon, a:hover .link-icon, a.link-icon:hover, a:visited .link
 	display: table;
 	width: 100%;
 
-	background-color: #f5f5f5;
+	background-color: @gray;
 	padding: 4px 4px;
 	margin-bottom: 14px;
 	margin-top: 10px;

@@ -51,7 +51,7 @@
   (reify
     om/IRenderState
     (render-state [this {:keys [location-ch]}]
-            (dom/div #js {:className "container-fluid"}
+            (dom/div #js {:className "pane container-fluid"}
                      (dom/div #js {:className "responsive-display"}
                               (om/build slogan nil)
                               (dom/h1 #js {:className "ultra-thin text-center"}

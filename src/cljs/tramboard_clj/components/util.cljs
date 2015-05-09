@@ -49,3 +49,11 @@
                      ; TODO Check this accessibility
                      (dom/span #js {:aria-label label
                                     :className (str "phoca-flag " country)})))))
+
+(defn credits [_ owner]
+  (reify 
+    om/IRender
+    (render [this]
+            (dom/div #js {:className (str "ultra-thin credits")}
+                     "brought to you by "
+                     (dom/a #js {:target "_blank" :href "/about"} "Time for Coffee team")))))
