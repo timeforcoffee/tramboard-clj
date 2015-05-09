@@ -55,7 +55,7 @@
 
              :uberjar {:source-paths ["env/prod/src/clj"]
                        :omit-source true
-                       :prep-tasks [["shell" "npm" "install"] ["shell" "node_modules/.bin/gulp" "less"]]
+                       :prep-tasks [["shell" "node_modules/.bin/gulp" "less"]]
                        :aot :all
                        :hooks [leiningen.cljsbuild]
                        :cljsbuild {:builds {:app {:source-paths ["env/prod/src/cljs"]
