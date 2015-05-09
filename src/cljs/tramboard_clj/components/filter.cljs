@@ -11,7 +11,6 @@
   (reify
     om/IRenderState
     (render-state [this {:keys [toggle-filter-ch]}]
-                  (println "filter dest" destination)
                   (dom/div #js {:className "filter-destination"}
                            (dom/div #js {:className "filter-checkbox"} (dom/input #js {:type "checkbox"
                                                                         :checked checked
@@ -28,7 +27,6 @@
   (reify
     om/IRenderState
     (render-state [this {:keys [toggle-filter-ch]}]
-                  (println group)
                   (apply dom/div nil
                          (map #(om/build destination-editor
                                          {:stop stop
@@ -45,9 +43,9 @@
                            (dom/h4 #js {:className "thin"} (:name stop))
                            (apply dom/div #js {:className "filter-stop"}
                                   (map #(om/build group-editor
-                                                  {:stop stop :group (get %1 1)}
+                                                  {:stop stop :group %}
                                                   {:init-state {:toggle-filter-ch toggle-filter-ch}})
-                                       (group-by :number (sort-by :to (:known-destinations stop)))))))))
+                                       (partition-by :number (sort-by :sort-string (:known-destinations stop)))))))))
 
 
 
@@ -57,6 +55,5 @@
   (reify
     om/IRenderState
     (render-state [this {:keys [toggle-filter-ch]}]
-                  (println "filter view" view)
                   (apply dom/div #js {:className "filter-editor"}
                          (map #(om/build stop-editor (val %) {:init-state {:toggle-filter-ch toggle-filter-ch}}) (:stops view))))))

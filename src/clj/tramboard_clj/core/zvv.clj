@@ -63,13 +63,18 @@
 
     "train"))
 
+(defn- cap [string x letter]
+  (if (= 0 (- x (count string))) string (cap (str letter string) x letter)))
+
 ; TODO add 1 day to realtime if it is smaller than scheduled (scheduled 23h59 + 3min delay ...)
 (defn- zvv-departure [zvv-journey]
   (let [colors          (vec (remove str/blank? (str/split (zvv-journey "lc") #" ")))
-        zvv-date-parser (partial zvv-parse-datetime (zvv-journey "da"))]
+        zvv-date-parser (partial zvv-parse-datetime (zvv-journey "da"))
+        departure-name  (sanitize (zvv-journey "pr"))]
     {;:meta zvv-journey
      :zvv_id (zvv-journey "id")
-     :name (sanitize (zvv-journey "pr"))
+     :name departure-name
+     :sort-string (cap departure-name 20 "0")
      :type (map-category (zvv-journey "productCategory"))
      :accessible (zvv-journey "isNF")
      :colors {:fg (when (> (count colors) 0) (str "#" (colors 0)))

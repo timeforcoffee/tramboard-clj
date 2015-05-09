@@ -5,35 +5,12 @@
             [cljs-time.core :refer [now]]
             [cljs.core.async :refer [put! chan <! >! close! timeout]]
             [tramboard-clj.components.icon :refer [number-icon transport-icon]]
-            [tramboard-clj.script.util :refer [is-in-destinations wait-on-channel ga]]
+            [tramboard-clj.script.util :refer [is-in-destinations remove-from-destinations add-to-destinations wait-on-channel ga]]
             [tramboard-clj.script.client :refer [fetch-stationboard-data]]
-            [tramboard-clj.script.time :refer [parse-from-date-time format-to-hour-minute minutes-from]]
             [tramboard-clj.script.util :refer [wait-on-channel]]))
 
 (defn- display-in-minutes [in-minutes]
   (if (< in-minutes 60) (str in-minutes "’") "..."))
-
-(defn- transform-stationboard-data [json-data]
-  (->> (:departures json-data)
-       (map
-         (fn [entry]
-           (let [scheduled-departure (:scheduled (:departure entry))
-                 is-realtime         (:realtime (:departure entry))
-                 realtime-departure  (or (:realtime (:departure entry)) scheduled-departure)
-                 departure-timestamp (parse-from-date-time realtime-departure)
-                 now                 (now)]
-             {:departure-timestamp departure-timestamp
-              :colors              (:colors entry)
-              :type                (:type entry)
-              :accessible          (:accessible entry)
-              :number              (:name entry)
-              :to                  (:to entry)
-              :in-minutes          (minutes-from departure-timestamp now)
-              :time                (format-to-hour-minute departure-timestamp)
-              :is-realtime         is-realtime
-              :undelayed-time      (when (not= realtime-departure scheduled-departure)
-                                     (let [scheduled-departure-timestamp (parse-from-date-time scheduled-departure)]
-                                       (format-to-hour-minute scheduled-departure-timestamp)))})))))
 
 (defn- merge-station-data-and-set-loading [station-data ids]
   (let [station-data-without-removed-ids (into {} (filter #(contains? ids (key %)) station-data))
@@ -97,7 +74,7 @@
                               (map #(om/build arrival-row {:arrival %} {:opts opts}) arrivals))))))
 
 
-(defn arrival-tables-view [{:keys [current-view]} owner {:keys [refresh-rate]}]
+(defn arrival-tables-view [{:keys [current-view]} owner {:keys [refresh-rate transform-stationboard-data]}]
   "Takes as input a set of views (station id) and the size of the pane and renders the table views."
   (let [initialize
         (fn [current current-owner]
@@ -149,10 +126,10 @@
                                                       (fn [stop]
                                                         ; we add all the known destinations to the stop
                                                         (let [existing-known-destinations (or (:known-destinations stop) #{})
-                                                              new-known-destinations      (map #(select-keys % [:to :number :colors :type]) data)]
+                                                              filtered-known-destinations (into #{} (reduce #(remove-from-destinations %1 %2) existing-known-destinations data))]
                                                           (assoc stop
-                                                            :known-destinations
-                                                            (into existing-known-destinations new-known-destinations))))))
+                                                            :known-destinations 
+                                                            (reduce #(add-to-destinations %1 %2) filtered-known-destinations data))))))
                                       (om/update-state! owner :station-data #(assoc % stop-id :error))))))
                               ; we initialize the fetch loop
                               (wait-on-channel

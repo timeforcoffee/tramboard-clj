@@ -17,8 +17,8 @@
             [tramboard-clj.components.edit :refer [edit-pane]]
             [tramboard-clj.components.menu :refer [menu-bar menu-icon]]
             [tramboard-clj.components.board :refer [arrival-tables-view]]
-            [tramboard-clj.script.time :refer [display-time]]
-            [tramboard-clj.script.util :refer [is-in-destinations wait-on-channel ga get-stops-in-order]]
+            [tramboard-clj.script.time :refer [display-time parse-from-date-time format-to-hour-minute minutes-from]]
+            [tramboard-clj.script.util :refer [is-in-destinations remove-from-destinations add-to-destinations wait-on-channel ga get-stops-in-order]]
             [tramboard-clj.script.state :refer [is-home is-split get-state go-home go-edit go-toggle-split modify-complete-state get-all-states reset-complete-state]])
   (:import goog.History))
 
@@ -44,9 +44,6 @@
   (if (every? map? vals)
     (apply merge-with deep-merge vals)
     (last vals)))
-
-(defn- cap [string x letter]
-  (if (= 0 (- x (count string))) string (cap (str letter string) x letter)))
 
 (defn- reset-sharing-infos [view]
   (assoc view :shared-view-id (uuid)))
@@ -82,7 +79,7 @@
     base64-string))
 
 (defn- view-from-export-string [string]
-    (reader/read-string (b64/decodeString (pad string 4 "="))))
+  (reader/read-string (b64/decodeString (pad string 4 "="))))
 
 (defn get-destinations-not-excluded [stop]
   (remove #(is-in-destinations (:excluded-destinations stop) %) (:known-destinations stop)))
@@ -98,8 +95,8 @@
         new-stops-order  (vec (remove #(= stop-id %) (:stops-order current-view)))
         new-current-view (reset-sharing-infos
                            (update-updated-date (assoc current-view
-                                                :stops new-stops
-                                                :stops-order new-stops-order)))]
+                                                  :stops new-stops
+                                                  :stops-order new-stops-order)))]
     new-current-view))
 
 (defn- add-stop-and-update-date [current-view {:keys [:id] :as stop}]
@@ -110,8 +107,8 @@
         new-stops-order      (if-not existing-stop (conj existing-stops-order id) existing-stops-order)
         new-current-view     (reset-sharing-infos
                                (update-updated-date (assoc current-view
-                                                    :stops new-stops
-                                                    :stops-order new-stops-order)))]
+                                                      :stops new-stops
+                                                      :stops-order new-stops-order)))]
     new-current-view))
 
 (defn- delete-view-if-no-stops [configured-views view-id]
@@ -137,7 +134,7 @@
     app (fn [app]
           (let [configured-views     (:configured-views app)
                 complete-state       (:complete-state app)
-
+                
                 shared-view-id       (:shared-view-id imported-view)
                 shared-view          (get-shared-view shared-view-id configured-views)
                 view                 (or shared-view (create-new-view imported-view))
@@ -206,8 +203,9 @@
              (let [stop                           (get (:stops view) stop-id)
                    existing-excluded-destinations (or (:excluded-destinations stop) #{})
                    is-already-excluded            (is-in-destinations existing-excluded-destinations arrival)
-                   new-excluded-destinations      (if is-already-excluded (remove #(and (= (:to %) (:to arrival)) (= (:number %) (:number arrival))) existing-excluded-destinations) 
-                                                                       (conj existing-excluded-destinations {:to destination :number number}))
+                   new-excluded-destinations      (if is-already-excluded 
+                                                    (remove-from-destinations existing-excluded-destinations arrival)
+                                                    (add-to-destinations existing-excluded-destinations arrival))
                    new-current-view               (reset-sharing-infos
                                                     (update-updated-date
                                                       (assoc-in view [:stops stop-id :excluded-destinations] new-excluded-destinations)))]
@@ -232,6 +230,29 @@
                                            (update-updated-date
                                              (assoc view :stops (apply assoc stops (flatten new-stops-vector)))))]
                     new-current-view))))
+
+(defn- transform-stationboard-data [json-data]
+  (->> (:departures json-data)
+       (map
+         (fn [entry]
+           (let [scheduled-departure (:scheduled (:departure entry))
+                 is-realtime         (:realtime (:departure entry))
+                 realtime-departure  (or (:realtime (:departure entry)) scheduled-departure)
+                 departure-timestamp (parse-from-date-time realtime-departure)
+                 now                 (now)]
+             {:departure-timestamp departure-timestamp
+              :colors              (:colors entry)
+              :type                (:type entry)
+              :accessible          (:accessible entry)
+              :number              (:name entry)
+              :sort-string         (:sort-string entry)
+              :to                  (:to entry)
+              :in-minutes          (minutes-from departure-timestamp now)
+              :time                (format-to-hour-minute departure-timestamp)
+              :is-realtime         is-realtime
+              :undelayed-time      (when (not= realtime-departure scheduled-departure)
+                                     (let [scheduled-departure-timestamp (parse-from-date-time scheduled-departure)]
+                                       (format-to-hour-minute scheduled-departure-timestamp)))})))))
 
 (defn stop-heading [current-view owner]
   "This displays all the links"
@@ -263,42 +284,42 @@
                         fullscreen-text       (if expanded "exit fullscreen" "fullscreen")]
                     (dom/div #js {:className "control-bar"}
                              (dom/div #js {:className "first-cell"}
-                                       (dom/a #js {:href "#"
-                                                   :className (str "link-icon glyphicon " (if expanded "glyphicon-resize-small" "glyphicon-resize-full"))
-                                                   :aria-label fullscreen-text
-                                                   :onClick (fn [e]
-                                                              ; we change the state to hidden
-                                                              (if expanded
-                                                                (transact-exit-fullscreen current-state)
-                                                                (transact-fullscreen current-state))
-                                                              (.preventDefault e))}))
+                                      (dom/a #js {:href "#"
+                                                  :className (str "link-icon glyphicon " (if expanded "glyphicon-resize-small" "glyphicon-resize-full"))
+                                                  :aria-label fullscreen-text
+                                                  :onClick (fn [e]
+                                                             ; we change the state to hidden
+                                                             (if expanded
+                                                               (transact-exit-fullscreen current-state)
+                                                               (transact-fullscreen current-state))
+                                                             (.preventDefault e))}))
                              (dom/div #js {:className "input-cell"}
-                                       (let [on-action (fn [e]
-                                                         ;(.select (om/get-node owner "shareInput"))
-                                                         (let [share-input (om/get-node owner "shareInput")]
-                                                         (.setSelectionRange share-input 0 (count (.-value share-input)))))]
-                                       (dom/input #js {:aria-label "share URL"
-                                                       :className (str "share-input form-control " (when-not share-input-visible "hidden"))
-                                                       :ref "shareInput"
-                                                       :type "text"
-                                                       :value share-input-value
-                                                       :onClick on-action
-                                                       :onFocus on-action
-                                                       :onTouchStart on-action})))
+                                      (let [on-action (fn [e]
+                                                        ;(.select (om/get-node owner "shareInput"))
+                                                        (let [share-input (om/get-node owner "shareInput")]
+                                                          (.setSelectionRange share-input 0 (count (.-value share-input)))))]
+                                        (dom/input #js {:aria-label "share URL"
+                                                        :className (str "share-input form-control " (when-not share-input-visible "hidden"))
+                                                        :ref "shareInput"
+                                                        :type "text"
+                                                        :value share-input-value
+                                                        :onClick on-action
+                                                        :onFocus on-action
+                                                        :onTouchStart on-action})))
                              (dom/div #js {:className "share-link"}
-                                       (dom/a #js {:href "#"
-                                                   :className "link-icon glyphicon glyphicon-link"
-                                                   :aria-label "share"
-                                                   :onClick (fn [e]
-                                                              (.preventDefault e)
-                                                              (om/update-state! owner
-                                                                                (fn [state]
-                                                                                  (let [share-input-value   (or (:share-input-value state)
-                                                                                                                (get-share-link current-view))
-                                                                                        share-input-visible (not (:share-input-visible state))]
-                                                                                    (assoc state
-                                                                                      :share-input-value share-input-value
-                                                                                      :share-input-visible share-input-visible)))))})))))))
+                                      (dom/a #js {:href "#"
+                                                  :className "link-icon glyphicon glyphicon-link"
+                                                  :aria-label "share"
+                                                  :onClick (fn [e]
+                                                             (.preventDefault e)
+                                                             (om/update-state! owner
+                                                                               (fn [state]
+                                                                                 (let [share-input-value   (or (:share-input-value state)
+                                                                                                               (get-share-link current-view))
+                                                                                       share-input-visible (not (:share-input-visible state))]
+                                                                                   (assoc state
+                                                                                     :share-input-value share-input-value
+                                                                                     :share-input-visible share-input-visible)))))})))))))
 
 
 (defn recent-board-item-stop [stop owner]
@@ -334,9 +355,9 @@
                                      (let [numbers         (->> (:stops view)
                                                                 (map #(get-destinations-not-excluded (val %)))
                                                                 (reduce into #{})
-                                                                (map #(select-keys % [:number :colors :type]))
+                                                                (map #(select-keys % [:number :colors :type :sort-string]))
                                                                 (distinct)
-                                                                (sort-by #(cap (:number %) 20 "0")))
+                                                                (sort-by :sort-string))
                                            too-big         (> (count numbers) 9)
                                            numbers-to-show (if too-big (conj (vec (take 8 numbers)) {:number "..."}) numbers)]
                                        (apply dom/ul #js {:className "list-inline"} (om/build-all recent-board-item-number numbers-to-show)))))))))
@@ -389,13 +410,13 @@
                                 (let [old-hide-ch (:hide-ch s)
                                       new-hide-ch (chan)]
                                   (when old-hide-ch (close! old-hide-ch))
-
+                                  
                                   (go (when-some [hide (<! new-hide-ch)]
                                                  (when hide (om/set-state! owner :activity :idle))))
-
+                                  
                                   (go (<! (timeout 2000))
                                       (put! new-hide-ch true))
-
+                                  
                                   (assoc s
                                     :activity :not-idle
                                     :hide-ch new-hide-ch))))))
@@ -430,7 +451,8 @@
                                     (om/build arrival-tables-view
                                               {:current-view current-view}
                                               {:init-state {:activity-ch activity-ch :toggle-filter-ch toggle-filter-ch}
-                                               :opts {:refresh-rate refresh-rate}}))))))
+                                               :opts {:refresh-rate refresh-rate 
+                                                      :transform-stationboard-data transform-stationboard-data}}))))))
 
 (defn welcome-pane [{:keys [recent-views current-state]} owner]
   (reify
@@ -516,13 +538,13 @@
                                                                         (om/transact! current-state #(go-home %))
                                                                         (.preventDefault e))}})
                         title            (if is-home (build-title-home is-split) (build-title-edit is-split (:last-updated current-view)))]
-
+                    
                     (println "Rendering stationboard")
                     (dom/div (clj->js {:className
                                        (str (when-not (:visible current-state) "hidden") " "
                                             (when (= display :expanded) "display-expanded") " "
                                             (name (:state-id current-state)))})
-
+                             
                              (om/build menu-bar nil {:state {:right-icon split-icon
                                                              :left-icon (when-not is-home home-icon)
                                                              :title title}})

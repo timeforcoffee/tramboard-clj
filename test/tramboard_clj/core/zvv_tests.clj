@@ -20,6 +20,7 @@
                                                :accessible false
                                                :colors { :fg nil :bg nil }
                                                :to "Ziegelbrücke"
+                                               :sort-string "000000000000000000S2"
                                                :departure {
                                                            :scheduled "2015-02-01T19:36:00.000+01:00"
                                                            :realtime "2015-02-01T19:36:00.000+01:00"}})}))
@@ -31,6 +32,7 @@
                                                :accessible true
                                                :colors { :fg "#ffffff" :bg "#a5a2c6" }
                                                :to "Zürich, Hegibachplatz"
+                                               :sort-string "00000000000000000031"
                                                :departure {
                                                            :scheduled "2015-01-27T22:38:00.000+01:00"
                                                            :realtime "2015-01-27T22:38:00.000+01:00"}})})))
@@ -46,7 +48,7 @@
                                          {:id "008577477", :location {:lat 47.046843, :lng 8.629698}, :name "Schwyz, Hirschen"} 
                                          {:id "008571690", :location {:lat 46.748887, :lng 7.312347}, :name "Hirschmatt (Guggisberg), Allme"} 
                                          {:id "008571689", :location {:lat 46.752447, :lng 7.311214}, :name "Hirschmatt (Guggisberg), Fall"} 
-                                         {:id "008571688", :location {:lat 46.75588, :lng 7.322361}, :name "Hirschmatt (Guggisberg),Schule"} 
+                                         {:id "008571688", :location {:lat 46.75588,  :lng 7.322361}, :name "Hirschmatt (Guggisberg),Schule"} 
                                          {:id "008574080", :location {:lat 47.433973, :lng 9.519621}, :name "Heiden, Hirschli"} 
                                          {:id "008582046", :location {:lat 47.133113, :lng 8.406496}, :name "Honau, Hirschen"} 
-                                         {:id "008592495", :location {:lat 47.723749, :lng 8.66321}, :name "Herblingen, Hirschen"}])})))
+                                         {:id "008592495", :location {:lat 47.723749, :lng 8.66321},  :name "Herblingen, Hirschen"}])})))

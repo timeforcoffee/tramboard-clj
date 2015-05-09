@@ -17,6 +17,12 @@
                                      (select-keys arrival keys))]
     is-in-destination))
 
+(defn remove-from-destinations [destinations arrival]
+  (remove #(and (= (:to %) (:to arrival)) (= (:number %) (:number arrival))) destinations))
+
+(defn add-to-destinations [destinations arrival]
+  (conj destinations (select-keys arrival [:to :number :colors :type :sort-string])))
+
 ; TODO make this generic
 (defn get-stops-in-order [view]
   (map #(get (:stops view) %) (:stops-order view)))
