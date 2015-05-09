@@ -6,7 +6,7 @@
   "directories": {
     "test": "test"
   },
-  "devDependencies": {
+  "dependencies": {
     "browser-sync": "^2.7.1",
     "gulp": "^3.8.11",
     "gulp-less": "^3.0.3"
