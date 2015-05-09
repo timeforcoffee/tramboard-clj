@@ -1,33 +1,41 @@
-.filter-editor {
-	// display: none;
-
-
-	display: flex;
-	flex-flow: row wrap;
-	justify-content: space-around;
-
-	.stop {
-		border: 1px solid blue;
-	}
-	.stop-name {
-		width: 100%;
-	}
-	.destination {
-		// flex: 1 0;
-		display: flex;
-		flex-flow: row;
-		align-items: center;
-	}
-
-	.destination > div {
-		// flex: 1 0;
-		border: 1px solid red;
-		white-space: nowrap;
-	}
-
-	.grow {
-		flex: 1;
-	}
-
-
+.filter-editor h4 {
+	background-color: #F5F5F5;
+	padding: 8px;
+	margin-bottom: 0px;
 }
+
+.filter-stop {
+	display: flex;
+	flex-flow: column wrap;
+	max-height: 480px;
+	overflow: scroll;
+	border: 2px solid #F5F5F5;
+}
+
+.filter-destination {
+	// flex: 1 0;
+	display: flex;
+	flex-flow: row;
+	align-items: center;
+	padding: 4px;
+}
+
+.filter-destination > div {
+	// flex: 1 0;
+	white-space: nowrap;
+	padding-left: 4px;
+}
+
+.filter-checkbox {
+	padding-right: 4px;
+}
+
+.filter-number {
+	font-size: 0.4em;
+	
+	.number-generic {
+		width: 30px;
+		line-height: 32px;
+	}
+}
+

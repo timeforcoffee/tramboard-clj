@@ -68,10 +68,6 @@ a .link-icon a.link-icon, a:hover .link-icon, a.link-icon:hover, a:visited .link
 	padding-left: 8px;
 }
 
-.display-expanded .activity-idle .exclude-link {
-	display: none;
-}
-
 .display-expanded .menu-bar {
 	display: none;
 }
@@ -261,37 +257,6 @@ a .link-icon a.link-icon, a:hover .link-icon, a.link-icon:hover, a:visited .link
 		padding-right: 6px;
 	}
 
-	.remove-filter-cell {
-		min-width: 90px;
-	}
-
-	.remove-filter {
-		position: relative;
-	}
-
-	.remove-filter-image, .glyphicon {
-		font-size: 	@icon-font-size;
-	}
-
-	.remove-filter-text {
-		font-size: @small-font-size;
-	}
-
-	a:hover .remove-filter-text {
-		text-decoration: underline;
-	}
-
-	.remove-filter {
-		padding-left: 4px;
-		padding-right: 4px;
-	}
-
-	.remove-filter-text {
-		color: #286090;
-		margin-left: 8px;
-		width: 200px;
-	}
-
 	& > div {
 		display: table-cell;
 		vertical-align: middle;
@@ -330,25 +295,16 @@ a .link-icon a.link-icon, a:hover .link-icon, a.link-icon:hover, a:visited .link
 		padding-bottom: 6px;
 	}
 
-	.exclude-link {
-		width: 24px;
-		text-align: center;
-		font-size: @icon-font-size;
-	}
-
-	.exclude-link a {
-		padding-left: 8px;
-		padding-right: 8px;
-	}
-
 	.station-name {
 		font-size: @big-font-size;
 		display: inline-block;
 		vertical-align: middle;
+		padding-left: 12px;
 
-		i {
-			margin-left: 8px;
+		> span {
+			padding-right: 4px;
 		}
+
 	}
 
 	.station > span {
@@ -456,7 +412,7 @@ a .link-icon a.link-icon, a:hover .link-icon, a.link-icon:hover, a:visited .link
 
 .smaller-device() {
 	.responsive-display {
-		font-size: 0.85em;
+		font-size: 0.7em;
 	}
 
 	.credits {
@@ -490,6 +446,7 @@ a .link-icon a.link-icon, a:hover .link-icon, a.link-icon:hover, a:visited .link
 
 		.station-name {
 			line-height: 28px;
+			padding-left: 10px;
 		}
 
 		.time {
@@ -544,6 +501,7 @@ a .link-icon a.link-icon, a:hover .link-icon, a.link-icon:hover, a:visited .link
 
 		.station-name {
 			line-height: 18px;
+			padding-left: 6px;
 		}
 
 		.time0 img,

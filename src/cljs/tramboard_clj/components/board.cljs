@@ -62,21 +62,6 @@
 (defn- are-all-error-or-empty [station-data]
   (empty? (remove #(or (= :error (val %)) (and (not= :loading (val %)) (empty? (val %)))) station-data)))
 
-(defn- exclude-destination-link [{:keys [arrival]} owner]
-  (reify
-    om/IRenderState
-    (render-state [this {:keys [add-filter-ch]}]
-            (let [exclude-text (str "filter " (:to arrival) " from view")]
-              (dom/a #js {:href "#"
-                          :className "link-icon"
-                          :aria-label exclude-text
-                          :onClick (fn [e]
-                                     ; TODO here we could do it differently, this code should be allowed
-                                     ; to modify the current-view directly, but then the rest of the application
-                                     ; should listen to changes on the current-view and adapt accordingly
-                                     (put! add-filter-ch {:destination arrival})
-                                     (.preventDefault e))} "✖")))))
-
 (defn- arrival-row [{:keys [arrival]} owner {:keys [add-filter-ch]}]
   (reify
     om/IRender
@@ -92,7 +77,6 @@
               (dom/tr #js {:className "tram-row"}
                       (dom/td #js {:className "first-cell"} (om/build number-icon {:number number :colors (:colors arrival) :type type}))
                       (dom/td #js {:className "station"}
-                              (dom/span #js {:className "exclude-link"} (om/build exclude-destination-link {:arrival arrival} {:init-state {:add-filter-ch add-filter-ch}}))
                               (dom/span #js {:className "station-name"
                                              :aria-label (str "destination " to (when accessible (str ". this " type " is accessible by wheelchair")))}
                                         to (when accessible (dom/i #js {:className "fa fa-wheelchair"}))))

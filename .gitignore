@@ -12,3 +12,4 @@ pom.xml.asc
 /resources/public/css
 .repl*
 .DS_Store
+node_modules/

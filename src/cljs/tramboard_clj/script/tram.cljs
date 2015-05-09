@@ -196,7 +196,7 @@
             (ga "send" "event" "stop" "remove" {:dimension1 stop-id})
             (assoc app :configured-views new-configured-views :complete-state new-complete-state)))))
 
-(defn transact-add-filter [view arrival]
+(defn transact-toggle-filter [view arrival]
   (let [stop-id     (:stop-id arrival)
         number      (:number arrival)
         destination (:to arrival)]
@@ -205,7 +205,9 @@
              ; we add the filter
              (let [stop                           (get (:stops view) stop-id)
                    existing-excluded-destinations (or (:excluded-destinations stop) #{})
-                   new-excluded-destinations      (conj existing-excluded-destinations {:to destination :number number})
+                   is-already-excluded            (is-in-destinations existing-excluded-destinations arrival)
+                   new-excluded-destinations      (if is-already-excluded (remove #(and (= (:to %) (:to arrival)) (= (:number %) (:number arrival))) existing-excluded-destinations) 
+                                                                       (conj existing-excluded-destinations {:to destination :number number}))
                    new-current-view               (reset-sharing-infos
                                                     (update-updated-date
                                                       (assoc-in view [:stops stop-id :excluded-destinations] new-excluded-destinations)))]
@@ -219,6 +221,7 @@
   (ga "send" "event" "fullscreen" "exit")
   (om/transact! state :params #(dissoc % :display)))
 
+; not used but could be useful
 (defn transact-remove-filters [view]
   (om/transact! view
                 (fn [view]
@@ -269,14 +272,6 @@
                                                                 (transact-exit-fullscreen current-state)
                                                                 (transact-fullscreen current-state))
                                                               (.preventDefault e))}))
-                             (dom/div #js {:className "remove-filter-cell"}
-                                       (dom/a #js {:href "#"
-                                                   :className "remove-filter link-icon"
-                                                   :onClick (fn [e]
-                                                              (.preventDefault e)
-                                                              (transact-remove-filters current-view))}
-                                              (dom/span #js {:className (when (empty? excluded-destinations) "hidden")}
-                                                        (dom/span #js {:className "remove-filter-image"} "✖") (dom/span #js {:className "remove-filter-text thin"} "remove filters"))))
                              (dom/div #js {:className "input-cell"}
                                        (let [on-action (fn [e]
                                                          ;(.select (om/get-node owner "shareInput"))
@@ -381,11 +376,11 @@
   (reify
     om/IInitState
     (init-state [_]
-                {:activity-ch (chan) :add-filter-ch (chan)})
+                {:activity-ch (chan) :toggle-filter-ch (chan)})
     om/IWillMount
     (will-mount [_]
                 (let [{:keys [activity-ch
-                              add-filter-ch remove-filter-ch]} (om/get-state owner)]
+                              toggle-filter-ch]} (om/get-state owner)]
                   (wait-on-channel
                     activity-ch
                     (fn [_] (om/update-state!
@@ -405,22 +400,18 @@
                                     :activity :not-idle
                                     :hide-ch new-hide-ch))))))
                   (wait-on-channel
-                    add-filter-ch
+                    toggle-filter-ch
                     (fn [{:keys [destination]}]
-                      (transact-add-filter current-view destination)))
-                  (wait-on-channel
-                    remove-filter-ch
-                    (fn [_]
-                      (transact-remove-filters current-view)))))
+                      (transact-toggle-filter current-view destination)))))
     om/IWillUnmount
     (will-unmount [this]
                   (let [{:keys [hide-ch activity-ch
-                                add-filter-ch remove-filter-ch]} (om/get-state owner)]
+                                toggle-filter-ch]} (om/get-state owner)]
                     (close! activity-ch)
-                    (close! add-filter-ch)
+                    (close! toggle-filter-ch)
                     (when hide-ch (close! hide-ch))))
     om/IRenderState
-    (render-state [this {:keys [activity activity-ch add-filter-ch remove-filter-ch add-stop-ch remove-stop-ch]}]
+    (render-state [this {:keys [activity activity-ch toggle-filter-ch add-stop-ch remove-stop-ch]}]
                   (println "Rendering stationboard pane")
                   (dom/div #js {:className (str "container-fluid " (when (= activity :idle) "activity-idle"))}
                            (om/build edit-pane
@@ -430,15 +421,15 @@
                                                    :remove-stop-ch remove-stop-ch}
                                       ; forces re-render
                                       :state {:random (rand)}})
-                           (om/build c-filter-editor current-view {:init-state {:add-filter-ch add-filter-ch}})
+                           (om/build c-filter-editor current-view {:init-state {:toggle-filter-ch toggle-filter-ch}})
                            (dom/div #js {:className "responsive-display"}
                                     (om/build stop-heading current-view)
                                     (om/build control-bar
                                               {:current-state current-state :current-view current-view}
-                                              {:init-state {:remove-filter-ch remove-filter-ch}})
+                                              {:init-state {}})
                                     (om/build arrival-tables-view
                                               {:current-view current-view}
-                                              {:init-state {:activity-ch activity-ch :add-filter-ch add-filter-ch}
+                                              {:init-state {:activity-ch activity-ch :toggle-filter-ch toggle-filter-ch}
                                                :opts {:refresh-rate refresh-rate}}))))))
 
 (defn welcome-pane [{:keys [recent-views current-state]} owner]
@@ -503,7 +494,7 @@
                     (close! remove-stop-ch)
                     (when hide-ch (close! hide-ch))))
     om/IRenderState
-    (render-state [this {:keys [activity activity-ch add-filter-ch remove-filter-ch add-stop-ch remove-stop-ch]}]
+    (render-state [this {:keys [activity activity-ch add-stop-ch remove-stop-ch]}]
                   ; those all depend on the screen that's displayed
                   (let [configured-views (:configured-views app)
                         complete-state   (:complete-state app)
