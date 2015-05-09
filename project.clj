@@ -27,15 +27,11 @@
                  [com.newrelic.agent.java/newrelic-api "3.13.0"]]
 
   :plugins [[lein-cljsbuild "1.0.4"]
-            [lein-less "1.7.2"]
             [lein-shell "0.4.0"]]
 
   :uberjar-name "tramboard-clj.jar"
   :source-paths ["src/clj"]
   :cljsbuild {:builds {:app {:source-paths ["src/cljs"]}}}
-
-  :less {:source-paths ["src/less"]
-         :target-path "resources/public/css"}
 
   :profiles {:dev {:source-paths ["env/dev/src/clj"]
                    :dependencies [[figwheel-sidecar "0.2.1-SNAPSHOT"]
@@ -59,8 +55,9 @@
 
              :uberjar {:source-paths ["env/prod/src/clj"]
                        :omit-source true
+                       :prep-tasks [["shell" "gulp" "less"]]
                        :aot :all
-                       :hooks [leiningen.less leiningen.cljsbuild]
+                       :hooks [leiningen.cljsbuild]
                        :cljsbuild {:builds {:app {:source-paths ["env/prod/src/cljs"]
                                                   :compiler {:output-to "resources/public/js/main.js"
                                                              :optimizations :advanced
