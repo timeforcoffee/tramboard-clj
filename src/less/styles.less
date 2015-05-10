@@ -8,6 +8,7 @@
 /* end of variables */
 
 @import "_filter.less";
+@import "_board.less";
 
 header {
 	margin-bottom: 14px;
@@ -286,87 +287,6 @@ a .link-icon a.link-icon, a:hover .link-icon, a.link-icon:hover, a:visited .link
 	font-size: @big-font-size;
 }
 
-.tram-table {
-	padding: 0;
-	margin-top: 4px;
-	width: 100%;
-
-	.tram-row td {
-		padding-bottom: 6px;
-	}
-
-	.station-name {
-		font-size: @big-font-size;
-		display: inline-block;
-		vertical-align: middle;
-		padding-left: 12px;
-
-		> span {
-			padding-right: 4px;
-		}
-
-	}
-
-	.station > span {
-		display: table-cell;
-		word-wrap: break-word;
-	}
-
-	.time {
-		padding-right: 0;
-	}
-
-	.time div {
-		font-size: @biggest-font-size;
-	}
-
-	.time .fa {
-		display: none;
-	}
-
-	.time0 .fa,
-	.time-1 .fa,
-	.time-2 .fa {
-		display: inline;
-		font-size: 2em;
-		padding-right: 0.5em;
-
-		&.fa-tram {
-			top: -0.25em;
-			right: 0.5em;
-		}
-	}
-
-	.time100 div {
-		font-size: 2.8em;
-	}
-
-	.time0 div,
-	.time-1 div,
-	.time-2 div {
-		display: none;
-	}
-
-	.departure {
-		text-align: right;
-		font-size: @big-font-size;
-		position: relative
-	}
-
-	.departure .undelayed {
-		line-height: 3em;
-		display: block;
-		position: absolute;
-		right: 0px;
-		bottom: 0px;
-	}
-
-	.undelayed {
-		font-size: 0.45em;
-		font-style: italic;
-	}
-}
-
 /* Those things change on smaller devices*/
 .first-cell {
 	width: 70px;
@@ -375,28 +295,6 @@ a .link-icon a.link-icon, a:hover .link-icon, a.link-icon:hover, a:visited .link
 .control-bar {
 	.share-link {
 		width: 33px;
-	}
-}
-
-.tram-table {
-	.tram-row {
-		line-height: 70px
-	}
-
-	.station-name {
-		line-height: 32px;
-	}
-
-	.number-10, .number-14, .number-15, .number-17 {
-		padding-right: 4px;
-	}
-
-	.time {
-		width: 100px;
-	}
-
-	.departure {
-		width: 102px;
 	}
 }
 
@@ -438,32 +336,6 @@ a .link-icon a.link-icon, a:hover .link-icon, a.link-icon:hover, a:visited .link
 			width: 30px;
 		}
 	}
-
-	.tram-table {
-		.tram-row {
-			line-height: 60px
-		}
-
-		.station-name {
-			line-height: 28px;
-			padding-left: 10px;
-		}
-
-		.time {
-			width: 86px;
-		}
-
-		.time0 img,
-		.time-1 img,
-		.time-2 img {
-			width: 34px;
-			padding-right: 2px;
-		}
-
-		.departure {
-			width: 88px;
-		}
-	}
 }
 
 .smallest-device {
@@ -494,31 +366,6 @@ a .link-icon a.link-icon, a:hover .link-icon, a.link-icon:hover, a:visited .link
 		}
 	}
 
-	.tram-table {
-		.tram-row {
-			line-height: 40px
-		}
-
-		.station-name {
-			line-height: 18px;
-			padding-left: 6px;
-		}
-
-		.time0 img,
-		.time-1 img,
-		.time-2 img {
-			width: 26px;
-			padding-right: 4px;
-		}
-
-		.time {
-			width: 58px;
-		}
-
-		.departure {
-			width: 52px;
-		}
-	}
 }
 
 /* media queries handling with split board */

@@ -51,27 +51,26 @@
                   to          (:to arrival)
                   accessible  (:accessible arrival)
                   is-realtime (:is-realtime arrival)]
-              (dom/tr #js {:className "tram-row"}
-                      (dom/td #js {:className "first-cell"} (om/build number-icon {:number number :colors (:colors arrival) :type type}))
-                      (dom/td #js {:className "station"}
-                              (dom/span #js {:className "station-name"
+              (dom/div #js {:className "board-row"}
+                      (dom/div nil (om/build number-icon {:number number :colors (:colors arrival) :type type}))
+                      (dom/div #js {:className "board-row-station"}
+                              (dom/span #js {:className "board-row-station-name"
                                              :aria-label (str "destination " to (when accessible (str ". this " type " is accessible by wheelchair")))}
                                         to (when accessible (dom/i #js {:className "fa fa-wheelchair"}))))
-                      (dom/td #js {:className "departure thin"}
-                              (dom/div nil (:time arrival)
-                                       (dom/span #js {:className "undelayed"} (if-not is-realtime "no real-time data" (:undelayed-time arrival)))))
-                      (dom/td #js {:className (str "text-right time time" in-minutes " " (if (> in-minutes 100) "time100"))}
+                      (dom/div #js {:className "board-row-departure thin"}
+                              (dom/div #js {:className "board-row-departure-actual"} (:time arrival))
+                              (dom/div #js {:className "board-row-departure-scheduled"} (if-not is-realtime "no real-time data" (:undelayed-time arrival))))
+                      (dom/div #js {:className (str "board-row-time board-row-time" in-minutes " " (if (> in-minutes 100) "time100"))}
                               (om/build transport-icon {:type type :accessible-text "arriving now"})
-                              (dom/div #js {:className "bold pull-right"
+                              (dom/span #js {:className "board-row-time-text bold"
                                             :aria-label (str "arriving in " in-minutes " minutes")} (str in-minutes "’"))))))))
 
 (defn- arrival-table [{:keys [arrivals]} owner opts]
   (reify
     om/IRender
     (render [this]
-            (dom/table #js {:className "tram-table"}
-                       (apply dom/tbody nil
-                              (map #(om/build arrival-row {:arrival %} {:opts opts}) arrivals))))))
+            (apply dom/div nil
+                           (map #(om/build arrival-row {:arrival %} {:opts opts}) arrivals)))))
 
 
 (defn arrival-tables-view [{:keys [current-view]} owner {:keys [refresh-rate transform-stationboard-data]}]
@@ -128,7 +127,7 @@
                                                         (let [existing-known-destinations (or (:known-destinations stop) #{})
                                                               filtered-known-destinations (into #{} (reduce #(remove-from-destinations %1 %2) existing-known-destinations data))]
                                                           (assoc stop
-                                                            :known-destinations 
+                                                            :known-destinations
                                                             (reduce #(add-to-destinations %1 %2) filtered-known-destinations data))))))
                                       (om/update-state! owner :station-data #(assoc % stop-id :error))))))
                               ; we initialize the fetch loop

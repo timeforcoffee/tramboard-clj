@@ -20,7 +20,7 @@
                                                                                                                       :to (:to destination)}})
                                                                                    (.preventDefault e))}))
                            (dom/div #js {:className "filter-number"} (om/build number-icon destination))
-                           (dom/div #js {:className "filter-destination"} (:to destination))))))
+                           (dom/div nil (:to destination))))))
 
 
 (defn- group-editor [{:keys [stop group]}]
