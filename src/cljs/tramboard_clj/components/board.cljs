@@ -185,7 +185,8 @@
 
                       (println "Rendering arrival table")
 
-                      (dom/div #js {:onMouseMove #(on-action true %)
+                      (dom/div #js {:className "board-table"
+                                    :onMouseMove #(on-action true %)
                                     :onClick #(on-action true %)
                                     :onTouchStart #(on-action false %)}
                                (dom/div #js {:className (str "text-center ultra-thin loading " (when-not loading "hidden"))} "Your departures are loading...")
