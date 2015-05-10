@@ -292,13 +292,16 @@
                                                              ; we change the state to hidden
                                                              (if expanded
                                                                (transact-exit-fullscreen current-state)
-                                                               (transact-fullscreen current-state))
+                                                               (do
+                                                                (transact-fullscreen current-state)
+                                                                (put! edit-mode-ch false)))
                                                              (.preventDefault e))}
                                              (dom/span #js {:className (str "glyphicon " (if expanded "glyphicon-resize-small" "glyphicon-resize-full"))}) fullscreen-text)
                                       "|"
                                       (dom/a #js {:href "#"
                                                   :aria-label filter-text
                                                   :onClick (fn [e]
+                                                            (when expanded (transact-exit-fullscreen current-state))
                                                             (put! edit-mode-ch (not edit-mode))
                                                             (.preventDefault e))}
                                              (dom/span #js {:className "glyphicon glyphicon-filter"}) filter-text))
