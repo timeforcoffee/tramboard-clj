@@ -6,21 +6,28 @@
             [tramboard-clj.script.util     :refer [is-in-destinations]]
             [clojure.string :as str]))
 
+(defn- add-counter [col]
+  (map-indexed #(assoc %2 :idx %1) col))
+
 ; TODO stop / stop-id should probably not be hardcoded
 (defn- destination-editor [{:keys [stop destination checked]}]
   (reify
     om/IRenderState
     (render-state [this {:keys [toggle-filter-ch]}]
-                  (dom/div #js {:className "filter-destination"}
+      (let [checkbox-id (str "checkbox-" (:idx stop) "-" (:idx destination))]
+                  (dom/div #js {:className (str "filter-destination" (when-not checked " disabled"))}
+                            (dom/i #js {:className "fa fa-ban"})
                            (dom/div #js {:className "filter-checkbox"} (dom/input #js {:type "checkbox"
+                                                                        :id checkbox-id
                                                                         :checked checked
                                                                         :onClick (fn [e]
                                                                                    (put! toggle-filter-ch {:destination {:stop-id (:id stop)
                                                                                                                       :number (:number destination)
                                                                                                                       :to (:to destination)}})
                                                                                    (.preventDefault e))}))
-                           (dom/div #js {:className "filter-number"} (om/build number-icon destination))
-                           (dom/div nil (:to destination))))))
+                           (dom/label #js {:htmlFor checkbox-id}
+                              (dom/span #js {:className "filter-destination-number"} (om/build number-icon destination))
+                              (dom/span #js {:className "filter-destination-name"} (:to destination))))))))
 
 
 (defn- group-editor [{:keys [stop group]}]
@@ -45,15 +52,11 @@
                                   (map #(om/build group-editor
                                                   {:stop stop :group %}
                                                   {:init-state {:toggle-filter-ch toggle-filter-ch}})
-                                       (partition-by :number (sort-by :sort-string (:known-destinations stop)))))))))
-
-
-
-
+                                       (partition-by :number (sort-by :sort-string (add-counter (:known-destinations stop))))))))))
 
 (defn c-filter-editor [view]
   (reify
     om/IRenderState
     (render-state [this {:keys [toggle-filter-ch]}]
                   (apply dom/div #js {:className "filter-editor"}
-                         (map #(om/build stop-editor (val %) {:init-state {:toggle-filter-ch toggle-filter-ch}}) (:stops view))))))
+                         (map #(om/build stop-editor % {:init-state {:toggle-filter-ch toggle-filter-ch}}) (add-counter (map #(val %) (:stops view))))))))
