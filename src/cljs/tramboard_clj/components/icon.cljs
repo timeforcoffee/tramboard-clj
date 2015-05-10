@@ -24,7 +24,7 @@
                                              (when white " number-border"))
                              :style #js {:backgroundColor bg-color :color fg-color}
                              :aria-label (str type " number " number)}
-                        (if too-big (apply str (take 4 number)) number))))))
+                        (dom/div #js {:className "number-inner"} (if too-big (apply str (take 4 number)) number)))))))
 
 (defn transport-icon [{:keys [type accessible-text]} owner]
   (reify

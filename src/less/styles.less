@@ -185,6 +185,11 @@ a .link-icon a.link-icon, a:hover .link-icon, a.link-icon:hover, a:visited .link
 .recent-board {
 	margin-bottom: 30px;
 
+	.number-list ul {
+		display: flex;
+		flex-flow: row wrap;
+	}
+
 	.number-list li {
 		margin-bottom: 6px;
 	}
@@ -279,12 +284,8 @@ a .link-icon a.link-icon, a:hover .link-icon, a.link-icon:hover, a:visited .link
 	font-size: @biggest-font-size;
 }
 
-.number-border {
-	border: 1px solid #ddd;
-}
-
-.number-big {
-	font-size: @big-font-size;
+.number-big .number-inner {
+	font-size: 0.6em;
 }
 
 /* Those things change on smaller devices*/
@@ -303,10 +304,17 @@ a .link-icon a.link-icon, a:hover .link-icon, a.link-icon:hover, a:visited .link
 }
 
 .number-generic {
-	width: 70px;
-	vertical-align: top;
-	line-height: 68px;
+	width: 1.5em;
+	height: 1.5em;
+	line-height: 1.5em;
+	padding: 1px;
+	box-sizing: content-box;
 }
+.number-border {
+	border: 1px solid #ddd;
+	padding: 0;
+}
+
 
 .smaller-device() {
 	.responsive-display {
@@ -320,11 +328,6 @@ a .link-icon a.link-icon, a:hover .link-icon, a.link-icon:hover, a:visited .link
 	.container-fluid {
 		padding-left: 8px;
 		padding-right: 8px;
-	}
-
-	.number-generic {
-		width: 60px;
-		line-height: 58px;
 	}
 
 	.first-cell {
@@ -345,15 +348,6 @@ a .link-icon a.link-icon, a:hover .link-icon, a.link-icon:hover, a:visited .link
 
 	.credits {
 		font-size: 0.8em;
-	}
-
-	.number-generic {
-		width: 40px;
-		line-height: 38px;
-	}
-
-	.number-10, .number-14, .number-15, .number-17 {
-		padding-right: 2px;
 	}
 
 	.first-cell {
