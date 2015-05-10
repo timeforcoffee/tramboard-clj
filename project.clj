@@ -63,4 +63,4 @@
                                                              :optimizations :advanced
                                                              :pretty-print false}}}}}}
   :aliases {"develop"   ["pdo" "figwheel" ["gulp"]]
-            "gulp" ["do" ["shell" "gulp" "watch"]]})
+            "gulp" ["do" ["shell" "node_modules/.bin/gulp" "watch"]]})

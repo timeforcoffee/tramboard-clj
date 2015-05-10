@@ -9,6 +9,6 @@ gulp.task('less', function () {
     .pipe(gulp.dest('resources/public/css'));
 });
 
-gulp.task('watch', function() {
+gulp.task('watch', ['less'], function() {
 	gulp.watch("src/less/**/*.less", ['less']);
-}) 
+})
