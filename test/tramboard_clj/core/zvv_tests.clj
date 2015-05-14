@@ -16,7 +16,7 @@
              (zvv/transform-station-response (:flughafen_xxxx fixtures)) =>
              (contains {:departures (contains {:zvv_id "11484850"
                                                :name "S2"
-                                               :type "train"
+                                               :type "s-train"
                                                :accessible false
                                                :colors { :fg nil :bg nil }
                                                :to "Ziegelbrücke"

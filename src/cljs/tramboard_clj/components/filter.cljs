@@ -79,7 +79,7 @@
     (render-state [this {:keys [toggle-filter-ch]}]
                   (dom/div nil 
                            (apply dom/h4 #js {:className "filter-type-name normal"} (concat (map #(om/build transport-icon {:type %}) types) [(dom/span nil (str/join ", " (map #(type-string %) types)))]))
-                           (apply dom/div #js {:className "filter-type"}
+                           (apply dom/div #js {:className (str "filter-type " (when (>= (count destinations-by-type) 8) "filter-type-big"))}
                                   (map #(om/build line-editor
                                                   {:stop stop :destinations-by-group %}
                                                   {:init-state {:toggle-filter-ch toggle-filter-ch}})
