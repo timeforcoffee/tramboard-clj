@@ -360,24 +360,26 @@
     om/IRender
     (render [this]
             (dom/div #js {:className "recent-board"}
-                     (dom/a #js {:href "#"
-                                 :onClick (fn [e]
-                                            (om/transact! current-state #(go-edit % (:view-id view)))
-                                            (.preventDefault e))}
-                            ; a list of all stops
-                            (dom/h2 #js {:className "thin"}
-                                    (str (str/join " / " (map #(:name %) (get-stops-in-order view)))))
-                            ; a thumbnail of all trams
-                            (dom/div #js {:className "number-list"}
-                                     (let [numbers         (->> (:stops view)
-                                                                (map #(get-destinations-not-excluded (val %)))
-                                                                (reduce into #{})
-                                                                (map #(select-keys % [:number :colors :type :sort-string]))
-                                                                (distinct)
-                                                                (sort-by :sort-string))
-                                           too-big         (> (count numbers) 9)
-                                           numbers-to-show (if too-big (conj (vec (take 8 numbers)) {:number "..."}) numbers)]
-                                       (apply dom/ul #js {:className "list-inline"} (om/build-all recent-board-item-number numbers-to-show)))))))))
+                     (let [on-click (fn [e]
+                                      (om/transact! current-state #(go-edit % (:view-id view)))
+                                      (.preventDefault e))]
+                       (dom/a #js {:href "#"
+                                   :onClick on-click
+                                   :onTouchEnd on-click}
+                              ; a list of all stops
+                              (dom/h2 #js {:className "thin"}
+                                      (str (str/join " / " (map #(:name %) (get-stops-in-order view)))))
+                              ; a thumbnail of all trams
+                              (dom/div #js {:className "number-list"}
+                                       (let [numbers         (->> (:stops view)
+                                                                  (map #(get-destinations-not-excluded (val %)))
+                                                                  (reduce into #{})
+                                                                  (map #(select-keys % [:number :colors :type :sort-string]))
+                                                                  (distinct)
+                                                                  (sort-by :sort-string))
+                                             too-big         (> (count numbers) 9)
+                                             numbers-to-show (if too-big (conj (vec (take 8 numbers)) {:number "..."}) numbers)]
+                                         (apply dom/ul #js {:className "list-inline"} (om/build-all recent-board-item-number numbers-to-show))))))))))
 
 (defn recent-boards [{:keys [recent-views current-state]} owner]
   (reify
@@ -466,7 +468,7 @@
                                                    :remove-stop-ch remove-stop-ch}
                                       ; forces re-render
                                       :state {:random (rand)}})
-                           (dom/div nil
+                           (dom/div #js {:className "stationboard"}
                                     (om/build stop-heading current-view)
                                     (om/build control-bar
                                               {:current-state current-state :current-view current-view :edit-mode edit-mode}

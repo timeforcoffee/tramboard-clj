@@ -10,7 +10,8 @@
                   (dom/a #js {:className (str "link-icon glyphicon " icon-class)
                               :href "#"
                               :aria-label hidden-text
-                              :onClick on-click}))))
+                              :onClick on-click
+                              :onTouchEnd on-click}))))
 
 
 (defn menu-bar [_ owner]
