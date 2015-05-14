@@ -262,7 +262,7 @@
   (reify
     om/IRender
     (render [this]
-            (dom/div #js {:className "stop-heading"}
+            (dom/div #js {:className "responsive-display stop-heading"}
                      (dom/h2 #js {:className "heading thin"} (str "Departures from " (str/join " / " (map #(:name %) (get-stops-in-order current-view)))))))))
 
 (defn control-bar [{:keys [current-state current-view edit-mode]} owner]
@@ -464,7 +464,7 @@
                                                    :remove-stop-ch remove-stop-ch}
                                       ; forces re-render
                                       :state {:random (rand)}})
-                           (dom/div #js {:className "responsive-display"}
+                           (dom/div nil
                                     (om/build stop-heading current-view)
                                     (om/build control-bar
                                               {:current-state current-state :current-view current-view :edit-mode edit-mode}

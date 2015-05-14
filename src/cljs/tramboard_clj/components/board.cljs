@@ -185,7 +185,7 @@
 
                       (println "Rendering arrival table")
 
-                      (dom/div #js {:className "board-table"
+                      (dom/div #js {:className "responsive-display board-table"
                                     :onMouseMove #(on-action true %)
                                     :onClick #(on-action true %)
                                     :onTouchStart #(on-action false %)}
