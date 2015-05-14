@@ -47,7 +47,7 @@
     om/IRenderState
     (render-state [this {:keys [toggle-filter-ch]}]
                   (dom/div nil
-                           (dom/h4 #js {:className "thin"} (:name stop))
+                           (dom/h4 #js {:className "thin"} (str "Destinations for ") (dom/span #js {:className "bold"} (:name stop)) (str ", select destinations to filter"))
                            (apply dom/div #js {:className "filter-stop"}
                                   (map #(om/build group-editor
                                                   {:stop stop :group %}

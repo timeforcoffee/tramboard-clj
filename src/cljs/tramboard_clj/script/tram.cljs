@@ -281,7 +281,7 @@
     (render-state [this {:keys [share-input-value share-input-visible edit-mode-ch]}]
                   (let [excluded-destinations (remove nil? (flatten (map #(:excluded-destinations (val %)) (:stops current-view))))
                         expanded              (= :expanded (:display (:params current-state)))
-                        filter-text           (if edit-mode "hide filters" "show filters")
+                        filter-text           (if edit-mode "hide filters" "filter destinations")
                         fullscreen-text       (if expanded "exit fullscreen" "enter fullscreen")]
                     (dom/div #js {:className "control-bar"}
                              (dom/div nil
