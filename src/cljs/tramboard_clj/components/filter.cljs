@@ -2,7 +2,7 @@
   (:require [om.core :as om :include-macros true]
             [om.dom :as dom :include-macros true]
             [cljs.core.async :refer [put!]]
-            [tramboard-clj.components.icon :refer [number-icon transport-icon]]
+            [tramboard-clj.components.icon :refer [number-icon transport-icon switch]]
             [tramboard-clj.script.util     :refer [is-in-destinations]]
             [clojure.string :as str]))
 
@@ -53,15 +53,12 @@
                              (dom/label #js {:className "filter-destination-label" :htmlFor checkbox-id}
                                         (dom/span #js {:className "filter-destination-number"} (om/build number-icon destination))
                                         (dom/span #js {:className "filter-destination-name"} (:to destination))
-                                        (dom/div #js {:className "label-switch"} (dom/input #js {:type "checkbox"
-                                                                                                 :id checkbox-id
-                                                                                                 :checked checked
-                                                                                                 :onClick (fn [e]
-                                                                                                            (put! toggle-filter-ch {:destination {:stop-id (:id stop)
-                                                                                                                                                  :number (:number destination)
-                                                                                                                                                  :to (:to destination)}})
-                                                                                                            (.preventDefault e))})
-                                                 (dom/div #js {:className "checkbox"}))))))))
+                                        (om/build switch {:checkbox-id checkbox-id :checked checked} 
+                                                  {:opts {:on-click-action (fn [e]
+                                                                             (put! toggle-filter-ch {:destination {:stop-id (:id stop)
+                                                                                                                   :number (:number destination)
+                                                                                                                   :to (:to destination)}})
+                                                                             (.preventDefault e))}})))))))
 
 
 (defn- line-editor [{:keys [stop destinations-by-group]}]
@@ -93,7 +90,7 @@
     om/IRenderState
     (render-state [this {:keys [toggle-filter-ch]}]
                   (dom/div nil
-                           (dom/h3 #js {:className "filter-stop-name thin"} (str "Destinations for ") (dom/span #js {:className "bold"} (:name stop)))
+                           (dom/h3 #js {:className "filter-stop-name thin"} (str "Known destinations for ") (dom/span #js {:className "bold"} (:name stop)))
                            (apply dom/div #js {:className "filter-stop"}
                                   (map #(om/build type-editor
                                                   {:stop stop :destinations-by-type % :types (get-types %)}
@@ -105,4 +102,6 @@
     om/IRenderState
     (render-state [this {:keys [toggle-filter-ch]}]
                   (apply dom/div #js {:className "filter-editor"}
+                         
                          (map #(om/build stop-editor % {:init-state {:toggle-filter-ch toggle-filter-ch}}) (add-counter (map #(val %) (:stops view))))))))
+

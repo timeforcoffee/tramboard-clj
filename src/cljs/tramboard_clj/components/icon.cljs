@@ -40,10 +40,21 @@
                                                   "taxi"        "fa-taxi"
                                                   "s-train"     "fa-subway"
                                                   "boat"        "fa-ship"
-
+                                                  
                                                   "fa-subway"))
                   icon               (dom/i #js {:className (str "fa " (map-transport-icon type))
                                                  :aria-label accessible-text})]
               (if (or (= type "tram") (= type "cable-car"))
                 (dom/span #js {:className "span-fa"
                                :aria-label accessible-text} icon) icon)))))
+
+(defn switch [{:keys [checkbox-id checked]} owner {:keys [on-click-action]}]
+  (reify
+    om/IRender
+    (render [this]
+            (dom/div #js {:className "label-switch"} 
+                     (dom/input #js {:type "checkbox"
+                                     :id checkbox-id
+                                     :checked checked
+                                     :onClick on-click-action})
+                     (dom/div #js {:className "checkbox"})))))

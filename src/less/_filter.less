@@ -1,5 +1,29 @@
+.filter-container {
+	position: relative;
+	z-index: -1;
+}
+
+.visible {
+	.filter-editor {
+		left: -10px;
+	}
+}
+
+.filter-editor {
+	transition: all 0.5s ease 0s;
+	position: absolute;
+	background-color: white;
+	width: 100%;
+	overflow-y: hidden;
+	left: 120%;
+	top: -14px;
+	margin-left: 20px;
+	padding: 10px;
+	box-shadow: -5px 5px 5px 0px rgba(0,0,0,0.3);
+}
+
 .filter-stop-name {
-	background-color: #F5F5F5;
+	background-color: @outline-color;
 	padding: 8px;
 	margin: 0;
 }
@@ -7,7 +31,7 @@
 .filter-stop {
 	display: flex;
 	flex-flow: column nowrap;
-	border: 2px solid #F5F5F5;
+	border: 2px solid @outline-color;
 	border-bottom: 0;
 	margin-bottom: 10px;
 }
@@ -26,7 +50,7 @@
 	flex-flow: column wrap;
 	align-content: flex-start;
 	overflow-x: scroll;
-	border-bottom: 2px solid #F5F5F5;
+	border-bottom: 2px solid @outline-color;
 	padding-bottom: 8px;
 }
 
@@ -61,12 +85,6 @@
 	&.disabled {
 		background-color: #EEEEEE;
 		opacity: 0.4;
-
-		// .fa {
-		// 	opacity: 0.8;
-		// 	display: block;
-		// 	position: absolute;
-		// }
 	}
 }
 
@@ -100,93 +118,3 @@
 		width: auto;
 	}
 }
-
-
-// TODO unify this shiet with the rest of the colors
-@action-color: #477DCA;
-@base-background-color: white;
-@switch-width: 32px;
-@switch-padding: 2px;
-@switch-height: 20px;
-@switch-radius: @switch-height;
-@knob-size: @switch-height - (@switch-padding * 2);
-@knob-radius: @switch-height - (@switch-padding * 2);
-@knob-width: @knob-size;
-@switch-background: @base-background-color;
-@switch-border-background: #E8E8E8;
-@switch-shadow: 0px 2px 5px rgba(0, 0, 0, 0.4);
-
-.label-switch {  
-  margin-bottom: 0px;
-  border-radius: @switch-radius;
-  cursor: pointer;
-  display: inline-block;
-  height: @switch-height;
-  position: relative;
-  width: @switch-width;
-
-  input[type="checkbox"] {
-    display: none;
-
-    + .checkbox {
-      transition: all 0.3s ease 0s;
-      background: @switch-border-background;
-      border-radius: @switch-radius;
-      border: none;
-      cursor: pointer;
-      height: @switch-height;
-      margin: 0;
-      padding: 0;
-      position: relative;
-      width: @switch-width;
-      z-index: 0;
-
-      &:before {
-        position: absolute;
-        top: 2px;
-        left: 0;
-        right: 0;
-        bottom: 2px;
-        transform: scale(1);
-        transition: all 0.3s ease 0s;
-        background: @switch-background;
-        border-radius: @switch-radius;
-        content: "";
-        height: @knob-radius;
-        width: @switch-width - (@switch-padding * 2);
-        z-index: 1;
-      }
-
-      &:after {
-       	position: absolute;
-        top: 2px;
-        left: 0;
-        right: 0;
-        bottom: 2px;
-        transition: all 0.3s ease 0s;
-        height: @knob-size;
-        width: @knob-size;
-        background: @switch-background;
-        border-radius: @knob-radius;
-        box-shadow: @switch-shadow;
-        content: "";
-        z-index: 2;
-      }
-    }
-
-    &:checked {
-      + .checkbox {
-        background: @action-color;
-
-        &:before {
-          transform: scale(0);
-        }
-
-        &:after {
-          left: @switch-width - @knob-width - (@switch-padding);
-        }
-      }
-    }
-  }
-}
-

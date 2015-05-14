@@ -134,7 +134,7 @@
     app (fn [app]
           (let [configured-views     (:configured-views app)
                 complete-state       (:complete-state app)
-
+                
                 shared-view-id       (:shared-view-id imported-view)
                 shared-view          (get-shared-view shared-view-id configured-views)
                 view                 (or shared-view (create-new-view imported-view))
@@ -284,31 +284,35 @@
     (render-state [this {:keys [share-input-value share-input-visible edit-mode-ch]}]
                   (let [excluded-destinations (remove nil? (flatten (map #(:excluded-destinations (val %)) (:stops current-view))))
                         expanded              (= :expanded (:display (:params current-state)))
-                        filter-text           (if edit-mode "hide filters" "filter destinations")
+                        filter-text           (if edit-mode "done filtering" "filter destinations")
                         fullscreen-text       (if expanded "exit fullscreen" "enter fullscreen")]
                     (dom/div #js {:className "control-bar"}
-                             (dom/div nil
-                                      (dom/a #js {:className "control-bar-fullscreen"
-                                                  :href "#"
-                                                  :aria-label fullscreen-text
-                                                  :onClick (fn [e]
-                                                             ; we change the state to hidden
-                                                             (if expanded
-                                                               (transact-exit-fullscreen current-state)
-                                                               (do
-                                                                (transact-fullscreen current-state)
-                                                                (put! edit-mode-ch false)))
-                                                             (.preventDefault e))}
-                                             (dom/span #js {:className (str "glyphicon " (if expanded "glyphicon-resize-small" "glyphicon-resize-full"))}) fullscreen-text)
-                                      "|"
-                                      (dom/a #js {:href "#"
-                                                  :aria-label filter-text
-                                                  :onClick (fn [e]
-                                                            (when expanded (transact-exit-fullscreen current-state))
-                                                            (put! edit-mode-ch (not edit-mode))
-                                                            (.preventDefault e))}
-                                             (dom/span #js {:className "glyphicon glyphicon-filter"}) filter-text))
-                             (dom/div #js {:className "input-cell"}
+                             (dom/a #js {:href "#"
+                                         :aria-label fullscreen-text
+                                         :onClick (fn [e]
+                                                    ; we change the state to hidden
+                                                    (if expanded
+                                                      (transact-exit-fullscreen current-state)
+                                                      (do
+                                                        (transact-fullscreen current-state)
+                                                        (put! edit-mode-ch false)))
+                                                    (.preventDefault e))}
+                                    (dom/span #js {:className (str "glyphicon " (if expanded "glyphicon-resize-small" "glyphicon-resize-full"))}) fullscreen-text)
+                             (dom/span nil "|")
+                             (dom/a #js {:href "#"
+                                         :aria-label "share"
+                                         :onClick (fn [e]
+                                                    (.preventDefault e)
+                                                    (om/update-state! owner
+                                                                      (fn [state]
+                                                                        (let [share-input-value   (or (:share-input-value state)
+                                                                                                      (get-share-link current-view))
+                                                                              share-input-visible (not (:share-input-visible state))]
+                                                                          (assoc state
+                                                                            :share-input-value share-input-value
+                                                                            :share-input-visible share-input-visible)))))} 
+                                    (dom/span #js {:className "glyphicon glyphicon-link"}) "share this board")
+                             (dom/span #js {:className "input-cell"}
                                       (let [on-action (fn [e]
                                                         ;(.select (om/get-node owner "shareInput"))
                                                         (let [share-input (om/get-node owner "shareInput")]
@@ -321,20 +325,13 @@
                                                         :onClick on-action
                                                         :onFocus on-action
                                                         :onTouchStart on-action})))
-                             (dom/div #js {:className "share-link"}
-                                      (dom/a #js {:href "#"
-                                                  :className "link-icon glyphicon glyphicon-link"
-                                                  :aria-label "share"
-                                                  :onClick (fn [e]
-                                                             (.preventDefault e)
-                                                             (om/update-state! owner
-                                                                               (fn [state]
-                                                                                 (let [share-input-value   (or (:share-input-value state)
-                                                                                                               (get-share-link current-view))
-                                                                                       share-input-visible (not (:share-input-visible state))]
-                                                                                   (assoc state
-                                                                                     :share-input-value share-input-value
-                                                                                     :share-input-visible share-input-visible)))))})))))))
+                   
+                            (dom/a #js {:href "#"
+                                        :aria-label filter-text
+                                        :onClick (fn [e]
+                                                   (put! edit-mode-ch (not edit-mode))
+                                                   (.preventDefault e))}
+                                   (dom/span #js {:className (str "glyphicon glyphicon-filter " (when edit-mode "hidden"))}) filter-text))))))
 
 
 (defn recent-board-item-stop [stop owner]
@@ -426,13 +423,13 @@
                                 (let [old-hide-ch (:hide-ch s)
                                       new-hide-ch (chan)]
                                   (when old-hide-ch (close! old-hide-ch))
-
+                                  
                                   (go (when-some [hide (<! new-hide-ch)]
                                                  (when hide (om/set-state! owner :activity :idle))))
-
+                                  
                                   (go (<! (timeout 2000))
                                       (put! new-hide-ch true))
-
+                                  
                                   (assoc s
                                     :activity :not-idle
                                     :hide-ch new-hide-ch))))))
@@ -469,14 +466,13 @@
                                     (om/build control-bar
                                               {:current-state current-state :current-view current-view :edit-mode edit-mode}
                                               {:init-state {:edit-mode-ch edit-mode-ch}})
-                                    (dom/div #js {:className (when-not edit-mode "hidden")}
-                                      (om/build c-filter-editor current-view {:init-state {:toggle-filter-ch toggle-filter-ch}}))
-                                    (dom/div #js {:className (when edit-mode "hidden")}
-                                      (om/build arrival-tables-view
+                                    (dom/div #js {:className (str "filter-container " (when edit-mode "visible"))}
+                                             (om/build c-filter-editor current-view {:init-state {:toggle-filter-ch toggle-filter-ch}}))
+                                    (om/build arrival-tables-view
                                               {:current-view current-view}
                                               {:init-state {:activity-ch activity-ch :toggle-filter-ch toggle-filter-ch}
                                                :opts {:refresh-rate refresh-rate
-                                                      :transform-stationboard-data transform-stationboard-data}})))))))
+                                                      :transform-stationboard-data transform-stationboard-data}}))))))
 
 (defn welcome-pane [{:keys [recent-views current-state]} owner]
   (reify
@@ -562,13 +558,13 @@
                                                                         (om/transact! current-state #(go-home %))
                                                                         (.preventDefault e))}})
                         title            (if is-home (build-title-home is-split) (build-title-edit is-split (:last-updated current-view)))]
-
+                    
                     (println "Rendering stationboard")
                     (dom/div (clj->js {:className
                                        (str (when-not (:visible current-state) "hidden") " "
                                             (when (= display :expanded) "display-expanded") " "
                                             (name (:state-id current-state)))})
-
+                             
                              (om/build menu-bar nil {:state {:right-icon split-icon
                                                              :left-icon (when-not is-home home-icon)
                                                              :title title}})
