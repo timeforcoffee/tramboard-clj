@@ -287,51 +287,56 @@
                         filter-text           (if edit-mode "done filtering" "filter destinations")
                         fullscreen-text       (if expanded "exit fullscreen" "enter fullscreen")]
                     (dom/div #js {:className "control-bar"}
-                             (dom/a #js {:href "#"
-                                         :aria-label fullscreen-text
-                                         :onClick (fn [e]
-                                                    ; we change the state to hidden
-                                                    (if expanded
-                                                      (transact-exit-fullscreen current-state)
-                                                      (do
-                                                        (transact-fullscreen current-state)
-                                                        (put! edit-mode-ch false)))
-                                                    (.preventDefault e))}
-                                    (dom/span #js {:className (str "glyphicon " (if expanded "glyphicon-resize-small" "glyphicon-resize-full"))}) fullscreen-text)
+                             (let [on-action (fn [e]
+                                               ; we change the state to hidden
+                                               (if expanded
+                                                 (transact-exit-fullscreen current-state)
+                                                 (do
+                                                   (transact-fullscreen current-state)
+                                                   (put! edit-mode-ch false)))
+                                               (.preventDefault e))]
+                               (dom/a #js {:href "#"
+                                           :aria-label fullscreen-text
+                                           :onClick on-action
+                                           :onTouchEnd on-action}
+                                      (dom/span #js {:className (str "glyphicon " (if expanded "glyphicon-resize-small" "glyphicon-resize-full"))}) fullscreen-text))
                              (dom/span nil "|")
-                             (dom/a #js {:href "#"
-                                         :aria-label "share"
-                                         :onClick (fn [e]
-                                                    (.preventDefault e)
-                                                    (om/update-state! owner
-                                                                      (fn [state]
-                                                                        (let [share-input-value   (or (:share-input-value state)
-                                                                                                      (get-share-link current-view))
-                                                                              share-input-visible (not (:share-input-visible state))]
-                                                                          (assoc state
-                                                                            :share-input-value share-input-value
-                                                                            :share-input-visible share-input-visible)))))} 
-                                    (dom/span #js {:className "glyphicon glyphicon-link"}) "share this board")
+                             (let [on-action (fn [e]
+                                               (.preventDefault e)
+                                               (om/update-state! owner
+                                                                 (fn [state]
+                                                                   (let [share-input-value   (or (:share-input-value state)
+                                                                                                 (get-share-link current-view))
+                                                                         share-input-visible (not (:share-input-visible state))]
+                                                                     (assoc state
+                                                                       :share-input-value share-input-value
+                                                                       :share-input-visible share-input-visible)))))]
+                               (dom/a #js {:href "#"
+                                           :aria-label "share"
+                                           :onClick on-action
+                                           :onTouchEnd on-action} 
+                                      (dom/span #js {:className "glyphicon glyphicon-link"}) "share this board"))
                              (dom/span #js {:className "input-cell"}
-                                      (let [on-action (fn [e]
-                                                        ;(.select (om/get-node owner "shareInput"))
-                                                        (let [share-input (om/get-node owner "shareInput")]
-                                                          (.setSelectionRange share-input 0 (count (.-value share-input)))))]
-                                        (dom/input #js {:aria-label "share URL"
-                                                        :className (str "share-input form-control " (when-not share-input-visible "hidden"))
-                                                        :ref "shareInput"
-                                                        :type "text"
-                                                        :value share-input-value
-                                                        :onClick on-action
-                                                        :onFocus on-action
-                                                        :onTouchStart on-action})))
-                   
-                            (dom/a #js {:href "#"
-                                        :aria-label filter-text
-                                        :onClick (fn [e]
-                                                   (put! edit-mode-ch (not edit-mode))
-                                                   (.preventDefault e))}
-                                   (dom/span #js {:className (str "glyphicon glyphicon-filter " (when edit-mode "hidden"))}) filter-text))))))
+                                       (let [on-action (fn [e]
+                                                         ;(.select (om/get-node owner "shareInput"))
+                                                         (let [share-input (om/get-node owner "shareInput")]
+                                                           (.setSelectionRange share-input 0 (count (.-value share-input)))))]
+                                         (dom/input #js {:aria-label "share URL"
+                                                         :className (str "share-input form-control " (when-not share-input-visible "hidden"))
+                                                         :ref "shareInput"
+                                                         :type "text"
+                                                         :value share-input-value
+                                                         :onClick on-action
+                                                         :onFocus on-action
+                                                         :onTouchEnd on-action})))
+                             (let [on-action (fn [e]
+                                               (put! edit-mode-ch (not edit-mode))
+                                               (.preventDefault e))]
+                               (dom/a #js {:href "#"
+                                           :aria-label filter-text
+                                           :onClick on-action
+                                           :onTouchEnd on-action}
+                                      (dom/span #js {:className (str "glyphicon glyphicon-filter " (when edit-mode "hidden"))}) filter-text)))))))
 
 
 (defn recent-board-item-stop [stop owner]

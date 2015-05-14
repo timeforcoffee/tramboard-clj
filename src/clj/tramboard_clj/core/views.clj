@@ -38,12 +38,7 @@
            (into
              [:body
               content
-              (com.newrelic.api.agent.NewRelic/getBrowserTimingFooter)
-              (javascript-tag "if ('addEventListener' in document) {
-                              document.addEventListener('DOMContentLoaded', function() {
-                              FastClick.attach(document.body);
-                              }, false);}")
-              (include-js "//cdnjs.cloudflare.com/ajax/libs/fastclick/1.0.6/fastclick.min.js")]
+              (com.newrelic.api.agent.NewRelic/getBrowserTimingFooter)]
              (include-javascript)))))
 
 (defn- index-page* []

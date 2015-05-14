@@ -56,5 +56,6 @@
                      (dom/input #js {:type "checkbox"
                                      :id checkbox-id
                                      :checked checked
-                                     :onClick on-click-action})
+                                     :onClick on-click-action
+                                     :onTouchEnd on-click-action})
                      (dom/div #js {:className "checkbox"})))))
