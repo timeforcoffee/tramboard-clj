@@ -38,9 +38,10 @@
                                                   "bus"         "fa-bus"
                                                   "train"       "fa-subway"
                                                   "taxi"        "fa-taxi"
+                                                  "s-train"     "fa-subway"
                                                   "boat"        "fa-ship"
 
-                                                  "train"))
+                                                  "fa-subway"))
                   icon               (dom/i #js {:className (str "fa " (map-transport-icon type))
                                                  :aria-label accessible-text})]
               (if (or (= type "tram") (= type "cable-car"))

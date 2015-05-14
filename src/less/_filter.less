@@ -1,16 +1,41 @@
-.filter-editor h4 {
+.filter-stop-name {
 	background-color: #F5F5F5;
 	padding: 8px;
-	margin-bottom: 0px;
+	margin: 0;
 }
 
 .filter-stop {
 	display: flex;
-	flex-flow: column wrap;
-	max-height: 480px;
-	overflow-x: scroll;
+	flex-flow: column nowrap;
 	border: 2px solid #F5F5F5;
-	padding-bottom: 6px;
+	padding-bottom: 6px;	
+}
+
+.filter-type-name {
+	padding: 8px;
+	margin: 0;
+
+	> span {
+		margin-left: 4px;
+	}
+}
+
+.filter-type {
+	display: flex;
+	flex-flow: column wrap;
+	align-content: flex-start;
+	overflow-x: scroll;
+	border-bottom: 2px solid #F5F5F5;
+	padding-bottom: 8px;
+}
+
+.filter-destination-label {
+	display: flex;
+	font-weight: normal;
+	align-items: center;
+	margin: 0;
+	width: 100%;
+	cursor: pointer;
 }
 
 .filter-destination {
@@ -21,14 +46,7 @@
 	border-radius: 5px;
 	margin: 3px 6px 0px 6px;
 	position: relative;
-
-	> label {
-		display: flex;
-		font-weight: normal;
-		align-items: center;
-		margin: 0;
-		width: 100%;
-	}
+	border: 0.5px solid #A5A5A5;
 
 	.fa {
 		display: none;
@@ -51,21 +69,123 @@
 	}
 }
 
-.filter-checkbox {
-	display: none;
-}
-
-
 .filter-destination-name {
-	// flex: 1 0;
+	flex: 1 0;
 	white-space: nowrap;
-	padding: 0 4px;
-}
-
-.filter-checkbox {
-	padding-right: 4px;
+	padding: 0 6px;
+    overflow: hidden;
+    text-overflow: ellipsis;
 }
 
 .filter-destination-number {
 	font-size: 0.4em;
 }
+
+// the stuff below changes on small devices
+.filter-type {
+	max-height: 346px;
+}
+
+.filter-destination {
+	width: 260px;
+}
+
+.smallest-device() {
+	.filter-type {
+		max-height: none;
+	}	
+
+	.filter-destination {
+		width: auto;
+	}
+}
+
+
+// TODO unify this shiet with the rest of the colors
+@action-color: #477DCA;
+@base-background-color: white;
+@switch-width: 32px;
+@switch-padding: 2px;
+@switch-height: 20px;
+@switch-radius: @switch-height;
+@knob-size: @switch-height - (@switch-padding * 2);
+@knob-radius: @switch-height - (@switch-padding * 2);
+@knob-width: @knob-size;
+@switch-background: @base-background-color;
+@switch-border-background: #E8E8E8;
+@switch-shadow: 0px 2px 5px rgba(0, 0, 0, 0.4);
+
+.label-switch {  
+  margin-bottom: 0px;
+  border-radius: @switch-radius;
+  cursor: pointer;
+  display: inline-block;
+  height: @switch-height;
+  position: relative;
+  width: @switch-width;
+
+  input[type="checkbox"] {
+    display: none;
+
+    + .checkbox {
+      transition: all 0.3s ease 0s;
+      background: @switch-border-background;
+      border-radius: @switch-radius;
+      border: none;
+      cursor: pointer;
+      height: @switch-height;
+      margin: 0;
+      padding: 0;
+      position: relative;
+      width: @switch-width;
+      z-index: 0;
+
+      &:before {
+        position: absolute;
+        top: 2px;
+        left: 0;
+        right: 0;
+        bottom: 2px;
+        transform: scale(1);
+        transition: all 0.3s ease 0s;
+        background: @switch-background;
+        border-radius: @switch-radius;
+        content: "";
+        height: @knob-radius;
+        width: @switch-width - (@switch-padding * 2);
+        z-index: 1;
+      }
+
+      &:after {
+       	position: absolute;
+        top: 2px;
+        left: 0;
+        right: 0;
+        bottom: 2px;
+        transition: all 0.3s ease 0s;
+        height: @knob-size;
+        width: @knob-size;
+        background: @switch-background;
+        border-radius: @knob-radius;
+        box-shadow: @switch-shadow;
+        content: "";
+        z-index: 2;
+      }
+    }
+
+    &:checked {
+      + .checkbox {
+        background: @action-color;
+
+        &:before {
+          transform: scale(0);
+        }
+
+        &:after {
+          left: @switch-width - @knob-width - (@switch-padding);
+        }
+      }
+    }
+  }
+}
+

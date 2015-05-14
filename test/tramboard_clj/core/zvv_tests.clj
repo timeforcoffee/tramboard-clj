@@ -20,7 +20,6 @@
                                                :accessible false
                                                :colors { :fg nil :bg nil }
                                                :to "Ziegelbrücke"
-                                               :sort-string "000000000000000000S2"
                                                :departure {
                                                            :scheduled "2015-02-01T19:36:00.000+01:00"
                                                            :realtime "2015-02-01T19:36:00.000+01:00"}})}))
@@ -32,7 +31,6 @@
                                                :accessible true
                                                :colors { :fg "#ffffff" :bg "#a5a2c6" }
                                                :to "Zürich, Hegibachplatz"
-                                               :sort-string "00000000000000000031"
                                                :departure {
                                                            :scheduled "2015-01-27T22:38:00.000+01:00"
                                                            :realtime "2015-01-27T22:38:00.000+01:00"}})})))

@@ -39,7 +39,7 @@
     "Bus-NF" "bus"
     "KB"     "bus"
     "ICB"    "bus"
-    "S"      "train"
+    "S"      "s-train"
     "ICN"    "train"
     "IC"     "train"
     "IR"     "train"
@@ -63,9 +63,6 @@
 
     "train"))
 
-(defn- cap [string x letter]
-  (if (= 0 (- x (count string))) string (cap (str letter string) x letter)))
-
 ; TODO add 1 day to realtime if it is smaller than scheduled (scheduled 23h59 + 3min delay ...)
 (defn- zvv-departure [zvv-journey]
   (let [colors          (vec (remove str/blank? (str/split (zvv-journey "lc") #" ")))
@@ -74,7 +71,6 @@
     {;:meta zvv-journey
      :zvv_id (zvv-journey "id")
      :name departure-name
-     :sort-string (cap departure-name 20 "0")
      :type (map-category (zvv-journey "productCategory"))
      :accessible (zvv-journey "isNF")
      :colors {:fg (when (> (count colors) 0) (str "#" (colors 0)))

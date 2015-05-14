@@ -9,50 +9,96 @@
 (defn- add-counter [col]
   (map-indexed #(assoc %2 :idx %1) col))
 
-; TODO stop / stop-id should probably not be hardcoded
+; TODO put together, also with the one in "icon.cljs"
+(defn- type-order [type]
+  (case type
+    "tram"        1
+    "subway"      5
+    "rack-train"  7
+    "cable-car"   8
+    "bus"         2
+    "train"       4
+    "s-train"     3
+    "taxi"        9
+    "boat"        6
+    10))
+
+; TODO put together, also with the one in "icon.cljs"
+(defn- type-string [type]
+  (case type
+    "tram"        "Trams"
+    "subway"      "Subways"
+    "rack-train"  "Rack trains"
+    "cable-car"   "Cable cars"
+    "bus"         "Buses"
+    "train"       "Trains"
+    "s-train"     "Regional trains"
+    "taxi"        "Taxis"
+    "boat"        "Boats"
+    10))
+
+(defn- add-type-order [col] 
+  (map #(assoc % :type-order (type-order (:type %))) col))
+
+(defn- get-types [col] 
+  (distinct (map :type col)))
+
 (defn- destination-editor [{:keys [stop destination checked]}]
   (reify
     om/IRenderState
     (render-state [this {:keys [toggle-filter-ch]}]
-      (let [checkbox-id (str "checkbox-" (:idx stop) "-" (:idx destination))]
-                  (dom/div #js {:className (str "filter-destination" (when-not checked " disabled"))}
-                            (dom/i #js {:className "fa fa-ban"})
-                           (dom/div #js {:className "filter-checkbox"} (dom/input #js {:type "checkbox"
-                                                                        :id checkbox-id
-                                                                        :checked checked
-                                                                        :onClick (fn [e]
-                                                                                   (put! toggle-filter-ch {:destination {:stop-id (:id stop)
-                                                                                                                      :number (:number destination)
-                                                                                                                      :to (:to destination)}})
-                                                                                   (.preventDefault e))}))
-                           (dom/label #js {:htmlFor checkbox-id}
-                              (dom/span #js {:className "filter-destination-number"} (om/build number-icon destination))
-                              (dom/span #js {:className "filter-destination-name"} (:to destination))))))))
+                  (let [checkbox-id (str "checkbox-" (:idx stop) "-" (:idx destination))]
+                    (dom/div #js {:className (str "filter-destination" (when-not checked " disabled"))}
+                             (dom/i #js {:className "fa fa-ban"})
+                             (dom/label #js {:className "filter-destination-label" :htmlFor checkbox-id}
+                                        (dom/span #js {:className "filter-destination-number"} (om/build number-icon destination))
+                                        (dom/span #js {:className "filter-destination-name"} (:to destination))
+                                        (dom/div #js {:className "label-switch"} (dom/input #js {:type "checkbox"
+                                                                                                 :id checkbox-id
+                                                                                                 :checked checked
+                                                                                                 :onClick (fn [e]
+                                                                                                            (put! toggle-filter-ch {:destination {:stop-id (:id stop)
+                                                                                                                                                  :number (:number destination)
+                                                                                                                                                  :to (:to destination)}})
+                                                                                                            (.preventDefault e))})
+                                                 (dom/div #js {:className "checkbox"}))))))))
 
 
-(defn- group-editor [{:keys [stop group]}]
+(defn- line-editor [{:keys [stop destinations-by-group]}]
   (reify
     om/IRenderState
     (render-state [this {:keys [toggle-filter-ch]}]
-                  (apply dom/div nil
+                  (apply dom/div #js {:className "filter-group"}
                          (map #(om/build destination-editor
                                          {:stop stop
                                           :destination %
                                           :checked (not (is-in-destinations (:excluded-destinations stop) %))}
                                          {:init-state {:toggle-filter-ch toggle-filter-ch}})
-                              (sort-by :to group))))))
+                              (sort-by :to destinations-by-group))))))
+
+(defn- type-editor [{:keys [stop destinations-by-type types]}]
+  (reify
+    om/IRenderState
+    (render-state [this {:keys [toggle-filter-ch]}]
+                  (dom/div nil 
+                           (apply dom/h4 #js {:className "filter-type-name normal"} (concat (map #(om/build transport-icon {:type %}) types) [(dom/span nil (str/join ", " (map #(type-string %) types)))]))
+                           (apply dom/div #js {:className "filter-type"}
+                                  (map #(om/build line-editor
+                                                  {:stop stop :destinations-by-group %}
+                                                  {:init-state {:toggle-filter-ch toggle-filter-ch}})
+                                       (partition-by :sort-string (sort-by :sort-string destinations-by-type))))))))
 
 (defn- stop-editor [stop]
   (reify
     om/IRenderState
     (render-state [this {:keys [toggle-filter-ch]}]
                   (dom/div nil
-                           (dom/h4 #js {:className "thin"} (str "Destinations for ") (dom/span #js {:className "bold"} (:name stop)) (str ", select destinations to filter"))
+                           (dom/h3 #js {:className "filter-stop-name thin"} (str "Destinations for ") (dom/span #js {:className "bold"} (:name stop)))
                            (apply dom/div #js {:className "filter-stop"}
-                                  (map #(om/build group-editor
-                                                  {:stop stop :group %}
+                                  (map #(om/build type-editor
+                                                  {:stop stop :destinations-by-type % :types (get-types %)}
                                                   {:init-state {:toggle-filter-ch toggle-filter-ch}})
-                                       (partition-by :number (sort-by :sort-string (add-counter (:known-destinations stop))))))))))
+                                       (partition-by :type (sort-by :type-order (add-type-order (add-counter (:known-destinations stop)))))))))))
 
 (defn c-filter-editor [view]
   (reify

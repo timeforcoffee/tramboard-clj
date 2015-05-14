@@ -3,12 +3,17 @@
 
 @biggest-font-size: 3.35em;
 @big-font-size: 1.95em;
+@normal-font-size: 1.7em;
 @small-font-size: 1.4em;
 
 /* end of variables */
 
 @import "_filter.less";
 @import "_board.less";
+
+html {
+	min-width: 320px;
+}
 
 header {
 	margin-bottom: 14px;
@@ -19,6 +24,15 @@ header {
 }
 
 /* generic styles */
+
+h4 {
+	font-size: @small-font-size;
+}
+
+h3 {
+	font-size: @normal-font-size;
+}
+
 h2 {
 	font-size: @big-font-size;
 }
@@ -29,6 +43,10 @@ h1 {
 
 .bold {
 	font-weight: 600;
+}
+
+.normal {
+	font-weight: 400;
 }
 
 .thin {
@@ -342,7 +360,7 @@ a .link-icon a.link-icon, a:hover .link-icon, a.link-icon:hover, a:visited .link
 	}
 }
 
-.smallest-device {
+.smallest-device() {
 	.responsive-display {
 		font-size: 0.56em;
 	}

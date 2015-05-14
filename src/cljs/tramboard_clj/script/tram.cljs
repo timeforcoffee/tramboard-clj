@@ -231,6 +231,9 @@
                                              (assoc view :stops (apply assoc stops (flatten new-stops-vector)))))]
                     new-current-view))))
 
+(defn- cap [string x letter]
+  (if (= 0 (- x (count string))) string (cap (str letter string) x letter)))
+
 (defn- transform-stationboard-data [json-data]
   (->> (:departures json-data)
        (map
@@ -245,7 +248,7 @@
               :type                (:type entry)
               :accessible          (:accessible entry)
               :number              (:name entry)
-              :sort-string         (:sort-string entry)
+              :sort-string         (cap (:name entry) 20 "0")
               :to                  (:to entry)
               :in-minutes          (minutes-from departure-timestamp now)
               :time                (format-to-hour-minute departure-timestamp)
