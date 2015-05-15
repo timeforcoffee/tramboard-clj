@@ -39,6 +39,7 @@
     "Bus-NF" "bus"
     "KB"     "bus"
     "ICB"    "bus"
+    "N"      "bus"
     "S"      "s-train"
     "ICN"    "train"
     "IC"     "train"
