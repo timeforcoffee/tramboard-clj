@@ -18,7 +18,7 @@
             [tramboard-clj.components.menu :refer [menu-bar menu-icon]]
             [tramboard-clj.components.board :refer [arrival-tables-view]]
             [tramboard-clj.script.time :refer [display-time parse-from-date-time format-to-hour-minute minutes-from]]
-            [tramboard-clj.script.util :refer [is-in-destinations remove-from-destinations add-to-destinations wait-on-channel ga get-stops-in-order]]
+            [tramboard-clj.script.util :refer [edit-or-add-destination get-destination init-destinations wait-on-channel ga get-stops-in-order]]
             [tramboard-clj.script.state :refer [is-home is-split get-state go-home go-edit go-toggle-split modify-complete-state get-all-states reset-complete-state]])
   (:import goog.History))
 
@@ -45,8 +45,8 @@
     (apply merge-with deep-merge vals)
     (last vals)))
 
-(defn- reset-sharing-infos [view]
-  (assoc view :shared-view-id (uuid)))
+(defn- remove-sharing-infos [view]
+  (dissoc view :shared-view-hash))
 
 (defn- update-updated-date [view]
   (assoc view :last-updated (to-long (now))))
@@ -78,11 +78,11 @@
         base64-string (apply str string (repeat (if (= 0 too-big-by) 0 (- num too-big-by)) "="))]
     base64-string))
 
+(defn- get-destinations-not-excluded [stop]
+  (remove #(:excluded %) (:known-destinations stop)))
+
 (defn- view-from-export-string [string]
   (reader/read-string (b64/decodeString (pad string 4 "="))))
-
-(defn get-destinations-not-excluded [stop]
-  (remove #(is-in-destinations (:excluded-destinations stop) %) (:known-destinations stop)))
 
 (defn get-recent-board-views [configured-views complete-state]
   (let [views                 (map #(val %) configured-views)
@@ -93,7 +93,7 @@
 (defn- remove-stop-and-update-date [current-view stop-id]
   (let [new-stops        (dissoc (:stops current-view) stop-id)
         new-stops-order  (vec (remove #(= stop-id %) (:stops-order current-view)))
-        new-current-view (reset-sharing-infos
+        new-current-view (remove-sharing-infos
                            (update-updated-date (assoc current-view
                                                   :stops new-stops
                                                   :stops-order new-stops-order)))]
@@ -105,7 +105,7 @@
         existing-stop        (get existing-stops id)
         new-stops            (assoc existing-stops id (merge (or existing-stop {}) stop))
         new-stops-order      (if-not existing-stop (conj existing-stops-order id) existing-stops-order)
-        new-current-view     (reset-sharing-infos
+        new-current-view     (remove-sharing-infos
                                (update-updated-date (assoc current-view
                                                       :stops new-stops
                                                       :stops-order new-stops-order)))]
@@ -120,24 +120,22 @@
       configured-views)))
 
 (defn- create-new-view [view]
-  (let [view-id        (uuid)
-        shared-view-id (uuid)]
-    (update-updated-date (into {:view-id view-id :shared-view-id shared-view-id} view))))
+  (let [view-id        (uuid)]
+    (update-updated-date (into {:view-id view-id} view))))
 
-(defn- get-shared-view [shared-view-id configured-views]
-  (let [shared-view (first (filter #(= (:shared-view-id %) shared-view-id) (map val configured-views)))]
+(defn- get-shared-view [shared-view-hash configured-views]
+  (let [shared-view (first (filter #(= (:shared-view-hash %) shared-view-hash) (map val configured-views)))]
     (println shared-view)
     shared-view))
 
-(defn swap-import-and-display-view [app imported-view]
+(defn swap-import-and-display-view [app imported-view shared-view-hash]
   (swap!
     app (fn [app]
           (let [configured-views     (:configured-views app)
                 complete-state       (:complete-state app)
                 
-                shared-view-id       (:shared-view-id imported-view)
-                shared-view          (get-shared-view shared-view-id configured-views)
-                view                 (or shared-view (create-new-view imported-view))
+                shared-view          (get-shared-view shared-view-hash configured-views)
+                view                 (or shared-view (assoc (create-new-view imported-view) :shared-view-hash shared-view-hash))
                 view-id              (:view-id view)
                 ; TODO this is the same as in transact-add-stop, simplify
                 new-configured-views (assoc configured-views view-id view)
@@ -153,7 +151,7 @@
 (defroute share-link "/link/*" {hash :*}
   (let [imported-view  (view-from-export-string hash)]
     (println "Got link with a view to display" imported-view)
-    (swap-import-and-display-view app-state imported-view)
+    (swap-import-and-display-view app-state imported-view hash)
     (.setToken (History.) "")))
 
 (defn- get-share-link [view]
@@ -201,14 +199,14 @@
       view (fn [view]
              ; we add the filter
              (let [stop                           (get (:stops view) stop-id)
-                   existing-excluded-destinations (or (:excluded-destinations stop) #{})
-                   is-already-excluded            (is-in-destinations existing-excluded-destinations arrival)
-                   new-excluded-destinations      (if is-already-excluded
-                                                    (remove-from-destinations existing-excluded-destinations arrival)
-                                                    (add-to-destinations existing-excluded-destinations arrival))
-                   new-current-view               (reset-sharing-infos
+                   existing-known-destinations    (:known-destinations stop)
+                   existing-destination           (get-destination existing-known-destinations arrival)
+                   is-already-excluded            (:excluded existing-destination)
+                   new-known-destinations         (edit-or-add-destination existing-known-destinations (assoc existing-destination :excluded (not is-already-excluded)))
+                   new-current-view               (remove-sharing-infos
                                                     (update-updated-date
-                                                      (assoc-in view [:stops stop-id :excluded-destinations] new-excluded-destinations)))]
+                                                      (assoc-in view [:stops stop-id :known-destinations] new-known-destinations)))]
+               (println new-known-destinations)
                new-current-view)))))
 
 (defn transact-fullscreen [state]
@@ -220,16 +218,16 @@
   (om/transact! state :params #(dissoc % :display)))
 
 ; not used but could be useful
-(defn transact-remove-filters [view]
-  (om/transact! view
-                (fn [view]
-                  ; we remove all the filters
-                  (let [stops            (:stops view)
-                        new-stops-vector (map #(vector (first %) (dissoc (second %) :excluded-destinations)) stops)
-                        new-current-view (reset-sharing-infos
-                                           (update-updated-date
-                                             (assoc view :stops (apply assoc stops (flatten new-stops-vector)))))]
-                    new-current-view))))
+; (defn transact-remove-filters [view]
+;   (om/transact! view
+;                 (fn [view]
+;                   ; we remove all the filters
+;                   (let [stops            (:stops view)
+;                         new-stops-vector (map #(vector (first %) (dissoc (second %) :excluded-destinations)) stops)
+;                         new-current-view (remove-sharing-infos
+;                                            (update-updated-date
+;                                              (assoc view :stops (apply assoc stops (flatten new-stops-vector)))))]
+;                     new-current-view))))
 
 (defn- cap [string x letter]
   (if (= 0 (- x (count string))) string (cap (str letter string) x letter)))
@@ -282,8 +280,7 @@
                         (om/set-state! owner :share-input-value new-share-input-value))))))
     om/IRenderState
     (render-state [this {:keys [share-input-value share-input-visible edit-mode-ch]}]
-                  (let [excluded-destinations (remove nil? (flatten (map #(:excluded-destinations (val %)) (:stops current-view))))
-                        expanded              (= :expanded (:display (:params current-state)))
+                  (let [expanded              (= :expanded (:display (:params current-state)))
                         filter-text           (if edit-mode "done filtering" "filter destinations")
                         fullscreen-text       (if expanded "exit fullscreen" "enter fullscreen")]
                     (dom/div #js {:className "control-bar"}
@@ -351,9 +348,6 @@
     (render [this]
             (dom/li nil
                     (om/build number-icon number-with-colors)))))
-
-(defn- get-all-excluded-destinations [view]
-  (remove nil? (flatten (map #(:excluded-destinations (val %)) (:stops view)))))
 
 (defn recent-board-item [{:keys [view current-state]} owner]
   (reify

@@ -5,7 +5,7 @@
             [cljs-time.core :refer [now]]
             [cljs.core.async :refer [put! chan <! >! close! timeout]]
             [tramboard-clj.components.icon :refer [number-icon transport-icon]]
-            [tramboard-clj.script.util :refer [is-in-destinations remove-from-destinations add-to-destinations wait-on-channel ga]]
+            [tramboard-clj.script.util :refer [edit-or-add-destination get-destination init-destinations wait-on-channel ga]]
             [tramboard-clj.script.client :refer [fetch-stationboard-data]]
             [tramboard-clj.script.util :refer [wait-on-channel]]))
 
@@ -26,7 +26,7 @@
                       (sort-by :departure-timestamp)
                       ; we filter out the things we don't want to see
                       (remove #(let [stop (get (:stops current-view) (:stop-id %))]
-                                 (is-in-destinations (:excluded-destinations stop) %)))
+                                 (:excluded (get-destination (:known-destinations stop) %))))
                       ; we filter out the things that left more than 0 minutes ago
                       (remove #(< (:in-minutes %) 0))
                       (take 30))]
@@ -124,11 +124,10 @@
                                         (om/transact! current-view [:stops stop-id]
                                                       (fn [stop]
                                                         ; we add all the known destinations to the stop
-                                                        (let [existing-known-destinations (or (:known-destinations stop) #{})
-                                                              filtered-known-destinations (into #{} (reduce #(remove-from-destinations %1 %2) existing-known-destinations data))]
+                                                        (let [existing-known-destinations (or (:known-destinations stop) (init-destinations))
+                                                              new-known-destinations (into (init-destinations) (reduce #(edit-or-add-destination %1 %2) existing-known-destinations data))]
                                                           (assoc stop
-                                                            :known-destinations
-                                                            (reduce #(add-to-destinations %1 %2) filtered-known-destinations data))))))
+                                                            :known-destinations new-known-destinations)))))
                                       (om/update-state! owner :station-data #(assoc % stop-id :error))))))
                               ; we initialize the fetch loop
                               (wait-on-channel
