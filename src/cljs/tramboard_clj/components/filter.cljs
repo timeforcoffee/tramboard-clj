@@ -42,23 +42,24 @@
 (defn- get-types [col] 
   (distinct (map :type col)))
 
-(defn- destination-editor [{:keys [stop-id stop-idx destination]}]
+(defn- destination-editor [{:keys [stop-id stop-idx destination]} owner]
   (reify
     om/IRenderState
     (render-state [this {:keys [toggle-filter-ch]}]
                   (let [checked     (not (:excluded destination))
-                        checkbox-id (str "checkbox-" stop-idx "-" (:idx destination))]
+                        checkbox-id (str "checkbox-" stop-idx "-" (:idx destination))
+                        on-click    (fn [e]
+                                      (.preventDefault e)
+                                      (put! toggle-filter-ch {:destination {:stop-id stop-id
+                                                                            :number (:number destination)
+                                                                            :to (:to destination)}}))]
                     (dom/div #js {:className (str "filter-destination" (when-not checked " disabled"))}
-                             (dom/i #js {:className "fa fa-ban"})
-                             (dom/label #js {:className "filter-destination-label" :htmlFor checkbox-id}
-                                        (dom/span #js {:className "filter-destination-number"} (om/build number-icon destination))
-                                        (dom/span #js {:className "filter-destination-name"} (:to destination))
-                                        (om/build switch {:checkbox-id checkbox-id :checked checked} 
-                                                  {:opts {:on-click-action (fn [e]
-                                                                             (put! toggle-filter-ch {:destination {:stop-id stop-id
-                                                                                                                   :number (:number destination)
-                                                                                                                   :to (:to destination)}})
-                                                                             (.preventDefault e))}})))))))
+                             (dom/a #js {:className "filter-destination-link" :href "#" :onClick on-click :onTouchEnd on-click}
+                                    (dom/label #js {:className "filter-destination-label" :htmlFor checkbox-id :ref "test"}
+                                               (dom/span #js {:className "filter-destination-number"} (om/build number-icon destination))
+                                               (dom/span #js {:className "filter-destination-name"} (:to destination))
+                                               (om/build switch {:checkbox-id checkbox-id :checked checked} 
+                                                         {:opts {:on-click-action #()}}))))))))
 
 (defn- line-editor [{:keys [stop destinations-by-group]}]
   (reify

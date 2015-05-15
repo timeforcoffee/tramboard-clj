@@ -79,6 +79,18 @@
 	cursor: pointer;
 }
 
+.filter-destination-link {
+	display: flex;
+	flex: 1 1;
+	overflow: hidden;
+
+	&:hover, &:visited, &:focus {
+		text-decoration: none;
+		outline: 0;
+		color: black;
+	}
+}
+
 .filter-destination {
 	display: flex;
 	flex-flow: row;
@@ -154,4 +166,8 @@
 		margin-right: @edge-padding-normal * 3;
 	}
 
+}
+
+.test-red {
+	background-color: red;
 }
