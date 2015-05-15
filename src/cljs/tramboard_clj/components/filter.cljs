@@ -77,7 +77,7 @@
   (reify
     om/IRenderState
     (render-state [this {:keys [toggle-filter-ch]}]
-                  (dom/div nil 
+                  (dom/div #js {:className "filter-type-container"}
                            (apply dom/h4 #js {:className "filter-type-name normal"} (concat (map #(om/build transport-icon {:type %}) types) [(dom/span nil (str/join ", " (map #(type-string %) types)))]))
                            (apply dom/div #js {:className (str "filter-type " (when (>= (count destinations-by-type) 8) "filter-type-big"))}
                                   (map #(om/build line-editor
@@ -89,7 +89,7 @@
   (reify
     om/IRenderState
     (render-state [this {:keys [toggle-filter-ch]}]
-                  (dom/div nil
+                  (dom/div #js {:className "filter-stop-container"}
                            (dom/h3 #js {:className "filter-stop-name thin"} (str "Known destinations for ") (dom/span #js {:className "bold"} (:name stop)))
                            (apply dom/div #js {:className "filter-stop"}
                                   (map #(om/build type-editor

@@ -1,26 +1,34 @@
-.filter-container {
+.filter-wrapper {
 	position: relative;
-	z-index: 1;
-	width: 100%;
 }
 
-.visible {
-	.filter-editor {
-		left: -10px;
+.filter-container {
+	position: absolute;
+	top: -14px;
+	width: 0;
+	max-height: 0;
+	overflow: hidden;
+	transition: width 0.5s ease 0s;
+
+	&.visible {
+		width: 100%;
+		max-height: none;
 	}
+
 }
 
 .filter-editor {
-	transition: all 0.5s ease 0s;
-	position: absolute;
 	display: block;
 	background-color: white;
-	width: 100%;
-	left: 120%;
-	top: -14px;
-	margin-left: 20px;
-	padding: 10px;
-	box-shadow: -5px 5px 5px 0px rgba(0,0,0,0.3);
+	width: 97vw;
+	margin-left: 3vw;
+	box-shadow: -5px 0px 10px 0px rgba(0,0,0,0.3);
+	padding-top: 10px;
+}
+
+.filter-stop-container {
+	margin-left: 10px;
+	margin-bottom: 10px;
 }
 
 .filter-stop-name {
@@ -32,9 +40,13 @@
 .filter-stop {
 	display: flex;
 	flex-flow: column nowrap;
-	border: 2px solid @outline-color;
 	border-bottom: 0;
 	margin-bottom: 10px;
+}
+
+.filter-type-container {
+	border: 2px solid @outline-color;
+	margin-bottom: 8px;
 }
 
 .filter-type-name {
@@ -51,7 +63,6 @@
 	flex-flow: column wrap;
 	align-content: flex-start;
 	overflow-x: scroll;
-	border-bottom: 2px solid @outline-color;
 	padding-bottom: 8px;
 }
 
@@ -102,6 +113,14 @@
 }
 
 // the stuff below changes on small devices
+.filter-container {
+	right: -@edge-padding-big;
+}
+
+.filter-stop-container {
+	margin-right: @edge-padding-big * 3;
+}
+
 .filter-type {
 	max-height: 348px;
 }
@@ -122,4 +141,16 @@
 	.filter-destination {
 		width: auto;
 	}
+}
+
+.smaller-device() {
+
+	.filter-container {
+		right: -@edge-padding-normal;
+	}
+
+	.filter-stop-container {
+		margin-right: @edge-padding-normal * 3;
+	}
+
 }

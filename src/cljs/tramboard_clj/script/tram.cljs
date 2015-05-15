@@ -468,18 +468,18 @@
                                                    :remove-stop-ch remove-stop-ch}
                                       ; forces re-render
                                       :state {:random (rand)}})
-                           (dom/div #js {:className "stationboard"}
-                                    (om/build stop-heading current-view)
-                                    (om/build control-bar
-                                              {:current-state current-state :current-view current-view :edit-mode edit-mode}
-                                              {:init-state {:edit-mode-ch edit-mode-ch}})
-                                    (dom/div #js {:className (str "filter-container " (when edit-mode "visible"))}
-                                             (om/build c-filter-editor current-view {:init-state {:toggle-filter-ch toggle-filter-ch}}))
-                                    (om/build arrival-tables-view
-                                              {:current-view current-view}
-                                              {:init-state {:activity-ch activity-ch :toggle-filter-ch toggle-filter-ch}
-                                               :opts {:refresh-rate refresh-rate
-                                                      :transform-stationboard-data transform-stationboard-data}}))))))
+                           (om/build stop-heading current-view)
+                           (om/build control-bar
+                                     {:current-state current-state :current-view current-view :edit-mode edit-mode}
+                                     {:init-state {:edit-mode-ch edit-mode-ch}})
+                           (dom/div #js {:className "filter-wrapper"}
+                           (dom/div #js {:className (str "filter-container " (when edit-mode "visible"))}
+                                    (om/build c-filter-editor current-view {:init-state {:toggle-filter-ch toggle-filter-ch}})))
+                           (om/build arrival-tables-view
+                                     {:current-view current-view}
+                                     {:init-state {:activity-ch activity-ch :toggle-filter-ch toggle-filter-ch}
+                                      :opts {:refresh-rate refresh-rate
+                                             :transform-stationboard-data transform-stationboard-data}})))))
 
 (defn welcome-pane [{:keys [recent-views current-state]} owner]
   (reify
@@ -595,8 +595,7 @@
             (let [states (get-all-states complete-state)
                   order  (:order complete-state)]
               (println "Rendering split stationboard")
-              (apply dom/div (when (is-split complete-state)
-                               (clj->js {:className (str "split-board " (name (get order 0)) "-" (name (get order 1)))}))
+              (apply dom/div #js {:className (when (is-split complete-state) (str "split-board " (name (get order 0)) "-" (name (get order 1))))}
                      (map #(om/build stationboard {:current-state % :app app}) states))))))
 
 (defn hook-browser-navigation! []

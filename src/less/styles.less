@@ -9,6 +9,9 @@
 @action-color: #477DCA;
 @outline-color: #F5F5F5;
 
+@edge-padding-big: 15px;
+@edge-padding-normal: 10px;
+
 /* end of variables */
 
 @import "_filter.less";
@@ -270,12 +273,7 @@ a .link-icon a.link-icon, a:hover .link-icon, a.link-icon:hover, a:visited .link
 	}
 }
 
-.stationboard {
-	overflow-x: hidden;
-}
-
 .control-bar {
-	z-index: 2;
 	width: 100%;
 	display: flex;
 	align-items: center;
@@ -317,6 +315,11 @@ a .link-icon a.link-icon, a:hover .link-icon, a.link-icon:hover, a:visited .link
 	font-size: 1em;
 }
 
+.container-fluid {
+	padding-right: @edge-padding-big;
+	padding-left: @edge-padding-big;
+}
+
 .smaller-device() {
 	.responsive-display {
 		font-size: 0.7em;
@@ -336,6 +339,12 @@ a .link-icon a.link-icon, a:hover .link-icon, a.link-icon:hover, a:visited .link
 			width: 30px;
 		}
 	}
+
+	.container-fluid {
+		padding-right: @edge-padding-normal;
+		padding-left: @edge-padding-normal;
+	}
+
 }
 
 .smallest-device() {
