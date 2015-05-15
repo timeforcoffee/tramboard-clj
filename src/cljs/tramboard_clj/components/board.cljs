@@ -18,6 +18,15 @@
         new-station-data                 (merge station-data-without-removed-ids (into {} (map (fn [id] [id :loading]) ids-without-loaded-stations)))]
     new-station-data))
 
+(defn- keep-non-excluded [number acc data]
+  (if 
+    (or (empty? data) (= number 0)) acc
+    (let [head (first data)
+          tail (rest data)]
+      (if (:excluded head) 
+        (keep-non-excluded number (conj acc head) tail)
+        (keep-non-excluded (- number 1) (conj acc head) tail)))))
+
 (defn- arrivals-from-station-data [station-data current-view]
   (let [arrivals (->> station-data
                       (remove #(or (= :loading (val %)) (= :error (val %))))
@@ -25,11 +34,11 @@
                       (flatten)
                       (sort-by :departure-timestamp)
                       ; we filter out the things we don't want to see
-                      (remove #(let [stop (get (:stops current-view) (:stop-id %))]
-                                 (:excluded (get-destination (:known-destinations stop) %))))
+                      (map #(let [stop (get (:stops current-view) (:stop-id %))]
+                              (assoc % :excluded (:excluded (get-destination (:known-destinations stop) %)))))
                       ; we filter out the things that left more than 0 minutes ago
                       (remove #(< (:in-minutes %) 0))
-                      (take 30))]
+                      (keep-non-excluded 30 []))]
     arrivals))
 
 
@@ -44,33 +53,34 @@
     om/IRender
     (render [this]
             (println "Rendering row")
-
+            
             (let [type        (:type arrival)
                   in-minutes  (:in-minutes arrival)
                   number      (:number arrival)
                   to          (:to arrival)
                   accessible  (:accessible arrival)
-                  is-realtime (:is-realtime arrival)]
-              (dom/div #js {:className "board-row"}
-                      (dom/div nil (om/build number-icon {:number number :colors (:colors arrival) :type type}))
-                      (dom/div #js {:className "board-row-station"}
-                              (dom/span #js {:className "board-row-station-name"
-                                             :aria-label (str "destination " to (when accessible (str ". this " type " is accessible by wheelchair")))}
-                                        to (when accessible (dom/i #js {:className "fa fa-wheelchair"}))))
-                      (dom/div #js {:className "board-row-departure thin"}
-                              (dom/div #js {:className "board-row-departure-actual"} (:time arrival))
-                              (dom/div #js {:className "board-row-departure-scheduled"} (if-not is-realtime "no real-time data" (:undelayed-time arrival))))
-                      (dom/div #js {:className (str "board-row-time board-row-time" in-minutes " " (if (> in-minutes 100) "board-row-time100"))}
-                              (om/build transport-icon {:type type :accessible-text "arriving now"})
-                              (dom/span #js {:className "board-row-time-text bold"
-                                            :aria-label (str "arriving in " in-minutes " minutes")} (str in-minutes "’"))))))))
+                  is-realtime (:is-realtime arrival)
+                  excluded    (:excluded arrival)]
+              (dom/div #js {:className (str "board-row " (when excluded "hidden"))}
+                       (dom/div nil (om/build number-icon {:number number :colors (:colors arrival) :type type}))
+                       (dom/div #js {:className "board-row-station"}
+                                (dom/span #js {:className "board-row-station-name"
+                                               :aria-label (str "destination " to (when accessible (str ". this " type " is accessible by wheelchair")))}
+                                          to (when accessible (dom/i #js {:className "fa fa-wheelchair"}))))
+                       (dom/div #js {:className "board-row-departure thin"}
+                                (dom/div #js {:className "board-row-departure-actual"} (:time arrival))
+                                (dom/div #js {:className "board-row-departure-scheduled"} (if-not is-realtime "no real-time data" (:undelayed-time arrival))))
+                       (dom/div #js {:className (str "board-row-time board-row-time" in-minutes " " (if (> in-minutes 100) "board-row-time100"))}
+                                (om/build transport-icon {:type type :accessible-text "arriving now"})
+                                (dom/span #js {:className "board-row-time-text bold"
+                                               :aria-label (str "arriving in " in-minutes " minutes")} (str in-minutes "’"))))))))
 
 (defn- arrival-table [{:keys [arrivals]} owner opts]
   (reify
     om/IRender
     (render [this]
             (apply dom/div nil
-                           (map #(om/build arrival-row {:arrival %} {:opts opts}) arrivals)))))
+                   (map #(om/build arrival-row {:arrival %} {:opts opts}) arrivals)))))
 
 
 (defn arrival-tables-view [{:keys [current-view]} owner {:keys [refresh-rate transform-stationboard-data]}]
@@ -115,7 +125,7 @@
                                 (fn [output]
                                   (let [{:keys [data stop-id error]} output]
                                     (println (str "Received data for stop: " stop-id))
-
+                                    
                                     ; we just validate here the stop id
                                     (if (and (not error) stop-id)
                                       (do
@@ -142,12 +152,12 @@
                                   (go (<! (timeout refresh-rate))
                                       (println (str "Putting onto fetch channel: " stop-id))
                                       (put! new-fetch-ch stop-id))))
-
+                              
                               ; we ask the channel to fetch the new data
                               (doseq [stop-id stop-ids]
                                 (println (str "Initializing fetch loop for: " stop-id))
                                 (put! new-fetch-ch stop-id))
-
+                              
                               (assoc (update-in state [:arrival-channels]
                                                 #(assoc %
                                                    :incoming-ch new-incoming-ch
@@ -174,16 +184,16 @@
                         (when fetch-ch (close! fetch-ch)))))
       om/IRenderState
       (render-state [this {:keys [station-data activity-ch add-filter-ch]}]
-
+                    
                     (let [arrivals  (arrivals-from-station-data station-data current-view)
                           on-action (fn [preventDefault e]
                                       (put! activity-ch true)
                                       (when preventDefault (.preventDefault e)))
                           loading   (are-all-loading station-data)
                           error     (are-all-error-or-empty station-data)]
-
+                      
                       (println "Rendering arrival table")
-
+                      
                       (dom/div #js {:className "responsive-display board-table"
                                     :onMouseMove #(on-action true %)
                                     :onClick #(on-action true %)
