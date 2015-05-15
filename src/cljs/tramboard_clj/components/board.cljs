@@ -60,7 +60,7 @@
                       (dom/div #js {:className "board-row-departure thin"}
                               (dom/div #js {:className "board-row-departure-actual"} (:time arrival))
                               (dom/div #js {:className "board-row-departure-scheduled"} (if-not is-realtime "no real-time data" (:undelayed-time arrival))))
-                      (dom/div #js {:className (str "board-row-time board-row-time" in-minutes " " (if (> in-minutes 100) "time100"))}
+                      (dom/div #js {:className (str "board-row-time board-row-time" in-minutes " " (if (> in-minutes 100) "board-row-time100"))}
                               (om/build transport-icon {:type type :accessible-text "arriving now"})
                               (dom/span #js {:className "board-row-time-text bold"
                                             :aria-label (str "arriving in " in-minutes " minutes")} (str in-minutes "’"))))))))

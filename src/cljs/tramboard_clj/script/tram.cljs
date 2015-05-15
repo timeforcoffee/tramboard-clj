@@ -217,18 +217,6 @@
   (ga "send" "event" "fullscreen" "exit")
   (om/transact! state :params #(dissoc % :display)))
 
-; not used but could be useful
-; (defn transact-remove-filters [view]
-;   (om/transact! view
-;                 (fn [view]
-;                   ; we remove all the filters
-;                   (let [stops            (:stops view)
-;                         new-stops-vector (map #(vector (first %) (dissoc (second %) :excluded-destinations)) stops)
-;                         new-current-view (remove-sharing-infos
-;                                            (update-updated-date
-;                                              (assoc view :stops (apply assoc stops (flatten new-stops-vector)))))]
-;                     new-current-view))))
-
 (defn- cap [string x letter]
   (if (= 0 (- x (count string))) string (cap (str letter string) x letter)))
 

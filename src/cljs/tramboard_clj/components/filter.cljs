@@ -60,7 +60,6 @@
                                                                                                                    :to (:to destination)}})
                                                                              (.preventDefault e))}})))))))
 
-
 (defn- line-editor [{:keys [stop destinations-by-group]}]
   (reify
     om/IRenderState
@@ -79,6 +78,7 @@
     (render-state [this {:keys [toggle-filter-ch]}]
                   (dom/div #js {:className "filter-type-container"}
                            (apply dom/h4 #js {:className "filter-type-name normal"} (concat (map #(om/build transport-icon {:type %}) types) [(dom/span nil (str/join ", " (map #(type-string %) types)))]))
+                           ; (dom/a #js {:href "#"} "show all") " | " (dom/a #js {:href "#"} "hide all")
                            (apply dom/div #js {:className (str "filter-type " (when (>= (count destinations-by-type) 8) "filter-type-big"))}
                                   (map #(om/build line-editor
                                                   {:stop stop :destinations-by-group %}
