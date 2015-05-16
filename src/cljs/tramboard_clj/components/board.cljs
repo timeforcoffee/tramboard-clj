@@ -26,6 +26,9 @@
         (keep-non-excluded number (conj acc head) tail)
         (keep-non-excluded (- number 1) (conj acc head) tail)))))
 
+(defn- all-excluded [data]
+  (= (count (remove :excluded data)) 0))
+
 (defn- arrivals-from-station-data [station-data current-view]
   (let [arrivals (->> station-data
                       (remove #(or (= :loading (val %)) (= :error (val %))))
@@ -184,11 +187,13 @@
       om/IRenderState
       (render-state [this {:keys [station-data add-filter-ch]}]
                     
-                    (let [arrivals  (arrivals-from-station-data station-data current-view)
-                          loading   (are-all-loading station-data)
-                          error     (are-all-error-or-empty station-data)]
+                    (let [arrivals     (arrivals-from-station-data station-data current-view)
+                          all-excluded (all-excluded arrivals)
+                          loading      (are-all-loading station-data)
+                          error        (are-all-error-or-empty station-data)]
                       (println "Rendering arrival table")                      
                       (dom/div #js {:className "responsive-display board-table"}
                                (dom/div #js {:className (str "text-center ultra-thin loading " (when-not loading "hidden"))} "Your departures are loading...")
                                (dom/div #js {:className (str "text-center ultra-thin loading " (when (or (not error) loading) "hidden"))} "Sorry, no departures are available at this time...")
+                               (dom/div #js {:className (str "text-center ultra-thin loading " (when (or error loading (not all-excluded)) "hidden"))} "No departures at the moment...")
                                (om/build arrival-table {:arrivals arrivals} {:opts {:add-filter-ch add-filter-ch}})))))))
