@@ -19,7 +19,7 @@
             [tramboard-clj.components.board :refer [arrival-tables-view]]
             [tramboard-clj.script.time :refer [display-time parse-from-date-time format-to-hour-minute minutes-from]]
             [tramboard-clj.script.util :refer [edit-or-add-destination get-destination init-destinations wait-on-channel ga get-stops-in-order]]
-            [tramboard-clj.script.state :refer [is-home is-split get-state go-home go-edit go-toggle-split modify-complete-state get-all-states reset-complete-state]])
+            [tramboard-clj.script.state :refer [is-home get-state go-home go-edit]])
   (:import goog.History))
 
 ; some global constants here
@@ -32,9 +32,7 @@
          ; views from local storage
          :configured-views (array-map)
          ; navigation state
-         :complete-state {:split-states {:state-1 {:state-id :state-1 :state :home :params {} :visible true}
-                                         :state-2 {:state-id :state-2 :state :home :params {} :visible false}}
-                          :order [:state-1 :state-2]}}))
+         :current-state {:state :home :params {}}}))
 
 (defn- uuid [] (str (uuid/make-random)))
 
@@ -84,11 +82,9 @@
 (defn- view-from-export-string [string]
   (reader/read-string (b64/decodeString (pad string 4 "="))))
 
-(defn get-recent-board-views [configured-views complete-state]
-  (let [views                 (map #(val %) configured-views)
-        selected-views-ids    (into #{} (map #(:view-id (:params (val %))) (:split-states complete-state)))
-        views-without-current (remove #(contains? selected-views-ids (:view-id %)) views)]
-    (take 10 (sort-by #(- (:last-updated %)) views-without-current))))
+(defn get-recent-board-views [configured-views]
+  (let [views (map #(val %) configured-views)]
+    (take 10 (sort-by #(- (:last-updated %)) views))))
 
 (defn- remove-stop-and-update-date [current-view stop-id]
   (let [new-stops        (dissoc (:stops current-view) stop-id)
@@ -132,19 +128,18 @@
   (swap!
     app (fn [app]
           (let [configured-views     (:configured-views app)
-                complete-state       (:complete-state app)
+                current-state        (:current-state app)
                 
                 shared-view          (get-shared-view shared-view-hash configured-views)
                 view                 (or shared-view (assoc (create-new-view imported-view) :shared-view-hash shared-view-hash))
                 view-id              (:view-id view)
                 ; TODO this is the same as in transact-add-stop, simplify
                 new-configured-views (assoc configured-views view-id view)
-                current-state        (get-state complete-state :state-1)
                 ; TODO this is the same as in transact-add-stop, simplify
-                new-complete-state   (modify-complete-state (reset-complete-state complete-state) current-state #(go-edit % view-id))
+                new-current-state    (go-edit current-state view-id)
                 new-app              (assoc app
                                        :configured-views new-configured-views
-                                       :complete-state new-complete-state)]
+                                       :current-state new-current-state)]
             new-app))))
 
 (secretary/set-config! :prefix "#")
@@ -163,33 +158,31 @@
   (om/transact!
     app (fn [app]
           (let [configured-views     (:configured-views app)
-                complete-state       (:complete-state app)
-                current-state        (get-state complete-state (:state-id state))
+                current-state        (:current-state app)
                 is-new-view          (is-home current-state)
                 edit-view-id         (:view-id (:params current-state))
                 current-view         (if is-new-view (create-new-view nil) (get configured-views edit-view-id))
                 view-id              (:view-id current-view)
-                new-complete-state   (modify-complete-state complete-state current-state #(go-edit % view-id))
+                new-current-state    (go-edit current-state view-id)
                 new-view             (add-stop-and-update-date current-view stop)
                 new-configured-views (assoc configured-views view-id new-view)]
             (ga "send" "event" "stop" "add" {:dimension1 (:id stop)})
-            (assoc app :configured-views new-configured-views :complete-state new-complete-state)))))
+            (assoc app :configured-views new-configured-views :current-state new-current-state)))))
 
 (defn transact-remove-stop [app state stop-id]
   (om/transact!
     app (fn [app]
           (let [configured-views     (:configured-views app)
-                complete-state       (:complete-state app)
-                current-state        (get-state complete-state (:state-id state))
+                current-state        (:current-state app)
                 current-view         (current-view current-state configured-views)
                 view-id              (:view-id current-view)
                 stop-id              (if-not stop-id (last (:stops-order current-view)) stop-id)
                 new-view             (remove-stop-and-update-date current-view stop-id)
                 new-configured-views (delete-view-if-no-stops (assoc configured-views view-id new-view) view-id)
                 go-home?             (not (get new-configured-views view-id))
-                new-complete-state   (modify-complete-state complete-state current-state #(if go-home? (go-home %) %))]
+                new-current-state    (if go-home? (go-home current-state) current-state)]
             (ga "send" "event" "stop" "remove" {:dimension1 stop-id})
-            (assoc app :configured-views new-configured-views :complete-state new-complete-state)))))
+            (assoc app :configured-views new-configured-views :current-state new-current-state)))))
 
 (defn transact-toggle-filter [view arrival]
   (let [stop-id     (:stop-id arrival)
@@ -499,23 +492,16 @@
                            (dom/div #js {:className (str "responsive-display " (when (empty? recent-views) "hidden"))}
                                     (om/build recent-boards {:recent-views recent-views :current-state current-state}))))))
 
-(defn build-title-edit [is-split last-updated]
+(defn build-title-edit [last-updated]
   (dom/span nil
-            (if-not is-split (dom/div #js {:className "bold"} "Your current board")
-              (dom/div nil
-                       (dom/div #js {:className "bold title-split-1"} "Your left board")
-                       (dom/div #js {:className "bold title-split-2"} "Your right board")))
+            (dom/div #js {:className "bold"} "Your current board")
             (dom/div #js {:className "thin"} (str "saved "
                                                   (display-time last-updated)))))
 
-(defn build-title-home [is-split]
-  (dom/span #js {:className "text-middle bold"}
-            (if-not is-split "You've got Time for Coffee!"
-              (dom/div nil
-                       (dom/div #js {:className "title-split-1"} "Your left board")
-                       (dom/div #js {:className "title-split-2"} "Your right board")))))
+(defn build-title-home []
+  (dom/span #js {:className "text-middle bold"} "You've got Time for Coffee!"))
 
-(defn stationboard [{:keys [current-state app]} owner]
+(defn stationboard [{:keys [current-state configured-views] :as app} owner]
   "Takes the app (contains all views, selected view) and renders the whole page"
   (reify
     om/IInitState
@@ -544,58 +530,33 @@
     om/IRenderState
     (render-state [this {:keys [activity activity-ch add-stop-ch remove-stop-ch]}]
                   ; those all depend on the screen that's displayed
-                  (let [configured-views (:configured-views app)
-                        complete-state   (:complete-state app)
-                        current-view     (current-view current-state configured-views)
+                  (let [current-view     (current-view current-state configured-views)
                         display          (:display (:params current-state))
                         is-home          (is-home current-state)
-                        is-split         (is-split complete-state)
-                        display-banner   (and is-home (not is-split))
-                        split-icon       (om/build menu-icon nil
-                                                   {:state {:icon-class (if-not is-split "fa fa-columns" "glyphicon-remove-circle")
-                                                            :hidden-text "split screen"}
-                                                    :opts  {:on-click (fn [e]
-                                                                        (om/transact! complete-state #(go-toggle-split % current-state))
-                                                                        (.preventDefault e))}})
                         home-icon        (om/build menu-icon nil
                                                    {:state {:icon-class "glyphicon-home"
                                                             :hidden-text "go back"}
                                                     :opts  {:on-click (fn [e]
                                                                         (om/transact! current-state #(go-home %))
                                                                         (.preventDefault e))}})
-                        title            (if is-home (build-title-home is-split) (build-title-edit is-split (:last-updated current-view)))]
+                        title            (if is-home (build-title-home ) (build-title-edit (:last-updated current-view)))]
                     
                     (println "Rendering stationboard")
-                    (dom/div (clj->js {:className
-                                       (str (when-not (:visible current-state) "hidden") " "
-                                            (when (= display :expanded) "display-expanded") " "
-                                            (name (:state-id current-state)))})
+                    (dom/div (clj->js {:className (when (= display :expanded) "display-expanded")})
                              
-                             (om/build menu-bar nil {:state {:right-icon split-icon
-                                                             :left-icon (when-not is-home home-icon)
+                             (om/build menu-bar nil {:state {:left-icon (when-not is-home home-icon)
                                                              :title title}})
                              (if
                                is-home
                                (om/build welcome-pane
-                                         {:recent-views (get-recent-board-views configured-views complete-state)
+                                         {:recent-views (get-recent-board-views configured-views)
                                           :current-state current-state}
                                          {:init-state {:add-stop-ch add-stop-ch :remove-stop-ch remove-stop-ch}
-                                          :state {:display-banner display-banner
-                                                  :display-credits (not is-split)}})
+                                          :state {:display-banner is-home :display-credits true}})
                                (om/build stationboard-pane
                                          {:current-view current-view
                                           :current-state current-state}
                                          {:init-state {:add-stop-ch add-stop-ch :remove-stop-ch remove-stop-ch}})))))))
-
-(defn split-stationboard [{:keys [complete-state] :as app} owner]
-  (reify
-    om/IRender
-    (render [this]
-            (let [states (get-all-states complete-state)
-                  order  (:order complete-state)]
-              (println "Rendering split stationboard")
-              (apply dom/div #js {:className (when (is-split complete-state) (str "split-board " (name (get order 0)) "-" (name (get order 1))))}
-                     (map #(om/build stationboard {:current-state % :app app}) states))))))
 
 (defn hook-browser-navigation! []
   (doto (History.)
@@ -610,20 +571,21 @@
     (assoc app-state :new-visitor  new-visitor)))
 
 (defn debug-app-state [app-state]
-  (let [complete-state  (:complete-state app-state)
-        state-1         (get-state complete-state :state-1)
-        state-2         (get-state complete-state :state-2)]
-    (if-not (or (:visible state-1) (:visible state-2))
-      (assoc app-state :complete-state (reset-complete-state complete-state))
-      app-state)))
+  (if (:complete-state app-state)
+    (let [complete-state  (:complete-state app-state)
+          state-1         (get-state complete-state :state-1)
+          state-2         (get-state complete-state :state-2)]
+      (dissoc (assoc app-state :current-state (dissoc state-1 :state-id :visible)) :complete-state))
+    app-state))
 
 (defn init! []
   (let [saved-state (or (try (reader/read-string (. js/localStorage (getItem "views"))) (catch :default e (println e) {})) {})]
     (swap! app-state deep-merge ((comp debug-app-state check-if-new-visitor) saved-state))
+    (println app-state)
     (hook-browser-navigation!)))
 
 (defn main []
-  (om/root split-stationboard app-state
+  (om/root stationboard app-state
            {:target (. js/document (getElementById "my-app"))
             :tx-listen (fn [{:keys [path new-state]} _]
                          (. js/localStorage (setItem "views"

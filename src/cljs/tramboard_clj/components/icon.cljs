@@ -57,5 +57,7 @@
                                      :id checkbox-id
                                      :checked checked
                                      :onClick on-click-action
-                                     :onTouchEnd on-click-action})
+                                     ; reactivate this to get fast click (but also click on scroll..)
+                                     ; :onTouchEnd on-click-action
+                                     })
                      (dom/div #js {:className "checkbox"})))))
