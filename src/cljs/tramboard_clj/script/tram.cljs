@@ -259,87 +259,90 @@
     om/IDidUpdate
     (did-update [_ _ prev-state]
                 ; we set the focus here on share input if necessary
-                (let [share-input-visible (om/get-state owner :share-input-visible)]
-                  (when share-input-visible
-                    (when (not (:share-input-visible prev-state))
-                      (let [share-input (om/get-node owner "shareInput")]
+                (let [share-input-visible (om/get-state owner :share-input-visible)
+                      share-input (om/get-node owner "shareInput")]
+                  (if share-input-visible
+                    (do
+                      ; we recalculate the share string
+                      (let [prev-share-input-value (:share-input-value prev-state)
+                            new-share-input-value  (get-share-link current-view)]
+                        (when (not= prev-share-input-value new-share-input-value)
+                          (om/set-state! owner :share-input-value new-share-input-value)))
+                      (when (not (:share-input-visible prev-state))
                         (.focus share-input)))
-                    ; we recalculate the share string
-                    (let [prev-share-input-value (:share-input-value prev-state)
-                          new-share-input-value  (get-share-link current-view)]
-                      (when (not= prev-share-input-value new-share-input-value)
-                        (om/set-state! owner :share-input-value new-share-input-value))))))
-    om/IRenderState
-    (render-state [this {:keys [share-input-value share-input-visible edit-filter-mode toggle-filter-ch]}]
-                  (let [expanded              (= :expanded (:display (:params current-state)))
-                        filter-text           "filter destinations"
-                        fullscreen-text       "fullscreen"
-                        share-text            "share this board"]
-                    (dom/div #js {:className (str "control-bar " (when edit-filter-mode "edit-filter-mode"))}
-                             (dom/div #js {:className "filter-wrapper"}
-                                      (dom/div #js {:className "filter-container"}
-                                               (om/build c-filter-editor current-view {:init-state {:toggle-filter-ch toggle-filter-ch}})))
-                             (dom/span #js {:className "share-container"}
-                                       (let [on-action (fn [e]
-                                                         ;(.select (om/get-node owner "shareInput"))
-                                                         (let [share-input (om/get-node owner "shareInput")]
-                                                           (.setSelectionRange share-input 0 (count (.-value share-input)))))]
-                                         (dom/div #js {:className "share-input-container"}
-                                                  (dom/input #js {:aria-label "share URL"
-                                                                  :className (str "share-input form-control " (when-not share-input-visible "hidden"))
-                                                                  :ref "shareInput"
-                                                                  :type "text"
-                                                                  :value share-input-value
-                                                                  :onClick on-action
-                                                                  :onFocus on-action
-                                                                  :onTouchEnd on-action}))))
-                             
-                             (dom/div #js {:className "control-bar-buttons"}
-                                      (let [on-action (fn [e]
-                                                        (om/update-state! owner #(assoc % 
-                                                                                   :edit-filter-mode (not edit-filter-mode)
-                                                                                   ; we exit the share buttom
-                                                                                   :share-input-visible false))
-                                                        (.preventDefault e))]
-                                        (dom/button #js {:href "#"
-                                                         :type "button"
-                                                         :className (str "btn btn-sm btn-default " (when edit-filter-mode "active"))
-                                                         :aria-label filter-text
-                                                         :onClick on-action
-                                                         :onTouchEnd on-action}
-                                                    (dom/span #js {:className "glyphicon glyphicon-filter"}) filter-text))
-                                      (let [on-action (fn [e]
-                                                        (.preventDefault e)
-                                                        (om/update-state! owner
-                                                                          (fn [state]
-                                                                            (let [share-input-value   (or (:share-input-value state)
-                                                                                                          (get-share-link current-view))
-                                                                                  share-input-visible (not (:share-input-visible state))]
-                                                                              (assoc state
-                                                                                :share-input-value share-input-value
-                                                                                :share-input-visible share-input-visible
-                                                                                ; we exit edit mode
-                                                                                :edit-filter-mode false)))))]
-                                        (dom/button #js {:href "#"
-                                                         :type "button"
-                                                         :aria-label share-text
-                                                         :className (str "share-link btn btn-sm btn-default " (when share-input-visible "active"))
-                                                         :onClick on-action
-                                                         :onTouchEnd on-action} 
-                                                    (dom/span #js {:className "glyphicon glyphicon-link"}) share-text))
-                                      (let [on-action (fn [e]
-                                                        ; we change the state to hidden
-                                                        (if expanded
-                                                          (transact-exit-fullscreen current-state)
-                                                          (transact-fullscreen current-state))
-                                                        (.preventDefault e))]
-                                        (dom/button #js {:href "#"
-                                                         :type "button"
-                                                         :className (str "btn btn-sm btn-default " (when expanded "active"))
-                                                         :aria-label fullscreen-text
-                                                         :onClick on-action
-                                                         :onTouchEnd on-action}
-                                                    (dom/span #js {:className "glyphicon glyphicon-resize-full"}) fullscreen-text))))))))
+                    (when (:share-input-visible prev-state)
+                      (.blur share-input)))))
+  om/IRenderState
+  (render-state [this {:keys [share-input-value share-input-visible edit-filter-mode toggle-filter-ch]}]
+                (let [expanded              (= :expanded (:display (:params current-state)))
+                      filter-text           "filter destinations"
+                      fullscreen-text       "fullscreen"
+                      share-text            "share this board"]
+                  (dom/div #js {:className (str "control-bar " (when edit-filter-mode "edit-filter-mode"))}
+                           (dom/div #js {:className "filter-wrapper"}
+                                    (dom/div #js {:className "filter-container"}
+                                             (om/build c-filter-editor current-view {:init-state {:toggle-filter-ch toggle-filter-ch}})))
+                           (dom/span #js {:className "share-container"}
+                                     (let [on-action (fn [e]
+                                                       (let [share-input (om/get-node owner "shareInput")]
+                                                         (.setSelectionRange share-input 0 (count (.-value share-input))))
+                                                       (.preventDefault e))]
+                                       (dom/div #js {:className "share-input-container"}
+                                                (dom/input #js {:aria-label "share URL"
+                                                                :className (str "share-input form-control " (when-not share-input-visible "hidden"))
+                                                                :ref "shareInput"
+                                                                :type "text"
+                                                                :value share-input-value
+                                                                :onClick on-action
+                                                                :onFocus on-action
+                                                                :onTouchEnd on-action}))))
+                           
+                           (dom/div #js {:className "control-bar-buttons"}
+                                    (let [on-action (fn [e]
+                                                      (om/update-state! owner #(assoc % 
+                                                                                 :edit-filter-mode (not edit-filter-mode)
+                                                                                 ; we exit the share buttom
+                                                                                 :share-input-visible false))
+                                                      (.preventDefault e))]
+                                      (dom/button #js {:href "#"
+                                                       :type "button"
+                                                       :className (str "btn btn-sm btn-default " (when edit-filter-mode "active"))
+                                                       :aria-label filter-text
+                                                       :onClick on-action
+                                                       :onTouchEnd on-action}
+                                                  (dom/span #js {:className "glyphicon glyphicon-filter"}) filter-text))
+                                    (let [on-action (fn [e]
+                                                      (.preventDefault e)
+                                                      (om/update-state! owner
+                                                                        (fn [state]
+                                                                          (let [share-input-value   (or (:share-input-value state)
+                                                                                                        (get-share-link current-view))
+                                                                                share-input-visible (not (:share-input-visible state))]
+                                                                            (assoc state
+                                                                              :share-input-value share-input-value
+                                                                              :share-input-visible share-input-visible
+                                                                              ; we exit edit mode
+                                                                              :edit-filter-mode false)))))]
+                                      (dom/button #js {:href "#"
+                                                       :type "button"
+                                                       :aria-label share-text
+                                                       :className (str "share-link btn btn-sm btn-default " (when share-input-visible "active"))
+                                                       :onClick on-action
+                                                       :onTouchEnd on-action} 
+                                                  (dom/span #js {:className "glyphicon glyphicon-link"}) share-text))
+                                    (let [on-action (fn [e]
+                                                      ; we change the state to hidden
+                                                      (if expanded
+                                                        (transact-exit-fullscreen current-state)
+                                                        (transact-fullscreen current-state))
+                                                      (.preventDefault e))]
+                                      (dom/button #js {:href "#"
+                                                       :type "button"
+                                                       :className (str "btn btn-sm btn-default " (when expanded "active"))
+                                                       :aria-label fullscreen-text
+                                                       :onClick on-action
+                                                       :onTouchEnd on-action}
+                                                  (dom/span #js {:className "glyphicon glyphicon-resize-full"}) fullscreen-text))))))))
 
 
 (defn recent-board-item-stop [stop owner]
