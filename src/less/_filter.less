@@ -9,12 +9,11 @@
 	max-height: 0;
 	overflow: hidden;
 	transition: width 0.5s ease 0s;
-}
+	z-index: 2;
 
-.edit-filter-mode {
-	.filter-container {
+	&.visible {
 		width: 100%;
-		max-height: none;		
+		max-height: none;
 	}
 }
 

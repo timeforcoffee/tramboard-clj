@@ -271,11 +271,11 @@
                       filter-text           "filter destinations"
                       fullscreen-text       "fullscreen"
                       share-text            "share this board"]
-                  (dom/div #js {:className (str "control-bar " (when edit-filter-mode "edit-filter-mode"))}
+                  (dom/div #js {:className (str "control-bar " (when (or edit-filter-mode share-input-visible) "keep-bar"))}
                            (dom/div #js {:className "filter-wrapper"}
-                                    (dom/div #js {:className "filter-container"}
+                                    (dom/div #js {:className (str "filter-container " (when edit-filter-mode "visible"))}
                                              (om/build c-filter-editor current-view {:init-state {:toggle-filter-ch toggle-filter-ch}})))
-                           (dom/span #js {:className "share-container"}
+                           (dom/div #js {:className "share-container"}
                                      (let [on-action (fn [e]
                                                        (let [share-input (om/get-node owner "shareInput")]
                                                          (.setSelectionRange share-input 0 (count (.-value share-input))))
@@ -429,7 +429,7 @@
                                   (go (when-some [hide (<! new-hide-ch)]
                                                  (when hide (om/set-state! owner :activity :idle))))
                                   
-                                  (go (<! (timeout 2000))
+                                  (go (<! (timeout 1500))
                                       (put! new-hide-ch true))
                                   
                                   (assoc s

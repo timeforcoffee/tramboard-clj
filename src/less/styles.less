@@ -95,11 +95,11 @@ a .link-icon a.link-icon, a:hover .link-icon, a.link-icon:hover, a:visited .link
 }
 
 .display-expanded .activity-idle .control-bar {
-	top: -40px;
+	top: -80px;
 }
 
 .display-expanded .control-bar {
-	&, &.edit-filter-mode {
+	&, &.keep-bar {
 		position: absolute;
 		top: 0;
 		left: 0;
@@ -234,6 +234,8 @@ a .link-icon a.link-icon, a:hover .link-icon, a.link-icon:hover, a:visited .link
 
 .control-bar-buttons {
 	display: flex;
+	flex-flow: row wrap;
+	z-index: 1;
 	align-items: center;
 
 	background-color: @outline-color;
@@ -267,10 +269,11 @@ a .link-icon a.link-icon, a:hover .link-icon, a.link-icon:hover, a:visited .link
 
 .share-input-container {
 	position: absolute;
-	width: @overlays-width - 5vw;
+	width: @overlays-width - 10vw;
 	margin-left: @overlays-margin;
-	top: 50px;
+	top: 38px;
 	background-color: @outline-color;
+	z-index: 2;
 }
 
 .share-input {

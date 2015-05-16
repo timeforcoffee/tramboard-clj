@@ -54,7 +54,12 @@
                                                                             :number (:number destination)
                                                                             :to (:to destination)}}))]
                     (dom/div #js {:className (str "filter-destination" (when-not checked " disabled"))}
-                             (dom/a #js {:className "filter-destination-link" :href "#" :onClick on-click :onTouchEnd on-click}
+                             (dom/a #js {:className "filter-destination-link" 
+                                         :href "#" 
+                                         :onClick on-click 
+                                         ; reactivate this to get fast click (but also click on scroll..)
+                                         ; :onTouchEnd on-click
+                                         }
                                     (dom/label #js {:className "filter-destination-label" :htmlFor checkbox-id :ref "test"}
                                                (dom/span #js {:className "filter-destination-number"} (om/build number-icon destination))
                                                (dom/span #js {:className "filter-destination-name"} (:to destination))
