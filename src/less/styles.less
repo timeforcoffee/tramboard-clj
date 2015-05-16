@@ -12,6 +12,9 @@
 @edge-padding-big: 15px;
 @edge-padding-normal: 10px;
 
+@overlays-margin: 3vw;
+@overlays-width: 97vw;
+
 /* end of variables */
 
 @import "_filter.less";
@@ -48,7 +51,7 @@ h1 {
 	font-size: @biggest-font-size;
 }
 
-button.btn {
+button.btn-primary {
 	background-color: @action-color;
 }
 
@@ -82,6 +85,7 @@ a .link-icon a.link-icon, a:hover .link-icon, a.link-icon:hover, a:visited .link
 }
 
 /* display logic when expanded */
+
 .display-expanded .edit-form {
 	display: none;
 }
@@ -91,11 +95,23 @@ a .link-icon a.link-icon, a:hover .link-icon, a.link-icon:hover, a:visited .link
 }
 
 .display-expanded .activity-idle .control-bar {
-	display: none;
+	top: -40px;
 }
 
-.display-expanded .activity-idle .station {
-	padding-left: 8px;
+.display-expanded .control-bar {
+	&, &.edit-filter-mode {
+		position: absolute;
+		top: 0;
+		left: 0;
+		right: 0;
+		transition: top 0.5s ease;
+	}
+}
+
+.display-expanded .control-bar-buttons {
+	background-color: rgba(245,245,245,0.7);
+	margin-top: 0;
+	justify-content: center;
 }
 
 .display-expanded .menu-bar {
@@ -273,8 +289,7 @@ a .link-icon a.link-icon, a:hover .link-icon, a.link-icon:hover, a:visited .link
 	}
 }
 
-.control-bar {
-	width: 100%;
+.control-bar-buttons {
 	display: flex;
 	align-items: center;
 
@@ -282,35 +297,47 @@ a .link-icon a.link-icon, a:hover .link-icon, a.link-icon:hover, a:visited .link
 	margin-bottom: 14px;
 	margin-top: 10px;
 
-	a {
-		padding: 8px 8px;
-		margin-right: 8px;
+	button.btn {
+		white-space: nowrap;
+		flex-shrink: 0;
+		margin: 4px;
+	}
+
+	button.btn {
+		&:hover {
+			background-color: white;
+		}
+
+		&.active {
+			background-color: #E6E6E6;
+		}
 	}
 
 	.glyphicon {
-		padding-left: 6px;
 		padding-right: 6px;
 	}
+}
 
-	.input-cell {
-		flex: 1;
-	}
+.share-container {
+	position: relative;
+}
 
-	.share-input {
-		overflow: hidden;
-	}
+.share-input-container {
+	position: absolute;
+	width: @overlays-width - 5vw;
+	margin-left: @overlays-margin;
+	top: 50px;
+	background-color: @outline-color;
+}
 
+.share-input {
+	margin: 4px;
+	overflow: hidden;
 }
 
 /* specific styles for the board itself */
 
 /* Those things change on smaller devices*/
-.control-bar {
-	.share-link {
-		width: 33px;
-	}
-}
-
 .credits {
 	font-size: 1em;
 }
@@ -334,12 +361,6 @@ a .link-icon a.link-icon, a:hover .link-icon, a.link-icon:hover, a:visited .link
 		padding-right: 8px;
 	}
 
-	.control-bar {
-		.share-link {
-			width: 30px;
-		}
-	}
-
 	.container-fluid {
 		padding-right: @edge-padding-normal;
 		padding-left: @edge-padding-normal;
@@ -355,13 +376,6 @@ a .link-icon a.link-icon, a:hover .link-icon, a.link-icon:hover, a:visited .link
 	.credits {
 		font-size: 0.8em;
 	}
-
-	.control-bar {
-		.share-link {
-			width: 24px;
-		}
-	}
-
 }
 
 /* media queries handling with split board */

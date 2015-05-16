@@ -4,24 +4,25 @@
 
 .filter-container {
 	position: absolute;
-	top: -14px;
+	top: 38px;
 	width: 0;
 	max-height: 0;
 	overflow: hidden;
 	transition: width 0.5s ease 0s;
+}
 
-	&.visible {
+.edit-filter-mode {
+	.filter-container {
 		width: 100%;
-		max-height: none;
+		max-height: none;		
 	}
-
 }
 
 .filter-editor {
 	display: block;
 	background-color: white;
-	width: 97vw;
-	margin-left: 3vw;
+	width: @overlays-width;
+	margin-left: @overlays-margin;
 	box-shadow: -5px 0px 10px 0px rgba(0,0,0,0.3);
 	padding-top: 10px;
 }

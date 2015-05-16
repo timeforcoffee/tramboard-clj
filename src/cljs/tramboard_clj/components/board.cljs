@@ -21,8 +21,7 @@
 (defn- keep-non-excluded [number acc data]
   (if 
     (or (empty? data) (= number 0)) acc
-    (let [head (first data)
-          tail (rest data)]
+    (let [[head & tail] data]
       (if (:excluded head) 
         (keep-non-excluded number (conj acc head) tail)
         (keep-non-excluded (- number 1) (conj acc head) tail)))))
@@ -135,7 +134,7 @@
                                                       (fn [stop]
                                                         ; we add all the known destinations to the stop
                                                         (let [existing-known-destinations (or (:known-destinations stop) (init-destinations))
-                                                              new-known-destinations (into (init-destinations) (reduce #(edit-or-add-destination %1 %2) existing-known-destinations data))]
+                                                              new-known-destinations (reduce #(edit-or-add-destination %1 %2) existing-known-destinations data)]
                                                           (assoc stop
                                                             :known-destinations new-known-destinations)))))
                                       (om/update-state! owner :station-data #(assoc % stop-id :error))))))
@@ -183,21 +182,13 @@
                         (when incoming-ch (close! incoming-ch))
                         (when fetch-ch (close! fetch-ch)))))
       om/IRenderState
-      (render-state [this {:keys [station-data activity-ch add-filter-ch]}]
+      (render-state [this {:keys [station-data add-filter-ch]}]
                     
                     (let [arrivals  (arrivals-from-station-data station-data current-view)
-                          on-action (fn [preventDefault e]
-                                      (put! activity-ch true)
-                                      (when preventDefault (.preventDefault e)))
                           loading   (are-all-loading station-data)
                           error     (are-all-error-or-empty station-data)]
-                      
-                      (println "Rendering arrival table")
-                      
-                      (dom/div #js {:className "responsive-display board-table"
-                                    :onMouseMove #(on-action true %)
-                                    :onClick #(on-action true %)
-                                    :onTouchStart #(on-action false %)}
+                      (println "Rendering arrival table")                      
+                      (dom/div #js {:className "responsive-display board-table"}
                                (dom/div #js {:className (str "text-center ultra-thin loading " (when-not loading "hidden"))} "Your departures are loading...")
                                (dom/div #js {:className (str "text-center ultra-thin loading " (when (or (not error) loading) "hidden"))} "Sorry, no departures are available at this time...")
                                (om/build arrival-table {:arrivals arrivals} {:opts {:add-filter-ch add-filter-ch}})))))))
