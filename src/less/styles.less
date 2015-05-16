@@ -118,63 +118,6 @@ a .link-icon a.link-icon, a:hover .link-icon, a.link-icon:hover, a:visited .link
 	display: none;
 }
 
-/* split board display logic */
-@media (max-width: 639px) {
-	.menu-bar .split-link {
-		display: none;
-	}
-
-	.split-board > div.state-2 {
-		display: none;
-	}
-	.split-board > div.state-1 {
-		width: auto;
-		float: none;
-	}
-}
-
-.split-board > div {
-	display: block;
-	width: 50%;
-}
-
-.split-board.state-1-state-2 {
-	.state-1 {
-		float: left;
-	}
-
-	.state-2 {
-		float: right;
-	}
-
-	.state-1 .title-split-2 {
-		display: none;
-	}
-
-	.state-2 .title-split-1 {
-		display: none;
-	}
-
-}
-
-.split-board.state-2-state-1 {
-	.state-2 {
-		float: left;
-	}
-
-	.state-1 {
-		float: right;
-	}
-
-	.state-1 .title-split-1 {
-		display: none;
-	}
-
-	.state-2 .title-split-2 {
-		display: none;
-	}
-
-}
 
 /* specific styles */
 .loading {
