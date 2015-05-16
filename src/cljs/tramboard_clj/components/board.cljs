@@ -87,113 +87,115 @@
 
 (defn arrival-tables-view [{:keys [current-view]} owner {:keys [refresh-rate transform-stationboard-data]}]
   "Takes as input a set of views (station id) and the size of the pane and renders the table views."
-  (let [initialize
-        (fn [current current-owner]
-          (let [stop-ids (set (keys (:stops current)))]
-            (let [{:keys [view-change-ch station-data]} (om/get-state owner)]
-              (when (not= stop-ids (set (keys station-data)))
-                (println (str "Initializing arrival tables with stops: " stop-ids))
-                (put! view-change-ch stop-ids)))))]
-    (reify
-      om/IInitState
-      (init-state [_]
-                  (println (str "Resetting state"))
-                  {:station-data {} :arrival-channels {} :view-change-ch (chan)})
-      om/IWillMount
-      (will-mount [_]
-                  ; the is the control channel loop
-                  (let [{:keys [view-change-ch]} (om/get-state owner)]
-                    (wait-on-channel
-                      view-change-ch
-                      (fn [stop-ids]
-                        (println (str "Got view-change message with stops: " stop-ids))
-                        (om/update-state!
-                          owner
-                          (fn [state]
-                            (let [old-arrival-channels  (:arrival-channels state)
-                                  old-cancel-ch         (:cancel-ch old-arrival-channels)
-                                  old-incoming-ch       (:incoming-ch old-arrival-channels)
-                                  old-fetch-ch          (:fetch-ch old-arrival-channels)
-                                  new-cancel-ch         (chan)
-                                  new-incoming-ch       (chan)
-                                  new-fetch-ch          (chan)
-                                  station-data          (:station-data state)]
-                              (when old-cancel-ch   (close! old-cancel-ch))
-                              (when old-incoming-ch (close! old-incoming-ch))
-                              (when old-fetch-ch    (close! old-fetch-ch))
-                              ; we initialize the incoming channel loop
-                              (wait-on-channel
-                                new-incoming-ch
-                                (fn [output]
-                                  (let [{:keys [data stop-id error]} output]
-                                    (println (str "Received data for stop: " stop-id))
-                                    
-                                    ; we just validate here the stop id
-                                    (if (and (not error) stop-id)
-                                      (do
-                                        (om/update-state! owner :station-data #(assoc % stop-id data))
-                                        ; we update the list of existing destinations
-                                        (om/transact! current-view [:stops stop-id]
-                                                      (fn [stop]
-                                                        ; we add all the known destinations to the stop
-                                                        (let [existing-known-destinations (or (:known-destinations stop) (init-destinations))
-                                                              new-known-destinations (reduce #(edit-or-add-destination %1 %2) existing-known-destinations data)]
-                                                          (assoc stop
-                                                            :known-destinations new-known-destinations)))))
-                                      (om/update-state! owner :station-data #(assoc % stop-id :error))))))
-                              ; we initialize the fetch loop
-                              (wait-on-channel
-                                new-fetch-ch
-                                (fn [stop-id]
-                                  (println (str "Received fetch message for stop: " stop-id))
-                                  (ga "send" "event" "stop" "query" {:dimension1 stop-id
-                                                                     "nonInteraction" 1})
-                                  (fetch-stationboard-data stop-id new-incoming-ch
-                                                           new-incoming-ch new-cancel-ch
-                                                           transform-stationboard-data)
-                                  (go (<! (timeout refresh-rate))
-                                      (println (str "Putting onto fetch channel: " stop-id))
-                                      (put! new-fetch-ch stop-id))))
-                              
-                              ; we ask the channel to fetch the new data
-                              (doseq [stop-id stop-ids]
-                                (println (str "Initializing fetch loop for: " stop-id))
-                                (put! new-fetch-ch stop-id))
-                              
-                              (assoc (update-in state [:arrival-channels]
-                                                #(assoc %
-                                                   :incoming-ch new-incoming-ch
-                                                   :cancel-ch   new-cancel-ch
-                                                   :fetch-ch    new-fetch-ch))
-                                :station-data (merge-station-data-and-set-loading station-data stop-ids)))))))
-                    (println (str "Initializing on WillMount"))
-                    (initialize current-view owner)))
-      om/IWillReceiveProps
-      (will-receive-props [_ {:keys [current-view]}]
-                          (println (str "Initializing on WillReceiveProps"))
-                          (initialize current-view owner))
-      om/IWillUnmount
-      (will-unmount [_]
-                    (println "Closing all channels on WillUnmount")
-                    ; we kill the channel
-                    (let [{:keys [view-change-ch arrival-channels]} (om/get-state owner)]
-                      (close! view-change-ch)
-                      (let [cancel-ch   (:cancel-ch arrival-channels)
-                            incoming-ch (:incoming-ch arrival-channels)
-                            fetch-ch    (:fetch-ch arrival-channels)]
-                        (when cancel-ch (close! cancel-ch))
-                        (when incoming-ch (close! incoming-ch))
-                        (when fetch-ch (close! fetch-ch)))))
-      om/IRenderState
-      (render-state [this {:keys [station-data add-filter-ch]}]
-                    
-                    (let [arrivals     (arrivals-from-station-data station-data current-view)
-                          all-excluded (all-excluded arrivals)
-                          loading      (are-all-loading station-data)
-                          error        (are-all-error-or-empty station-data)]
-                      (println "Rendering arrival table")                      
-                      (dom/div #js {:className "responsive-display board-table"}
-                               (dom/div #js {:className (str "text-center ultra-thin loading " (when-not loading "hidden"))} "Your departures are loading...")
-                               (dom/div #js {:className (str "text-center ultra-thin loading " (when (or (not error) loading) "hidden"))} "Sorry, no departures are available at this time...")
-                               (dom/div #js {:className (str "text-center ultra-thin loading " (when (or error loading (not all-excluded)) "hidden"))} "No departures at the moment...")
-                               (om/build arrival-table {:arrivals arrivals} {:opts {:add-filter-ch add-filter-ch}})))))))
+  
+  (reify
+    om/IInitState
+    (init-state [_]
+                (println (str "Resetting state"))
+                {:station-data {} :arrival-channels {} :view-change-ch (chan)})
+    om/IWillMount
+    (will-mount [_]
+                ; the is the control channel loop
+                (let [{:keys [view-change-ch]} (om/get-state owner)]
+                  (wait-on-channel
+                    view-change-ch
+                    (fn [stop-ids]
+                      (let [state (om/get-state owner)
+                            station-data (:station-data state)]
+                        (when (not= stop-ids (set (keys station-data)))
+                          (println (str "Initializing arrival tables with stops: " stop-ids))
+                          ; we ask the channel to fetch the new data                              
+                          (om/update-state! owner #(assoc % :station-data (merge-station-data-and-set-loading station-data stop-ids)))
+                          
+                          (let [old-arrival-channels  (:arrival-channels state)
+                                old-cancel-ch         (:cancel-ch old-arrival-channels)
+                                old-incoming-ch       (:incoming-ch old-arrival-channels)
+                                old-fetch-ch          (:fetch-ch old-arrival-channels)
+                                new-cancel-ch         (chan)
+                                new-incoming-ch       (chan)
+                                new-fetch-ch          (chan)]
+                            (when old-cancel-ch   (close! old-cancel-ch))
+                            (when old-incoming-ch (close! old-incoming-ch))
+                            (when old-fetch-ch    (close! old-fetch-ch))
+                            
+                            (om/update-state!
+                              owner
+                              (fn [state]
+                                ; we ask the channel to fetch the new data                              
+                                (update-in state [:arrival-channels]
+                                           #(assoc %
+                                              :incoming-ch new-incoming-ch
+                                              :cancel-ch   new-cancel-ch
+                                              :fetch-ch    new-fetch-ch))))
+                            
+                            ; we initialize the incoming channel loop
+                            (wait-on-channel
+                              new-incoming-ch
+                              (fn [output]
+                                (let [{:keys [data stop-id error]} output
+                                      station-data                 (om/get-state owner :station-data)]
+                                  (println (str "Received data for stop: " stop-id))
+                                  
+                                  ; we just validate here the stop id
+                                  (if (and (not error) stop-id (get station-data stop-id))
+                                    (do
+                                      (om/update-state! owner :station-data #(assoc % stop-id data))
+                                      ; we update the list of existing destinations
+                                      ;(when (contains? (:stops current-view) stop-id)
+                                      (om/transact! current-view [:stops stop-id]
+                                                    (fn [stop]
+                                                      ; we add all the known destinations to the stop
+                                                      (let [existing-known-destinations (or (:known-destinations stop) (init-destinations))
+                                                            new-known-destinations (reduce #(edit-or-add-destination %1 %2) existing-known-destinations data)]
+                                                        (assoc stop :known-destinations new-known-destinations)))))
+                                    ;)
+                                    (om/update-state! owner :station-data #(assoc % stop-id :error))))))
+                            ; we initialize the fetch loop
+                            (wait-on-channel
+                              new-fetch-ch
+                              (fn [stop-id]
+                                (println (str "Received fetch message for stop: " stop-id))
+                                (ga "send" "event" "stop" "query" {:dimension1 stop-id
+                                                                   "nonInteraction" 1})
+                                (fetch-stationboard-data stop-id new-incoming-ch
+                                                         new-incoming-ch new-cancel-ch
+                                                         transform-stationboard-data)
+                                (go (<! (timeout refresh-rate))
+                                    (println (str "Putting onto fetch channel: " stop-id))
+                                    (put! new-fetch-ch stop-id))))
+                            
+                            (doseq [stop-id stop-ids]
+                              (println (str "Initializing fetch loop for: " stop-id))
+                              (put! new-fetch-ch stop-id)))))))
+                  
+                  (println (str "Initializing on WillMount"))
+                  (put! view-change-ch (set (keys (:stops current-view))))))
+    om/IWillReceiveProps
+    (will-receive-props [_ {:keys [current-view]}]
+                        (println (str "TEST Initializing on WillReceiveProps"))
+                        (put! (om/get-state owner :view-change-ch) (set (keys (:stops current-view)))))
+    om/IWillUnmount
+    (will-unmount [_]
+                  (println "Closing all channels on WillUnmount")
+                  ; we kill the channel
+                  (let [{:keys [view-change-ch arrival-channels]} (om/get-state owner)]
+                    (close! view-change-ch)
+                    (let [cancel-ch   (:cancel-ch arrival-channels)
+                          incoming-ch (:incoming-ch arrival-channels)
+                          fetch-ch    (:fetch-ch arrival-channels)]
+                      (when cancel-ch (close! cancel-ch))
+                      (when incoming-ch (close! incoming-ch))
+                      (when fetch-ch (close! fetch-ch)))))
+    om/IRenderState
+    (render-state [this {:keys [station-data add-filter-ch]}]
+                  
+                  (let [arrivals     (arrivals-from-station-data station-data current-view)
+                        all-excluded (all-excluded arrivals)
+                        loading      (are-all-loading station-data)
+                        error        (are-all-error-or-empty station-data)]
+                    (println "Rendering arrival table")                      
+                    (dom/div #js {:className "responsive-display board-table"}
+                             (dom/div #js {:className (str "text-center ultra-thin loading " (when-not loading "hidden"))} "Your departures are loading...")
+                             (dom/div #js {:className (str "text-center ultra-thin loading " (when (or (not error) loading) "hidden"))} "Sorry, no departures are available at this time...")
+                             (dom/div #js {:className (str "text-center ultra-thin loading " (when (or error loading (not all-excluded)) "hidden"))} "No departures at the moment...")
+                             (om/build arrival-table {:arrivals arrivals} {:opts {:add-filter-ch add-filter-ch}}))))))

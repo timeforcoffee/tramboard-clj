@@ -4,6 +4,7 @@
             [om.dom :as dom :include-macros true]
             [cljs.core.async :refer [put! chan <! >! close! timeout]]
             [clojure.string :as str]
+            [clojure.set :as set]
             [cljs-time.core :refer [now]]
             [cljs-time.coerce :refer [to-long from-long]]
             [cljs-uuid.core :as uuid]
@@ -83,8 +84,9 @@
   (reader/read-string (b64/decodeString (pad string 4 "="))))
 
 (defn get-recent-board-views [configured-views]
-  (let [views (map #(val %) configured-views)]
-    (take 10 (sort-by #(- (:last-updated %)) views))))
+  (let [views        (map #(val %) configured-views)
+        recent-views (take 10 (sort-by #(- (:last-updated %)) views))]
+    recent-views))
 
 (defn- remove-stop-and-update-date [current-view stop-id]
   (let [new-stops        (dissoc (:stops current-view) stop-id)
@@ -154,7 +156,7 @@
 
 ; Those 4 methods modify the view and will remove the shared-view-id param
 ; TODO move to own namespace
-(defn transact-add-stop [app state stop]
+(defn transact-add-stop [app stop]
   (om/transact!
     app (fn [app]
           (let [configured-views     (:configured-views app)
@@ -169,7 +171,7 @@
             (ga "send" "event" "stop" "add" {:dimension1 (:id stop)})
             (assoc app :configured-views new-configured-views :current-state new-current-state)))))
 
-(defn transact-remove-stop [app state stop-id]
+(defn transact-remove-stop [app stop-id]
   (om/transact!
     app (fn [app]
           (let [configured-views     (:configured-views app)
@@ -448,7 +450,6 @@
                     (when hide-ch (close! hide-ch))))
     om/IRenderState
     (render-state [this {:keys [activity activity-ch toggle-filter-ch add-stop-ch remove-stop-ch]}]
-                  (println "Rendering stationboard pane")
                   (let [on-action (fn [preventDefault e]
                                     (put! activity-ch true)
                                     (when preventDefault (.preventDefault e)))]
@@ -515,11 +516,12 @@
                   (wait-on-channel
                     add-stop-ch
                     (fn [{:keys [stop]}]
-                      (transact-add-stop app current-state stop)))
+                      (transact-add-stop app stop)))
                   (wait-on-channel
                     remove-stop-ch
                     (fn [{:keys [stop-id]}]
-                      (transact-remove-stop app current-state stop-id)))))
+                      (println "Removing stop " stop-id)
+                      (transact-remove-stop app stop-id)))))
     om/IWillUnmount
     (will-unmount [this]
                   (let [{:keys [hide-ch
@@ -570,6 +572,22 @@
   (let [new-visitor (if (empty? app-state) true false)]
     (assoc app-state :new-visitor  new-visitor)))
 
+(defn- debug-corrupt-view [view]
+  (let [stops-with-to (into {} (filter #(contains? (val %) :to) (:stops view)))
+        stop-ids      (map #(key %) stops-with-to)
+        stops-order   (:stops-order view)
+        stops-to-add  (set/difference (into #{} stop-ids) stops-order)
+        new-view      (assoc view 
+                        :stops-order (into [] (concat stops-order stops-to-add))
+                        :stops stops-with-to)]
+    new-view))
+
+(defn- debug-corrupt-views [app-state]
+  (let [configured-views (:configured-views app-state)
+        new-clean-views  (into {} (map #(vector (key %) (debug-corrupt-view (val %))) configured-views))
+        new-views        (into {} (remove #(empty? (:stops (val %))) new-clean-views))]
+    (assoc app-state :configured-views new-views)))
+
 (defn debug-app-state [app-state]
   (if (:complete-state app-state)
     (let [complete-state  (:complete-state app-state)
@@ -580,7 +598,7 @@
 
 (defn init! []
   (let [saved-state (or (try (reader/read-string (. js/localStorage (getItem "views"))) (catch :default e (println e) {})) {})]
-    (swap! app-state deep-merge ((comp debug-app-state check-if-new-visitor) saved-state))
+    (swap! app-state deep-merge ((comp debug-corrupt-views debug-app-state check-if-new-visitor) saved-state))
     (println app-state)
     (hook-browser-navigation!)))
 

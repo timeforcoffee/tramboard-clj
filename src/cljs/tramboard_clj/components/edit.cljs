@@ -64,7 +64,6 @@
   "This shows the edit pane to add stops and stuff"
   (let [set-sizes
         (fn [current-owner prev-state]
-          (println "Setting new sizes")
           (let [button-padding     4   ; TODO link this to CSS somehow
                 min-input-width    200 ; TODO link this to CSS somehow
                 input-padding      42  ; TODO link this to CSS somehow
@@ -106,7 +105,6 @@
                   (set-sizes owner prev-state))
       om/IRenderState
       (render-state [_ {:keys [backspace-ch buttons-width input-width add-stop-ch remove-stop-ch]}]
-                    (println "Rendering edit-pane")
                     (dom/form #js {:className "edit-form" :role "search"}
                               (dom/div #js {:className "form-group form-group-lg"}
                                        (dom/label #js {:className "control-label sr-only"
