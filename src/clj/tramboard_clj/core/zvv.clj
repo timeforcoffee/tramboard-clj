@@ -25,8 +25,8 @@
     (str (f/parse zvv-date-formatter (str date " " time)))))
 
 (defn- sanitize [text]
-  (reduce #(str/replace %1 (%2 0) (%2 1)) 
-          text 
+  (reduce #(str/replace %1 (%2 0) (%2 1))
+          text
           [["&nbsp;" " "] [#"S( )+" "S"] ["Bus " ""]]))
 
 (defn- map-category [text]
@@ -39,7 +39,8 @@
     "Bus-NF" "bus"
     "KB"     "bus"
     "ICB"    "bus"
-    "S"      "train"
+    "N"      "bus"
+    "S"      "s-train"
     "ICN"    "train"
     "IC"     "train"
     "IR"     "train"
@@ -66,10 +67,11 @@
 ; TODO add 1 day to realtime if it is smaller than scheduled (scheduled 23h59 + 3min delay ...)
 (defn- zvv-departure [zvv-journey]
   (let [colors          (vec (remove str/blank? (str/split (zvv-journey "lc") #" ")))
-        zvv-date-parser (partial zvv-parse-datetime (zvv-journey "da"))]
+        zvv-date-parser (partial zvv-parse-datetime (zvv-journey "da"))
+        departure-name  (sanitize (zvv-journey "pr"))]
     {;:meta zvv-journey
      :zvv_id (zvv-journey "id")
-     :name (sanitize (zvv-journey "pr"))
+     :name departure-name
      :type (map-category (zvv-journey "productCategory"))
      :accessible (zvv-journey "isNF")
      :colors {:fg (when (> (count colors) 0) (str "#" (colors 0)))
@@ -89,7 +91,7 @@
             :station_name (data "stationName")}
      :departures (map zvv-departure journeys)}))
 
-(defn- to-coordinate [string] 
+(defn- to-coordinate [string]
   (if (nil? string) nil
     (double (/ (read-string string) 1000000))))
 
@@ -117,3 +119,14 @@
 (defn query-stations [query]
   (let [request-url (str query-stations-base-url (codec/url-encode query))]
     (do-api-call request-url transform-query-stations-response)))
+
+
+; (def fixtures
+;   {:station-8588078 (slurp "fixtures/api_responses/8588078.json")
+;    :central         (slurp "fixtures/api_responses/central.json")})
+
+; (defn station [id]
+;   (:station-8588078 fixtures))
+
+; (defn query-stations [query]
+;   (:central fixtures))

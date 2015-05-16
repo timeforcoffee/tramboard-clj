@@ -16,7 +16,7 @@
              (zvv/transform-station-response (:flughafen_xxxx fixtures)) =>
              (contains {:departures (contains {:zvv_id "11484850"
                                                :name "S2"
-                                               :type "train"
+                                               :type "s-train"
                                                :accessible false
                                                :colors { :fg nil :bg nil }
                                                :to "Ziegelbrücke"
@@ -46,7 +46,7 @@
                                          {:id "008577477", :location {:lat 47.046843, :lng 8.629698}, :name "Schwyz, Hirschen"} 
                                          {:id "008571690", :location {:lat 46.748887, :lng 7.312347}, :name "Hirschmatt (Guggisberg), Allme"} 
                                          {:id "008571689", :location {:lat 46.752447, :lng 7.311214}, :name "Hirschmatt (Guggisberg), Fall"} 
-                                         {:id "008571688", :location {:lat 46.75588, :lng 7.322361}, :name "Hirschmatt (Guggisberg),Schule"} 
+                                         {:id "008571688", :location {:lat 46.75588,  :lng 7.322361}, :name "Hirschmatt (Guggisberg),Schule"} 
                                          {:id "008574080", :location {:lat 47.433973, :lng 9.519621}, :name "Heiden, Hirschli"} 
                                          {:id "008582046", :location {:lat 47.133113, :lng 8.406496}, :name "Honau, Hirschen"} 
-                                         {:id "008592495", :location {:lat 47.723749, :lng 8.66321}, :name "Herblingen, Hirschen"}])})))
+                                         {:id "008592495", :location {:lat 47.723749, :lng 8.66321},  :name "Herblingen, Hirschen"}])})))

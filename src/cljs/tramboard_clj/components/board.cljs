@@ -5,41 +5,29 @@
             [cljs-time.core :refer [now]]
             [cljs.core.async :refer [put! chan <! >! close! timeout]]
             [tramboard-clj.components.icon :refer [number-icon transport-icon]]
-            [tramboard-clj.script.util :refer [is-in-destinations wait-on-channel ga]]
+            [tramboard-clj.script.util :refer [edit-or-add-destination get-destination init-destinations wait-on-channel ga]]
             [tramboard-clj.script.client :refer [fetch-stationboard-data]]
-            [tramboard-clj.script.time :refer [parse-from-date-time format-to-hour-minute minutes-from]]
             [tramboard-clj.script.util :refer [wait-on-channel]]))
 
 (defn- display-in-minutes [in-minutes]
   (if (< in-minutes 60) (str in-minutes "’") "..."))
-
-(defn- transform-stationboard-data [json-data]
-  (->> (:departures json-data)
-       (map
-         (fn [entry]
-           (let [scheduled-departure (:scheduled (:departure entry))
-                 is-realtime         (:realtime (:departure entry))
-                 realtime-departure  (or (:realtime (:departure entry)) scheduled-departure)
-                 departure-timestamp (parse-from-date-time realtime-departure)
-                 now                 (now)]
-             {:departure-timestamp departure-timestamp
-              :colors              (:colors entry)
-              :type                (:type entry)
-              :accessible          (:accessible entry)
-              :number              (:name entry)
-              :to                  (:to entry)
-              :in-minutes          (minutes-from departure-timestamp now)
-              :time                (format-to-hour-minute departure-timestamp)
-              :is-realtime         is-realtime
-              :undelayed-time      (when (not= realtime-departure scheduled-departure)
-                                     (let [scheduled-departure-timestamp (parse-from-date-time scheduled-departure)]
-                                       (format-to-hour-minute scheduled-departure-timestamp)))})))))
 
 (defn- merge-station-data-and-set-loading [station-data ids]
   (let [station-data-without-removed-ids (into {} (filter #(contains? ids (key %)) station-data))
         ids-without-loaded-stations      (remove #(contains? station-data %) ids)
         new-station-data                 (merge station-data-without-removed-ids (into {} (map (fn [id] [id :loading]) ids-without-loaded-stations)))]
     new-station-data))
+
+(defn- keep-non-excluded [number acc data]
+  (if 
+    (or (empty? data) (= number 0)) acc
+    (let [[head & tail] data]
+      (if (:excluded head) 
+        (keep-non-excluded number (conj acc head) tail)
+        (keep-non-excluded (- number 1) (conj acc head) tail)))))
+
+(defn- all-excluded [data]
+  (= (count (remove :excluded data)) 0))
 
 (defn- arrivals-from-station-data [station-data current-view]
   (let [arrivals (->> station-data
@@ -48,11 +36,11 @@
                       (flatten)
                       (sort-by :departure-timestamp)
                       ; we filter out the things we don't want to see
-                      (remove #(let [stop (get (:stops current-view) (:stop-id %))]
-                                 (is-in-destinations (:excluded-destinations stop) %)))
+                      (map #(let [stop (get (:stops current-view) (:stop-id %))]
+                              (assoc % :excluded (:excluded (get-destination (:known-destinations stop) %)))))
                       ; we filter out the things that left more than 0 minutes ago
                       (remove #(< (:in-minutes %) 0))
-                      (take 30))]
+                      (keep-non-excluded 30 []))]
     arrivals))
 
 
@@ -62,58 +50,42 @@
 (defn- are-all-error-or-empty [station-data]
   (empty? (remove #(or (= :error (val %)) (and (not= :loading (val %)) (empty? (val %)))) station-data)))
 
-(defn- exclude-destination-link [{:keys [arrival]} owner]
-  (reify
-    om/IRenderState
-    (render-state [this {:keys [add-filter-ch]}]
-            (let [exclude-text (str "filter " (:to arrival) " from view")]
-              (dom/a #js {:href "#"
-                          :className "link-icon"
-                          :aria-label exclude-text
-                          :onClick (fn [e]
-                                     ; TODO here we could do it differently, this code should be allowed
-                                     ; to modify the current-view directly, but then the rest of the application
-                                     ; should listen to changes on the current-view and adapt accordingly
-                                     (put! add-filter-ch {:destination arrival})
-                                     (.preventDefault e))} "✖")))))
-
 (defn- arrival-row [{:keys [arrival]} owner {:keys [add-filter-ch]}]
   (reify
     om/IRender
     (render [this]
             (println "Rendering row")
-
+            
             (let [type        (:type arrival)
                   in-minutes  (:in-minutes arrival)
                   number      (:number arrival)
                   to          (:to arrival)
                   accessible  (:accessible arrival)
-                  is-realtime (:is-realtime arrival)]
-              (dom/tr #js {:className "tram-row"}
-                      (dom/td #js {:className "first-cell"} (om/build number-icon {:number number :colors (:colors arrival) :type type}))
-                      (dom/td #js {:className "station"}
-                              (dom/span #js {:className "exclude-link"} (om/build exclude-destination-link {:arrival arrival} {:init-state {:add-filter-ch add-filter-ch}}))
-                              (dom/span #js {:className "station-name"
-                                             :aria-label (str "destination " to (when accessible (str ". this " type " is accessible by wheelchair")))}
-                                        to (when accessible (dom/i #js {:className "fa fa-wheelchair"}))))
-                      (dom/td #js {:className "departure thin"}
-                              (dom/div nil (:time arrival)
-                                       (dom/span #js {:className "undelayed"} (if-not is-realtime "no real-time data" (:undelayed-time arrival)))))
-                      (dom/td #js {:className (str "text-right time time" in-minutes " " (if (> in-minutes 100) "time100"))}
-                              (om/build transport-icon {:type type :accessible-text "arriving now"})
-                              (dom/div #js {:className "bold pull-right"
-                                            :aria-label (str "arriving in " in-minutes " minutes")} (str in-minutes "’"))))))))
+                  is-realtime (:is-realtime arrival)
+                  excluded    (:excluded arrival)]
+              (dom/div #js {:className (str "board-row " (when excluded "hidden"))}
+                       (dom/div nil (om/build number-icon {:number number :colors (:colors arrival) :type type}))
+                       (dom/div #js {:className "board-row-station"}
+                                (dom/span #js {:className "board-row-station-name"
+                                               :aria-label (str "destination " to (when accessible (str ". this " type " is accessible by wheelchair")))}
+                                          to (when accessible (dom/i #js {:className "fa fa-wheelchair"}))))
+                       (dom/div #js {:className "board-row-departure thin"}
+                                (dom/div #js {:className "board-row-departure-actual"} (:time arrival))
+                                (dom/div #js {:className "board-row-departure-scheduled"} (if-not is-realtime "no real-time data" (:undelayed-time arrival))))
+                       (dom/div #js {:className (str "board-row-time board-row-time" in-minutes " " (if (> in-minutes 100) "board-row-time100"))}
+                                (om/build transport-icon {:type type :accessible-text "arriving now"})
+                                (dom/span #js {:className "board-row-time-text bold"
+                                               :aria-label (str "arriving in " in-minutes " minutes")} (str in-minutes "’"))))))))
 
 (defn- arrival-table [{:keys [arrivals]} owner opts]
   (reify
     om/IRender
     (render [this]
-            (dom/table #js {:className "tram-table"}
-                       (apply dom/tbody nil
-                              (map #(om/build arrival-row {:arrival %} {:opts opts}) arrivals))))))
+            (apply dom/div nil
+                   (map #(om/build arrival-row {:arrival %} {:opts opts}) arrivals)))))
 
 
-(defn arrival-tables-view [{:keys [current-view]} owner {:keys [refresh-rate]}]
+(defn arrival-tables-view [{:keys [current-view]} owner {:keys [refresh-rate transform-stationboard-data]}]
   "Takes as input a set of views (station id) and the size of the pane and renders the table views."
   (let [initialize
         (fn [current current-owner]
@@ -155,7 +127,7 @@
                                 (fn [output]
                                   (let [{:keys [data stop-id error]} output]
                                     (println (str "Received data for stop: " stop-id))
-
+                                    
                                     ; we just validate here the stop id
                                     (if (and (not error) stop-id)
                                       (do
@@ -164,11 +136,10 @@
                                         (om/transact! current-view [:stops stop-id]
                                                       (fn [stop]
                                                         ; we add all the known destinations to the stop
-                                                        (let [existing-known-destinations (or (:known-destinations stop) #{})
-                                                              new-known-destinations      (map #(select-keys % [:to :number :colors :type]) data)]
+                                                        (let [existing-known-destinations (or (:known-destinations stop) (init-destinations))
+                                                              new-known-destinations (reduce #(edit-or-add-destination %1 %2) existing-known-destinations data)]
                                                           (assoc stop
-                                                            :known-destinations
-                                                            (into existing-known-destinations new-known-destinations))))))
+                                                            :known-destinations new-known-destinations)))))
                                       (om/update-state! owner :station-data #(assoc % stop-id :error))))))
                               ; we initialize the fetch loop
                               (wait-on-channel
@@ -183,12 +154,12 @@
                                   (go (<! (timeout refresh-rate))
                                       (println (str "Putting onto fetch channel: " stop-id))
                                       (put! new-fetch-ch stop-id))))
-
+                              
                               ; we ask the channel to fetch the new data
                               (doseq [stop-id stop-ids]
                                 (println (str "Initializing fetch loop for: " stop-id))
                                 (put! new-fetch-ch stop-id))
-
+                              
                               (assoc (update-in state [:arrival-channels]
                                                 #(assoc %
                                                    :incoming-ch new-incoming-ch
@@ -214,20 +185,15 @@
                         (when incoming-ch (close! incoming-ch))
                         (when fetch-ch (close! fetch-ch)))))
       om/IRenderState
-      (render-state [this {:keys [station-data activity-ch add-filter-ch]}]
-
-                    (let [arrivals  (arrivals-from-station-data station-data current-view)
-                          on-action (fn [preventDefault e]
-                                      (put! activity-ch true)
-                                      (when preventDefault (.preventDefault e)))
-                          loading   (are-all-loading station-data)
-                          error     (are-all-error-or-empty station-data)]
-
-                      (println "Rendering arrival table")
-
-                      (dom/div #js {:onMouseMove #(on-action true %)
-                                    :onClick #(on-action true %)
-                                    :onTouchStart #(on-action false %)}
+      (render-state [this {:keys [station-data add-filter-ch]}]
+                    
+                    (let [arrivals     (arrivals-from-station-data station-data current-view)
+                          all-excluded (all-excluded arrivals)
+                          loading      (are-all-loading station-data)
+                          error        (are-all-error-or-empty station-data)]
+                      (println "Rendering arrival table")                      
+                      (dom/div #js {:className "responsive-display board-table"}
                                (dom/div #js {:className (str "text-center ultra-thin loading " (when-not loading "hidden"))} "Your departures are loading...")
                                (dom/div #js {:className (str "text-center ultra-thin loading " (when (or (not error) loading) "hidden"))} "Sorry, no departures are available at this time...")
+                               (dom/div #js {:className (str "text-center ultra-thin loading " (when (or error loading (not all-excluded)) "hidden"))} "No departures at the moment...")
                                (om/build arrival-table {:arrivals arrivals} {:opts {:add-filter-ch add-filter-ch}})))))))

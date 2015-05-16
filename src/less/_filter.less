@@ -1,3 +1,173 @@
+.filter-wrapper {
+	position: relative;
+}
+
+.filter-container {
+	position: absolute;
+	top: 38px;
+	width: 0;
+	max-height: 0;
+	overflow: hidden;
+	transition: width 0.5s ease 0s;
+	z-index: 2;
+
+	&.visible {
+		width: 100%;
+		max-height: none;
+	}
+}
+
 .filter-editor {
-	display: none;
+	display: block;
+	background-color: white;
+	width: @overlays-width;
+	margin-left: @overlays-margin;
+	box-shadow: -5px 0px 10px 0px rgba(0,0,0,0.3);
+	padding-top: 10px;
+}
+
+.filter-stop-container {
+	margin-left: 10px;
+	margin-bottom: 10px;
+}
+
+.filter-stop-name {
+	background-color: @outline-color;
+	padding: 8px;
+	margin: 0;
+}
+
+.filter-stop {
+	display: flex;
+	flex-flow: column nowrap;
+	border-bottom: 0;
+	margin-bottom: 10px;
+}
+
+.filter-type-container {
+	border: 2px solid @outline-color;
+	margin-bottom: 8px;
+}
+
+.filter-type-name {
+	padding: 8px;
+	margin: 0;
+	display: inline-block;
+
+	> span {
+		margin-left: 4px;
+	}
+}
+
+.filter-type {
+	display: flex;
+	flex-flow: column wrap;
+	align-content: flex-start;
+	overflow-x: scroll;
+	padding-bottom: 8px;
+}
+
+.filter-destination-label {
+	display: flex;
+	font-weight: normal;
+	align-items: center;
+	margin: 0;
+	width: 100%;
+	padding: 4px;
+	border-radius: 5px;
+	border: 0.5px solid #A5A5A5;
+	cursor: pointer;
+}
+
+.filter-destination-link {
+	display: flex;
+	flex: 1 1;
+	overflow: hidden;
+
+	&, &:hover, &:visited, &:focus {
+		text-decoration: none;
+		outline: 0;
+		color: black;
+	}
+}
+
+.filter-destination {
+	display: flex;
+	flex-flow: row;
+	align-items: center;
+	margin: 3px 6px 0px 6px;
+	position: relative;
+
+	.fa {
+		display: none;
+		position: absolute;
+		font-size: 2.8em;
+		top: 1px;
+		left: 2px;
+
+	}
+
+	&.disabled {
+		background-color: #EEEEEE;
+		opacity: 0.4;
+	}
+}
+
+.filter-destination-name {
+	flex: 1 0;
+	white-space: nowrap;
+	padding: 0 6px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.filter-destination-number {
+	font-size: 0.4em;
+}
+
+// the stuff below changes on small devices
+.filter-container {
+	right: -@edge-padding-big;
+}
+
+.filter-stop-container {
+	margin-right: @edge-padding-big * 3;
+}
+
+.filter-type {
+	max-height: 348px;
+}
+
+.filter-type-big {
+	height: 348px;
+}
+
+.filter-destination {
+	width: 260px;
+}
+
+.smallest-device() {
+	.filter-type {
+		max-height: none;
+	}	
+
+	.filter-destination {
+		width: auto;
+	}
+}
+
+.smaller-device() {
+
+	.filter-container {
+		right: -@edge-padding-normal;
+	}
+
+	.filter-stop-container {
+		margin-right: @edge-padding-normal * 3;
+	}
+
+}
+
+.test-red {
+	background-color: red;
 }

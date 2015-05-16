@@ -46,16 +46,18 @@
   (reify
     om/IRenderState
     (render-state [this {:keys [remove-stop-ch]}]
-            (let [stop-id (:id current-stop)
-                  name    (:name current-stop)]
-              (dom/button #js {:className "btn btn-primary"
-                               :type "button"
-                               :aria-label (str "remove " name)
-                               :onClick (fn [e]
-                                          (put! remove-stop-ch {:stop-id stop-id})
-                                          (.preventDefault e))}
-                          name
-                          (dom/span #js {:className "glyphicon glyphicon-remove"}))))))
+                  (let [stop-id  (:id current-stop)
+                        name     (:name current-stop)
+                        on-click (fn [e]
+                                   (put! remove-stop-ch {:stop-id stop-id})
+                                   (.preventDefault e))]
+                    (dom/button #js {:className "btn btn-primary"
+                                     :type "button"
+                                     :aria-label (str "remove " name)
+                                     :onClick on-click
+                                     :onTouchEnd on-click}
+                                name
+                                (dom/span #js {:className "glyphicon glyphicon-remove"}))))))
 
 
 (defn edit-pane [{:keys [stops]} owner {:keys [display-credits]}]
