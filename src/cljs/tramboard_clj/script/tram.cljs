@@ -591,12 +591,11 @@
           new-views         (into {} (remove #(empty? (:stops (val %))) new-clean-views))
           current-state     (:current-state app-state)
           new-current-state (if (> (count configured-views) (count new-views)) (go-home current-state) current-state)]
-      (assoc app-state :configured-views new-views :current-state new-current-state)))
-  app-state)
+      (assoc app-state :configured-views new-views :current-state new-current-state))
+    app-state))
 
 (defn- debug-app-state [app-state]
   "This removes the complete-state if there is one and takes state number 1 as current state."
-  (println (:complete-state app-state))
   (if-not (nil? (:complete-state app-state))
     (let [complete-state  (:complete-state app-state)
           state-1         (get-state complete-state :state-1)
