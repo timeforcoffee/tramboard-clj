@@ -573,7 +573,7 @@
     (assoc app-state :new-visitor  new-visitor)))
 
 (defn- debug-corrupt-view [view]
-  (let [stops-with-to (into {} (filter #(contains? (val %) :to) (:stops view)))
+  (let [stops-with-to (into {} (filter #(contains? (val %) :name) (:stops view)))
         stop-ids      (map #(key %) stops-with-to)
         stops-order   (:stops-order view)
         stops-to-add  (set/difference (into #{} stop-ids) stops-order)
@@ -583,12 +583,17 @@
     new-view))
 
 (defn- debug-corrupt-views [app-state]
+  "This removes the views that might have been corrupted with the bug that kept destinations
+  displayed even though they were removed."
   (let [configured-views (:configured-views app-state)
         new-clean-views  (into {} (map #(vector (key %) (debug-corrupt-view (val %))) configured-views))
-        new-views        (into {} (remove #(empty? (:stops (val %))) new-clean-views))]
-    (assoc app-state :configured-views new-views)))
+        new-views        (into {} (remove #(empty? (:stops (val %))) new-clean-views))
+        current-state    (:current-state app-state)
+        new-current-state    (if (> (count configured-views) (count new-views)) (go-home current-state) current-state)]
+    (assoc app-state :configured-views new-views :current-state new-current-state)))
 
-(defn debug-app-state [app-state]
+(defn- debug-app-state [app-state]
+  "This removes the complete-state if there is one and takes state number 1 as current state."
   (if (:complete-state app-state)
     (let [complete-state  (:complete-state app-state)
           state-1         (get-state complete-state :state-1)
