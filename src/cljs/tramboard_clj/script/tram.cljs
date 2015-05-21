@@ -205,11 +205,9 @@
                new-current-view)))))
 
 (defn transact-fullscreen [state]
-  (ga "send" "event" "fullscreen" "enter")
   (om/transact! state :params #(assoc % :display :expanded)))
 
 (defn transact-exit-fullscreen [state]
-  (ga "send" "event" "fullscreen" "exit")
   (om/transact! state :params #(dissoc % :display)))
 
 (defn- cap [string x letter]
@@ -294,6 +292,9 @@
                              
                              (dom/div #js {:className "control-bar-buttons"}
                                       (let [on-action (fn [e]
+                                                        (if-not edit-filter-mode
+                                                          (ga "send" "event" "filter" "enter")
+                                                          (ga "send" "event" "filter" "exit"))
                                                         (om/update-state! owner #(assoc % 
                                                                                    :edit-filter-mode (not edit-filter-mode)
                                                                                    ; we exit the share buttom
@@ -313,6 +314,9 @@
                                                                             (let [share-input-value   (or (:share-input-value state)
                                                                                                           (get-share-link current-view))
                                                                                   share-input-visible (not (:share-input-visible state))]
+                                                                              (if share-input-visible 
+                                                                                (ga "send" "event" "share" "enter")
+                                                                                (ga "send" "event" "share" "exit"))
                                                                               (assoc state
                                                                                 :share-input-value share-input-value
                                                                                 :share-input-visible share-input-visible
@@ -327,6 +331,9 @@
                                                     (dom/span #js {:className "glyphicon glyphicon-link"}) share-text))
                                       (let [on-action (fn [e]
                                                         ; we change the state to hidden
+                                                        (if-not expanded
+                                                          (ga "send" "event" "fullscreen" "enter")
+                                                          (ga "send" "event" "fullscreen" "exit"))
                                                         (if expanded
                                                           (transact-exit-fullscreen current-state)
                                                           (transact-fullscreen current-state))
