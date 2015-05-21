@@ -172,7 +172,6 @@
                   (put! view-change-ch (set (keys (:stops current-view))))))
     om/IWillReceiveProps
     (will-receive-props [_ {:keys [current-view]}]
-                        (println (str "TEST Initializing on WillReceiveProps"))
                         (put! (om/get-state owner :view-change-ch) (set (keys (:stops current-view)))))
     om/IWillUnmount
     (will-unmount [_]

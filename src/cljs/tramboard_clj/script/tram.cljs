@@ -362,8 +362,7 @@
                                       (om/transact! current-state #(go-edit % (:view-id view)))
                                       (.preventDefault e))]
                        (dom/a #js {:href "#"
-                                   :onClick on-click
-                                   :onTouchEnd on-click}
+                                   :onClick on-click}
                               ; a list of all stops
                               (dom/h2 #js {:className "thin"}
                                       (str (str/join " / " (map #(:name %) (get-stops-in-order view)))))
@@ -457,13 +456,6 @@
                                   :onMouseMove #(on-action true %)
                                   :onClick #(on-action true %)
                                   :onTouchEnd #(on-action false %)}
-                             (om/build edit-pane
-                                       {:stops (get-stops-in-order current-view)}
-                                       {:opts {:display-credits false}
-                                        :init-state {:add-stop-ch add-stop-ch
-                                                     :remove-stop-ch remove-stop-ch}
-                                        ; forces re-render
-                                        :state {:random (rand)}})
                              (om/build stop-heading current-view)
                              (om/build control-bar
                                        {:current-state current-state :current-view current-view}
@@ -473,25 +465,6 @@
                                        {:init-state {:activity-ch activity-ch :toggle-filter-ch toggle-filter-ch}
                                         :opts {:refresh-rate refresh-rate
                                                :transform-stationboard-data transform-stationboard-data}}))))))
-
-(defn welcome-pane [{:keys [recent-views current-state]} owner]
-  (reify
-    om/IRenderState
-    (render-state [this {:keys [add-stop-ch remove-stop-ch display-banner display-credits]}]
-                  (println "Rendering welcome pane")
-                  (dom/div #js {:className "container-fluid"}
-                           ; TODO review this
-                           (dom/div #js {:className (str "responsive-display " (when-not display-banner "hidden"))}
-                                    (om/build welcome-banner nil))
-                           (om/build edit-pane
-                                     {:stops []}
-                                     {:opts {:display-credits display-credits}
-                                      :init-state {:add-stop-ch add-stop-ch
-                                                   :remove-stop-ch remove-stop-ch}
-                                      ; forces re-render
-                                      :state {:random (rand)}})
-                           (dom/div #js {:className (str "responsive-display " (when (empty? recent-views) "hidden"))}
-                                    (om/build recent-boards {:recent-views recent-views :current-state current-state}))))))
 
 (defn build-title-edit [last-updated]
   (dom/span nil
@@ -533,6 +506,7 @@
     (render-state [this {:keys [activity activity-ch add-stop-ch remove-stop-ch]}]
                   ; those all depend on the screen that's displayed
                   (let [current-view     (current-view current-state configured-views)
+                        recent-views     (get-recent-board-views configured-views)
                         display          (:display (:params current-state))
                         is-home          (is-home current-state)
                         home-icon        (om/build menu-icon nil
@@ -548,13 +522,20 @@
                              
                              (om/build menu-bar nil {:state {:left-icon (when-not is-home home-icon)
                                                              :title title}})
-                             (if
-                               is-home
-                               (om/build welcome-pane
-                                         {:recent-views (get-recent-board-views configured-views)
-                                          :current-state current-state}
-                                         {:init-state {:add-stop-ch add-stop-ch :remove-stop-ch remove-stop-ch}
-                                          :state {:display-banner is-home :display-credits true}})
+                             (dom/div #js {:className "container-fluid"}
+                                      ; TODO review this
+                                      (dom/div #js {:className (str "responsive-display " (when-not is-home "hidden"))}
+                                               (om/build welcome-banner nil))
+                                      (om/build edit-pane
+                                                {:stops (get-stops-in-order current-view)}
+                                                {:opts {:display-credits is-home}
+                                                 :init-state {:add-stop-ch add-stop-ch
+                                                              :remove-stop-ch remove-stop-ch}
+                                                 ; forces re-render
+                                                 :state {:random (rand)}})
+                                      (dom/div #js {:className (str "responsive-display " (when (or (not is-home) (empty? recent-views)) "hidden"))}
+                                               (om/build recent-boards {:recent-views recent-views :current-state current-state})))
+                             (when-not is-home 
                                (om/build stationboard-pane
                                          {:current-view current-view
                                           :current-state current-state}
