@@ -23,11 +23,14 @@
                  [bk/ring-gzip "0.1.1"]
                  [secretary "1.2.1"]
                  [org.clojars.jws/ring-etag-middleware "0.1.2-SNAPSHOT"]
-                 [org.clojars.fterrier/om-autocomplete "0.2.0-SNAPSHOT"]
+                 ; [org.clojars.fterrier/om-autocomplete "0.2.0-SNAPSHOT"]
                  [com.newrelic.agent.java/newrelic-api "3.13.0"]]
 
   :plugins [[lein-cljsbuild "1.0.4"]
-            [lein-shell "0.4.0"]]
+            [lein-shell "0.4.0"]
+            [lein-git-deps "0.0.2-SNAPSHOT"]]
+  
+  :git-dependencies [["https://github.com/fterrier/om-autocomplete.git"]]
 
   :uberjar-name "tramboard-clj.jar"
   :source-paths ["src/clj"]
@@ -43,10 +46,9 @@
                              [lein-pdo "0.1.1"]
                              [lein-midje "3.1.3"]]
                    :aliases {"autotest" ["midje" ":autotest"]}
-
-                   :ring {:handler tramboard-clj.core.handler/app}
                    :figwheel {:css-dirs ["resources/public/css"]}
-                   :cljsbuild {:builds {:app {:source-paths ["env/dev/src/cljs"]
+                   :ring {:handler tramboard-clj.core.handler/app}
+                   :cljsbuild {:builds {:app {:source-paths ["env/dev/src/cljs" ".lein-git-deps/om-autocomplete/src"]
                                               :compiler {:output-to "resources/public/js/dev.js"
                                                          :output-dir "resources/public/out"
                                                          :optimizations :none
@@ -63,4 +65,4 @@
                                                              :optimizations :advanced
                                                              :pretty-print false}}}}}}
   :aliases {"develop"   ["pdo" "figwheel" ["gulp"]]
-            "gulp" ["do" ["shell" "node_modules/.bin/gulp" "watch"]]})
+            "gulp" ["do" ["shell" "node_modules/.bin/gulp" "default"]]})

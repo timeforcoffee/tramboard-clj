@@ -20,7 +20,7 @@
     (render-state [this {:keys [left-icon right-icon title]}]
                   (dom/header #js {:className "menu-bar"}
                               (dom/div #js {:className "container-fluid"}
-                                       (dom/div #js {:className "menu-icon-parent"}
+                                       (dom/div #js {:className "menu-icon-parent no-link"}
                                                 (dom/span #js {:className "left-icon"} left-icon)
                                                 title
                                                 (dom/span #js {:className "right-icon"} right-icon)))))))

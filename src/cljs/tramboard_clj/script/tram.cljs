@@ -236,14 +236,6 @@
                                      (let [scheduled-departure-timestamp (parse-from-date-time scheduled-departure)]
                                        (format-to-hour-minute scheduled-departure-timestamp)))})))))
 
-(defn stop-heading [current-view owner]
-  "This displays all the links"
-  (reify
-    om/IRender
-    (render [this]
-            (dom/div #js {:className "responsive-display stop-heading"}
-                     (dom/h2 #js {:className "heading thin"} (str "Departures from " (str/join " / " (map #(:name %) (get-stops-in-order current-view)))))))))
-
 (defn control-bar [{:keys [current-state current-view edit-filter-mode]} owner]
   (reify
     om/IInitState
@@ -463,7 +455,6 @@
                                   :onMouseMove #(on-action true %)
                                   :onClick #(on-action true %)
                                   :onTouchEnd #(on-action false %)}
-                             (om/build stop-heading current-view)
                              (om/build control-bar
                                        {:current-state current-state :current-view current-view}
                                        {:init-state {:toggle-filter-ch toggle-filter-ch}})
@@ -487,10 +478,10 @@
   (reify
     om/IInitState
     (init-state [_]
-                {:add-stop-ch (chan) :remove-stop-ch (chan) })
+                {:add-stop-ch (chan) :remove-stop-ch (chan) :input-ch (chan) :has-input false})
     om/IWillMount
     (will-mount [_]
-                (let [{:keys [add-stop-ch remove-stop-ch]} (om/get-state owner)]
+                (let [{:keys [add-stop-ch remove-stop-ch input-ch]} (om/get-state owner)]
                   ; TODO allow the children here to modify their views directly
                   ; and listen on those view changes, see board.cljs and above for comment
                   (wait-on-channel
@@ -501,16 +492,22 @@
                     remove-stop-ch
                     (fn [{:keys [stop-id]}]
                       (println "Removing stop " stop-id)
-                      (transact-remove-stop app stop-id)))))
+                      (transact-remove-stop app stop-id)))
+                  (wait-on-channel
+                    input-ch
+                    (fn [has-input]
+                      (println "prout" has-input)
+                      (om/set-state! owner :has-input has-input)))))
     om/IWillUnmount
     (will-unmount [this]
                   (let [{:keys [hide-ch
-                                add-stop-ch remove-stop-ch]} (om/get-state owner)]
+                                add-stop-ch remove-stop-ch input-ch]} (om/get-state owner)]
                     (close! add-stop-ch)
                     (close! remove-stop-ch)
+                    (close! input-ch)
                     (when hide-ch (close! hide-ch))))
     om/IRenderState
-    (render-state [this {:keys [activity activity-ch add-stop-ch remove-stop-ch]}]
+    (render-state [this {:keys [activity activity-ch add-stop-ch remove-stop-ch input-ch has-input]}]
                   ; those all depend on the screen that's displayed
                   (let [current-view     (current-view current-state configured-views)
                         recent-views     (get-recent-board-views configured-views)
@@ -531,15 +528,14 @@
                                                              :title title}})
                              (dom/div #js {:className "container-fluid"}
                                       ; TODO review this
-                                      (dom/div #js {:className (str "responsive-display " (when-not is-home "hidden"))}
+                                      (dom/div #js {:className (str "responsive-display " (when (or has-input (not is-home)) "hidden"))}
                                                (om/build welcome-banner nil))
                                       (om/build edit-pane
                                                 {:stops (get-stops-in-order current-view)}
                                                 {:opts {:display-credits is-home}
                                                  :init-state {:add-stop-ch add-stop-ch
-                                                              :remove-stop-ch remove-stop-ch}
-                                                 ; forces re-render
-                                                 :state {:random (rand)}})
+                                                              :remove-stop-ch remove-stop-ch
+                                                              :input-ch input-ch}})
                                       (dom/div #js {:className (str "responsive-display " (when (or (not is-home) (empty? recent-views)) "hidden"))}
                                                (om/build recent-boards {:recent-views recent-views :current-state current-state})))
                              (when-not is-home 

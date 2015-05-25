@@ -7,7 +7,7 @@
 @small-font-size: 1.2em;
 
 @action-color: #477DCA;
-@outline-color: #F5F5F5;
+@light-gray: #F5F5F5;
 
 @edge-padding-big: 15px;
 @edge-padding-normal: 10px;
@@ -20,6 +20,7 @@
 @import "_filter.less";
 @import "_board.less";
 @import "_icon.less";
+@import "_edit.less";
 
 html {
 	min-width: 320px;
@@ -71,17 +72,19 @@ button.btn-primary {
 	font-weight: 100;
 }
 
-a .link-icon, a.link-icon, a:visited .link-icon, a.link-icon:visited {
-	color: gray;
-}
+.no-link {
+	a, a:visited {
+		color: gray;
+	}
 
-a:hover .link-icon, a.link-icon:hover {
-	color: #555;
-}
+	a:hover {
+		color: #555;
+	}	
 
-a .link-icon a.link-icon, a:hover .link-icon, a.link-icon:hover, a:visited .link-icon, a.link-icon:visited, a.link-icon:focus, a .link-icon:focus {
-	text-decoration: none;
-	outline: 0;
+	a, a:hover, a:visited, a:focus {
+		text-decoration: none;
+		outline: 0;
+	}
 }
 
 /* display logic when expanded */
@@ -90,7 +93,7 @@ a .link-icon a.link-icon, a:hover .link-icon, a.link-icon:hover, a:visited .link
 	display: none;
 }
 
-.display-expanded .stop-heading {
+.display-expanded .edit-stop-heading {
 	display: none;
 }
 
@@ -130,7 +133,7 @@ a .link-icon a.link-icon, a:hover .link-icon, a.link-icon:hover, a:visited .link
 	padding-bottom: 4px;
 	padding-left: 4px;
 	text-align: center;
-	background-color: @outline-color;
+	background-color: @light-gray;
 	height: 48px;
 
 	span {
@@ -188,48 +191,7 @@ a .link-icon a.link-icon, a:hover .link-icon, a.link-icon:hover, a:visited .link
 	width: 90%;
 	line-height: 1.5em;
 	margin-bottom: 18px;
-}
-
-.edit-form {
-
-	.form-control {
-		height: auto;
-		box-shadow: none;
-	}
-
-	.form-group {
-		margin-bottom: 5px;
-	}
-
-	.dropdown {
-		line-height: 36px;
-		display: inline-block;
-	}
-
-	.btn {
-		margin-right: 4px;
-		padding-right: 6px;
-		margin-bottom: 2px;
-	}
-
-	.btn .glyphicon {
-		margin-left: 6px;
-		top: 2px;
-	}
-
-	input.form-control, input:focus.form-control {
-		display: inline-block;
-		border: none;
-		margin-left: 6px;
-		outline: 0;
-		width: 100%;
-		box-shadow: none;
-		padding-left: 0px;
-	}
-
-	.credits {
-		line-height: 16px;
-	}
+	max-width: 960px;
 }
 
 .control-bar-buttons {
@@ -238,7 +200,7 @@ a .link-icon a.link-icon, a:hover .link-icon, a.link-icon:hover, a:visited .link
 	z-index: 1;
 	align-items: center;
 
-	background-color: @outline-color;
+	background-color: @light-gray;
 	margin-bottom: 14px;
 	margin-top: 10px;
 
@@ -272,7 +234,7 @@ a .link-icon a.link-icon, a:hover .link-icon, a.link-icon:hover, a:visited .link
 	width: @overlays-width - 10vw;
 	margin-left: @overlays-margin;
 	top: 38px;
-	background-color: @outline-color;
+	background-color: @light-gray;
 	z-index: 2;
 }
 
