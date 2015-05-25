@@ -6,10 +6,9 @@
             [goog.array :as g-array]
             [tramboard-clj.script.client :refer [fetch-suggestions]]
             [tramboard-clj.script.util :refer [wait-on-channel get-stops-in-order]]
-            [arosequist.om-autocomplete :as ac]
-            [arosequist.om-autocomplete.bootstrap :as acb]))
+            [tramboard-clj.components.autocomplete :refer [autocomplete]]))
 
-(defn- autocomplete [_ owner {:keys [input-id input-placeholder input-class-name results-class-name container-class-name]}]
+(defn- edit-input [_ owner {:keys [input-id input-placeholder input-class-name results-class-name container-class-name]}]
   (reify
     om/IInitState
     (init-state [_]
@@ -24,12 +23,13 @@
                         (when (not (nil? result))
                           (put! add-stop-ch {:stop result})))))))
     om/IRenderState
-    (render-state [_ {:keys [result-ch backspace-ch input-ch]}]
-                  (om/build ac/autocomplete {}
-                            {:opts
+    (render-state [_ {:keys [result-ch input-ch value-ch]}]
+                  (om/build autocomplete {}
+                            {:init-state {:value-ch value-ch}
+                             :opts
                              {:suggestions-fn (fn [value suggestions-ch cancel-ch]
-                                                (if (str/blank? value) 
-                                                  (do 
+                                                (if (str/blank? value)
+                                                  (do
                                                     (put! suggestions-ch [])
                                                     (put! input-ch false))
                                                   (do
@@ -37,17 +37,9 @@
                                                     (put! input-ch true))))
                               :result-ch      result-ch
                               :result-text-fn (fn [item _] (:name item))
-                              :results-opts {:class-name results-class-name
-                                             :result-item-opts {:class-name-highlighted "highlighted"}}
-                              :container-opts {:class-name container-class-name}
                               :input-opts     {:placeholder    input-placeholder
                                                :id             input-id
-                                               :class-name     input-class-name
-                                               :on-key-down    (fn [e value handler]
-                                                                 (let [keyCode (.-keyCode e)]
-                                                                   (case (.-keyCode e)
-                                                                     8  (when (empty? value) (put! backspace-ch true))
-                                                                     (handler e))))}}}))))
+                                               :class-name     input-class-name}}}))))
 
 (defn- edit-remove-button [{:keys [current-stop]} owner]
   (reify
@@ -67,57 +59,57 @@
   "This displays all the links"
   (reify
     om/IRenderState
-    (render-state [this {:keys [remove-stop-ch show-edit-ch ]}]
+    (render-state [this {:keys [remove-stop-ch show-edit-ch show-edit]}]
                   (dom/div #js {:className "responsive-display edit-stop-heading"}
-                           (dom/h2 #js {:className "thin"} "Your next departures from: ")
-                           (apply dom/div #js {:className " edit-stop-heading-buttons thin"} 
+                           (dom/h2 #js {:className "edit-stop-heading-title thin"} "Your next departures from: ")
+                           (apply dom/div #js {:className " edit-stop-heading-buttons thin"}
                                   (conj
                                     (into [] (map #(om/build edit-remove-button
                                                              {:current-stop %}
                                                              {:init-state {:remove-stop-ch remove-stop-ch}}) stops))
-                                    (dom/label #js {:className "edit-stop-heading-add" 
-                                                    :htmlFor "stopInput"
-                                                    :href "#"
-                                                    :onClick (fn [e] 
-                                                               (put! show-edit-ch true))} "add a stop")))))))
+                                    (dom/a #js {:href "#"
+                                                :className (when show-edit "hidden")}
+                                           (dom/label #js {:className "edit-stop-heading-add"
+                                                           :htmlFor "stopInput"
+                                                           :onClick (fn [e]
+                                                                      (put! show-edit-ch true)
+                                                                      (.stopPropagation e))}  "add a stop"))))))))
 
-(defn edit-pane [{:keys [stops]} owner {:keys [display-credits]}]
+(defn edit-pane [{:keys [stops display-credits]} owner]
   "This shows the edit pane to add stops and stuff"
   (reify
     om/IInitState
     (init-state [_]
-                {:backspace-ch (chan) :show-edit-ch (chan) :show-edit false})
+                {:show-edit false :show-edit-ch (chan)})
     om/IWillMount
     (will-mount  [_]
-                (let [{:keys [backspace-ch remove-stop-ch show-edit-ch]} (om/get-state owner)]
-                  (wait-on-channel
-                    backspace-ch
-                    (fn [backspace]
-                      (when (not (nil? backspace))
-                        (put! remove-stop-ch {:stop-id nil}))))
+                (let [{:keys [remove-stop-ch show-edit-ch]} (om/get-state owner)]
                   (wait-on-channel
                     show-edit-ch
                     (fn [show-edit]
                       (om/set-state! owner :show-edit show-edit)))))
     om/IWillUnmount
-    (will-unmount [_]
-                  (let [{:keys [backspace-ch show-edit-ch]} (om/get-state owner)]
-                    (close! backspace-ch)
+    (will-unmount [this]
+                  (let [{:keys [show-edit-ch value-ch]} (om/get-state owner)]
                     (close! show-edit-ch)))
     om/IRenderState
-    (render-state [_ {:keys [backspace-ch input-ch buttons-width input-width add-stop-ch remove-stop-ch show-edit-ch show-edit]}]
+    (render-state [_ {:keys [input-ch buttons-width input-width add-stop-ch remove-stop-ch show-edit-ch show-edit value-ch]}]
                   (let [no-stops (= (count stops) 0)]
                     (dom/div #js {:className "edit-form"}
                              (dom/div #js {:className (when no-stops "hidden")}
-                                      (om/build edit-stop-heading {:stops stops} {:init-state {:show-edit-ch show-edit-ch :remove-stop-ch remove-stop-ch}}))
-                             (dom/div #js {:className (when (and (not show-edit) (not no-stops)) "")}
-                                      (om/build autocomplete nil
-                                                {:init-state {:backspace-ch backspace-ch :add-stop-ch add-stop-ch :input-ch input-ch}
+                                      (om/build edit-stop-heading {:stops stops}
+                                                {:init-state {:show-edit-ch show-edit-ch
+                                                              :remove-stop-ch remove-stop-ch}
+                                                 :state {:show-edit show-edit}}))
+                             (dom/div #js {:className (str "edit-form-container no-link " (when show-edit "visible"))}
+                                      (om/build edit-input nil
+                                                {:init-state {:add-stop-ch add-stop-ch
+                                                              :input-ch input-ch
+                                                              :value-ch value-ch}
                                                  :opts {:input-id             "stopInput"
                                                         :input-placeholder    "Enter a stop"
-                                                        :input-class-name     "thin edit-form-input"
                                                         :results-class-name   "edit-form-results no-link"}})
-                                      
+
                                       (dom/div #js {:className (str "text-right ultra-thin credits " (when-not display-credits "hidden"))}
                                                "brought to you by "
                                                (dom/a #js {:target "_blank" :href "/about"} "Time for Coffee team"))))))))

@@ -131,7 +131,7 @@
     app (fn [app]
           (let [configured-views     (:configured-views app)
                 current-state        (:current-state app)
-                
+
                 shared-view          (get-shared-view shared-view-hash configured-views)
                 view                 (or shared-view (assoc (create-new-view imported-view) :shared-view-hash shared-view-hash))
                 view-id              (:view-id view)
@@ -281,13 +281,13 @@
                                                                  :onClick on-action
                                                                  :onFocus on-action
                                                                  :onTouchEnd on-action}))))
-                             
+
                              (dom/div #js {:className "control-bar-buttons"}
                                       (let [on-action (fn [e]
                                                         (if-not edit-filter-mode
                                                           (ga "send" "event" "filter" "enter")
                                                           (ga "send" "event" "filter" "exit"))
-                                                        (om/update-state! owner #(assoc % 
+                                                        (om/update-state! owner #(assoc %
                                                                                    :edit-filter-mode (not edit-filter-mode)
                                                                                    ; we exit the share buttom
                                                                                    :share-input-visible false))
@@ -306,7 +306,7 @@
                                                                             (let [share-input-value   (or (:share-input-value state)
                                                                                                           (get-share-link current-view))
                                                                                   share-input-visible (not (:share-input-visible state))]
-                                                                              (if share-input-visible 
+                                                                              (if share-input-visible
                                                                                 (ga "send" "event" "share" "enter")
                                                                                 (ga "send" "event" "share" "exit"))
                                                                               (assoc state
@@ -319,7 +319,7 @@
                                                          :aria-label share-text
                                                          :className (str "share-link btn btn-sm btn-default " (when share-input-visible "active"))
                                                          :onClick on-action
-                                                         :onTouchStart on-action} 
+                                                         :onTouchStart on-action}
                                                     (dom/span #js {:className "glyphicon glyphicon-link"}) share-text))
                                       (let [on-action (fn [e]
                                                         ; we change the state to hidden
@@ -425,13 +425,13 @@
                                 (let [old-hide-ch (:hide-ch s)
                                       new-hide-ch (chan)]
                                   (when old-hide-ch (close! old-hide-ch))
-                                  
+
                                   (go (when-some [hide (<! new-hide-ch)]
                                                  (when hide (om/set-state! owner :activity :idle))))
-                                  
+
                                   (go (<! (timeout 1500))
                                       (put! new-hide-ch true))
-                                  
+
                                   (assoc s
                                     :activity :not-idle
                                     :hide-ch new-hide-ch))))))
@@ -478,7 +478,7 @@
   (reify
     om/IInitState
     (init-state [_]
-                {:add-stop-ch (chan) :remove-stop-ch (chan) :input-ch (chan) :has-input false})
+                {:add-stop-ch (chan) :remove-stop-ch (chan) :input-ch (chan) :value-ch (chan) :has-input false})
     om/IWillMount
     (will-mount [_]
                 (let [{:keys [add-stop-ch remove-stop-ch input-ch]} (om/get-state owner)]
@@ -500,14 +500,14 @@
                       (om/set-state! owner :has-input has-input)))))
     om/IWillUnmount
     (will-unmount [this]
-                  (let [{:keys [hide-ch
-                                add-stop-ch remove-stop-ch input-ch]} (om/get-state owner)]
+                  (let [{:keys [hide-ch value-ch add-stop-ch remove-stop-ch input-ch]} (om/get-state owner)]
                     (close! add-stop-ch)
+                    (close! value-ch)
                     (close! remove-stop-ch)
                     (close! input-ch)
                     (when hide-ch (close! hide-ch))))
     om/IRenderState
-    (render-state [this {:keys [activity activity-ch add-stop-ch remove-stop-ch input-ch has-input]}]
+    (render-state [this {:keys [activity activity-ch add-stop-ch remove-stop-ch input-ch value-ch has-input]}]
                   ; those all depend on the screen that's displayed
                   (let [current-view     (current-view current-state configured-views)
                         recent-views     (get-recent-board-views configured-views)
@@ -518,12 +518,13 @@
                                                             :hidden-text "go back"}
                                                     :opts  {:on-click (fn [e]
                                                                         (om/transact! current-state #(go-home %))
+                                                                        (put! value-ch "")
                                                                         (.preventDefault e))}})
                         title            (if is-home (build-title-home ) (build-title-edit (:last-updated current-view)))]
-                    
+
                     (println "Rendering stationboard")
                     (dom/div (clj->js {:className (when (= display :expanded) "display-expanded")})
-                             
+
                              (om/build menu-bar nil {:state {:left-icon (when-not is-home home-icon)
                                                              :title title}})
                              (dom/div #js {:className "container-fluid"}
@@ -531,14 +532,17 @@
                                       (dom/div #js {:className (str "responsive-display " (when (or has-input (not is-home)) "hidden"))}
                                                (om/build welcome-banner nil))
                                       (om/build edit-pane
-                                                {:stops (get-stops-in-order current-view)}
-                                                {:opts {:display-credits is-home}
-                                                 :init-state {:add-stop-ch add-stop-ch
+                                                {:stops (get-stops-in-order current-view)
+                                                 :display-credits is-home}
+                                                {:init-state {:add-stop-ch add-stop-ch
                                                               :remove-stop-ch remove-stop-ch
-                                                              :input-ch input-ch}})
+                                                              :input-ch input-ch
+                                                              :value-ch value-ch}
+                                                 :state {:show-edit (or is-home has-input)
+                                                         :value ""}})
                                       (dom/div #js {:className (str "responsive-display " (when (or (not is-home) (empty? recent-views)) "hidden"))}
                                                (om/build recent-boards {:recent-views recent-views :current-state current-state})))
-                             (when-not is-home 
+                             (when-not is-home
                                (om/build stationboard-pane
                                          {:current-view current-view
                                           :current-state current-state}
@@ -561,7 +565,7 @@
         stop-ids      (map #(key %) stops-with-to)
         stops-order   (:stops-order view)
         stops-to-add  (set/difference (into #{} stop-ids) stops-order)
-        new-view      (assoc view 
+        new-view      (assoc view
                         :stops-order (into [] (concat stops-order stops-to-add))
                         :stops stops-with-to)]
     new-view))

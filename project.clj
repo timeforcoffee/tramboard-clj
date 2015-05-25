@@ -23,14 +23,10 @@
                  [bk/ring-gzip "0.1.1"]
                  [secretary "1.2.1"]
                  [org.clojars.jws/ring-etag-middleware "0.1.2-SNAPSHOT"]
-                 ; [org.clojars.fterrier/om-autocomplete "0.2.0-SNAPSHOT"]
                  [com.newrelic.agent.java/newrelic-api "3.13.0"]]
 
   :plugins [[lein-cljsbuild "1.0.4"]
-            [lein-shell "0.4.0"]
-            [lein-git-deps "0.0.2-SNAPSHOT"]]
-  
-  :git-dependencies [["https://github.com/fterrier/om-autocomplete.git"]]
+            [lein-shell "0.4.0"]]
 
   :uberjar-name "tramboard-clj.jar"
   :source-paths ["src/clj"]
@@ -48,7 +44,7 @@
                    :aliases {"autotest" ["midje" ":autotest"]}
                    :figwheel {:css-dirs ["resources/public/css"]}
                    :ring {:handler tramboard-clj.core.handler/app}
-                   :cljsbuild {:builds {:app {:source-paths ["env/dev/src/cljs" ".lein-git-deps/om-autocomplete/src"]
+                   :cljsbuild {:builds {:app {:source-paths ["env/dev/src/cljs"]
                                               :compiler {:output-to "resources/public/js/dev.js"
                                                          :output-dir "resources/public/out"
                                                          :optimizations :none
