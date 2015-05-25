@@ -24,7 +24,7 @@
                         (when (not (nil? result))
                           (put! add-stop-ch {:stop result})))))))
     om/IRenderState
-    (render-state [_ {:keys [result-ch backspace-ch input-ch input-focus-ch]}]
+    (render-state [_ {:keys [result-ch backspace-ch input-ch]}]
                   (om/build ac/autocomplete {}
                             {:opts
                              {:suggestions-fn (fn [value suggestions-ch cancel-ch]
@@ -43,7 +43,6 @@
                               :input-opts     {:placeholder    input-placeholder
                                                :id             input-id
                                                :class-name     input-class-name
-                                               :input-focus-ch input-focus-ch
                                                :on-key-down    (fn [e value handler]
                                                                  (let [keyCode (.-keyCode e)]
                                                                    (case (.-keyCode e)
@@ -68,7 +67,7 @@
   "This displays all the links"
   (reify
     om/IRenderState
-    (render-state [this {:keys [remove-stop-ch show-edit-ch input-focus-ch]}]
+    (render-state [this {:keys [remove-stop-ch show-edit-ch ]}]
                   (dom/div #js {:className "responsive-display edit-stop-heading"}
                            (dom/h2 #js {:className "thin"} "Your next departures from: ")
                            (apply dom/div #js {:className " edit-stop-heading-buttons thin"} 
@@ -80,15 +79,14 @@
                                                     :htmlFor "stopInput"
                                                     :href "#"
                                                     :onClick (fn [e] 
-                                                               (put! show-edit-ch true)
-                                                               (put! input-focus-ch true))} "add a stop")))))))
+                                                               (put! show-edit-ch true))} "add a stop")))))))
 
 (defn edit-pane [{:keys [stops]} owner {:keys [display-credits]}]
   "This shows the edit pane to add stops and stuff"
   (reify
     om/IInitState
     (init-state [_]
-                {:backspace-ch (chan) :show-edit-ch (chan) :input-focus-ch (chan) :show-edit false})
+                {:backspace-ch (chan) :show-edit-ch (chan) :show-edit false})
     om/IWillMount
     (will-mount  [_]
                 (let [{:keys [backspace-ch remove-stop-ch show-edit-ch]} (om/get-state owner)]
@@ -103,19 +101,18 @@
                       (om/set-state! owner :show-edit show-edit)))))
     om/IWillUnmount
     (will-unmount [_]
-                  (let [{:keys [backspace-ch show-edit-ch input-focus-ch]} (om/get-state owner)]
+                  (let [{:keys [backspace-ch show-edit-ch]} (om/get-state owner)]
                     (close! backspace-ch)
-                    (close! input-focus-ch)
                     (close! show-edit-ch)))
     om/IRenderState
-    (render-state [_ {:keys [backspace-ch input-ch buttons-width input-width add-stop-ch remove-stop-ch show-edit-ch input-focus-ch show-edit]}]
+    (render-state [_ {:keys [backspace-ch input-ch buttons-width input-width add-stop-ch remove-stop-ch show-edit-ch show-edit]}]
                   (let [no-stops (= (count stops) 0)]
                     (dom/div #js {:className "edit-form"}
                              (dom/div #js {:className (when no-stops "hidden")}
-                                      (om/build edit-stop-heading {:stops stops} {:init-state {:show-edit-ch show-edit-ch :remove-stop-ch remove-stop-ch :input-focus-ch input-focus-ch}}))
-                             (dom/div #js {:className (when (and (not show-edit) (not no-stops)) "hidden")}
+                                      (om/build edit-stop-heading {:stops stops} {:init-state {:show-edit-ch show-edit-ch :remove-stop-ch remove-stop-ch}}))
+                             (dom/div #js {:className (when (and (not show-edit) (not no-stops)) "")}
                                       (om/build autocomplete nil
-                                                {:init-state {:backspace-ch backspace-ch :add-stop-ch add-stop-ch :input-ch input-ch :input-focus-ch input-focus-ch}
+                                                {:init-state {:backspace-ch backspace-ch :add-stop-ch add-stop-ch :input-ch input-ch}
                                                  :opts {:input-id             "stopInput"
                                                         :input-placeholder    "Enter a stop"
                                                         :input-class-name     "thin edit-form-input"
