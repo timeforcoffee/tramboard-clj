@@ -19,20 +19,23 @@
 }
 
 .autocomplete-input-delete {
-	vertical-align: bottom;
-	line-height: 0px;
-	height: 21px;
+	-webkit-appearance: searchfield-cancel-button;
+	display: inline-block;
+	width: 20px;
+	height: 20px;
+	text-align: center;
 	position: absolute;
 	right: 0;
 	cursor: pointer;
 	margin: 15px;
-	padding: 10px 5px 1px 5px;
-	color: black;
 	background-color: #DDDDDD;
 	border-radius: 12px;
+	color: white;
+	vertical-align: middle;
 
-	&:before {
-		content: "✖";
+	.fa {
+		position: relative;
+		top: -1px;
 	}
 }
 

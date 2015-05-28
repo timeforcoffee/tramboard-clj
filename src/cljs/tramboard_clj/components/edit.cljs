@@ -52,8 +52,7 @@
                                    (.preventDefault e))]
                     (dom/a #js {:className "btn btn-default edit-stop-heading-remove"
                                 :aria-label (str "remove " name)
-                                :onClick on-click}
-                           name)))))
+                                :onClick on-click} name)))))
 
 (defn edit-stop-heading [{:keys [stops]} owner]
   "This displays all the links"

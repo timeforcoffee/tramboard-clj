@@ -216,7 +216,7 @@
                                                 :href "#"
                                                 :onClick (fn [e]
                                                            (put! value-ch "")
-                                                           (.preventDefault e))} ""))
+                                                           (.preventDefault e))} (dom/i #js {:className "fa fa-times"} "")))
                            (let [results-view (if-not (nil? results) results results-default)]
                              (om/build results-view cursor
                                        {:init-state {:highlight-ch highlight-ch
