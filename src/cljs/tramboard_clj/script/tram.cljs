@@ -131,7 +131,7 @@
     app (fn [app]
           (let [configured-views     (:configured-views app)
                 current-state        (:current-state app)
-
+                
                 shared-view          (get-shared-view shared-view-hash configured-views)
                 view                 (or shared-view (assoc (create-new-view imported-view) :shared-view-hash shared-view-hash))
                 view-id              (:view-id view)
@@ -281,7 +281,7 @@
                                                                  :onClick on-action
                                                                  :onFocus on-action
                                                                  :onTouchEnd on-action}))))
-
+                             
                              (dom/div #js {:className "control-bar-buttons"}
                                       (let [on-action (fn [e]
                                                         (if-not edit-filter-mode
@@ -354,37 +354,38 @@
 
 (defn recent-board-item [{:keys [view current-state]} owner]
   (reify
-    om/IRender
-    (render [this]
-            (dom/div #js {:className "recent-board"}
-                     (let [on-click (fn [e]
-                                      (om/transact! current-state #(go-edit % (:view-id view)))
-                                      (.preventDefault e))]
-                       (dom/a #js {:href "#"
-                                   :onClick on-click}
-                              ; a list of all stops
-                              (dom/h2 #js {:className "thin"}
-                                      (str (str/join " / " (map #(:name %) (get-stops-in-order view)))))
-                              ; a thumbnail of all trams
-                              (dom/div #js {:className "number-list"}
-                                       (let [numbers         (->> (:stops view)
-                                                                  (map #(get-destinations-not-excluded (val %)))
-                                                                  (reduce into #{})
-                                                                  (map #(select-keys % [:number :colors :type :sort-string]))
-                                                                  (distinct)
-                                                                  (sort-by :sort-string))
-                                             too-big         (> (count numbers) 9)
-                                             numbers-to-show (if too-big (conj (vec (take 8 numbers)) {:number "..."}) numbers)]
-                                         (apply dom/ul #js {:className "list-inline"} (om/build-all recent-board-item-number numbers-to-show))))))))))
+    om/IRenderState
+    (render-state [this {:keys [value-ch]}]
+                  (dom/div #js {:className "recent-board"}
+                           (let [on-click (fn [e]
+                                            (om/transact! current-state #(go-edit % (:view-id view)))
+                                            (put! value-ch "")
+                                            (.preventDefault e))]
+                             (dom/a #js {:href "#"
+                                         :onClick on-click}
+                                    ; a list of all stops
+                                    (dom/h2 #js {:className "thin"}
+                                            (str (str/join " / " (map #(:name %) (get-stops-in-order view)))))
+                                    ; a thumbnail of all trams
+                                    (dom/div #js {:className "number-list"}
+                                             (let [numbers         (->> (:stops view)
+                                                                        (map #(get-destinations-not-excluded (val %)))
+                                                                        (reduce into #{})
+                                                                        (map #(select-keys % [:number :colors :type :sort-string]))
+                                                                        (distinct)
+                                                                        (sort-by :sort-string))
+                                                   too-big         (> (count numbers) 9)
+                                                   numbers-to-show (if too-big (conj (vec (take 8 numbers)) {:number "..."}) numbers)]
+                                               (apply dom/ul #js {:className "list-inline"} (om/build-all recent-board-item-number numbers-to-show))))))))))
 
 (defn recent-boards [{:keys [recent-views current-state]} owner]
   (reify
-    om/IRender
-    (render [this]
-            (apply dom/div nil
-                   (dom/div #js {:className "heading"}
-                            (dom/h1 #js {:className "heading thin"} "Your recent boards"))
-                   (map #(om/build recent-board-item {:view % :current-state current-state}) recent-views)))))
+    om/IRenderState
+    (render-state [this {:keys [value-ch]}]
+                  (apply dom/div nil
+                         (dom/div #js {:className "heading"}
+                                  (dom/h1 #js {:className "heading thin"} "Your recent boards"))
+                         (map #(om/build recent-board-item {:view % :current-state current-state} {:init-state {:value-ch value-ch}}) recent-views)))))
 
 (defn strong [text]
   (dom/span #js {:className "thin"} text))
@@ -425,13 +426,13 @@
                                 (let [old-hide-ch (:hide-ch s)
                                       new-hide-ch (chan)]
                                   (when old-hide-ch (close! old-hide-ch))
-
+                                  
                                   (go (when-some [hide (<! new-hide-ch)]
                                                  (when hide (om/set-state! owner :activity :idle))))
-
+                                  
                                   (go (<! (timeout 1500))
                                       (put! new-hide-ch true))
-
+                                  
                                   (assoc s
                                     :activity :not-idle
                                     :hide-ch new-hide-ch))))))
@@ -478,7 +479,7 @@
   (reify
     om/IInitState
     (init-state [_]
-                {:add-stop-ch (chan) :remove-stop-ch (chan) :input-ch (chan) :value-ch (chan) :has-input false})
+                {:add-stop-ch (chan) :remove-stop-ch (chan) :input-ch (chan) :value-ch (chan) :has-input false :hide-welcome false})
     om/IWillMount
     (will-mount [_]
                 (let [{:keys [add-stop-ch remove-stop-ch input-ch]} (om/get-state owner)]
@@ -491,13 +492,12 @@
                   (wait-on-channel
                     remove-stop-ch
                     (fn [{:keys [stop-id]}]
-                      (println "Removing stop " stop-id)
                       (transact-remove-stop app stop-id)))
                   (wait-on-channel
                     input-ch
                     (fn [has-input]
-                      (println "prout" has-input)
-                      (om/set-state! owner :has-input has-input)))))
+                        (when has-input (om/set-state! owner :hide-welcome true))
+                        (om/set-state! owner :has-input has-input)))))
     om/IWillUnmount
     (will-unmount [this]
                   (let [{:keys [hide-ch value-ch add-stop-ch remove-stop-ch input-ch]} (om/get-state owner)]
@@ -507,7 +507,7 @@
                     (close! input-ch)
                     (when hide-ch (close! hide-ch))))
     om/IRenderState
-    (render-state [this {:keys [activity activity-ch add-stop-ch remove-stop-ch input-ch value-ch has-input]}]
+    (render-state [this {:keys [activity activity-ch add-stop-ch remove-stop-ch input-ch value-ch has-input hide-welcome]}]
                   ; those all depend on the screen that's displayed
                   (let [current-view     (current-view current-state configured-views)
                         recent-views     (get-recent-board-views configured-views)
@@ -518,18 +518,19 @@
                                                             :hidden-text "go back"}
                                                     :opts  {:on-click (fn [e]
                                                                         (om/transact! current-state #(go-home %))
+                                                                        (om/set-state! owner :hide-welcome false)
                                                                         (put! value-ch "")
                                                                         (.preventDefault e))}})
                         title            (if is-home (build-title-home ) (build-title-edit (:last-updated current-view)))]
-
+                    
                     (println "Rendering stationboard")
                     (dom/div (clj->js {:className (when (= display :expanded) "display-expanded")})
-
+                             
                              (om/build menu-bar nil {:state {:left-icon (when-not is-home home-icon)
                                                              :title title}})
                              (dom/div #js {:className "container-fluid"}
                                       ; TODO review this
-                                      (dom/div #js {:className (str "responsive-display " (when (or has-input (not is-home)) "hidden"))}
+                                      (dom/div #js {:className (str "responsive-display " (when (or hide-welcome (not is-home)) "hidden"))}
                                                (om/build welcome-banner nil))
                                       (om/build edit-pane
                                                 {:stops (get-stops-in-order current-view)
@@ -541,7 +542,7 @@
                                                  :state {:show-edit (or is-home has-input)
                                                          :value ""}})
                                       (dom/div #js {:className (str "responsive-display " (when (or (not is-home) (empty? recent-views)) "hidden"))}
-                                               (om/build recent-boards {:recent-views recent-views :current-state current-state})))
+                                               (om/build recent-boards {:recent-views recent-views :current-state current-state} {:init-state {:value-ch value-ch}})))
                              (when-not is-home
                                (om/build stationboard-pane
                                          {:current-view current-view

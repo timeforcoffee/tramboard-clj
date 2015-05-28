@@ -1,16 +1,16 @@
 (ns tramboard-clj.components.autocomplete
   "Here's a mockup of a basic autocompleter:
-
+  
   <p align='center'><img src='http://arosequist.github.io/om-autocomplete/components.png' /></p>
-
+  
   The `arosequist.om-autocomplete` namespace contains a single function, `autocomplete`, which is an Om component that handles the core autocomplete logic, but does not directly render any DOM elements. Instead, you give it three main components:
-
+  
   1. The **container view** just holds the other two components. Typically, this will render a simple wrapper div.
   1. The **input view** is responsible for taking user input.
   1. The **results view** displays the suggestions that were generated based on the input.
-
+  
   Some important terms are:
-
+  
   * The input has **focus** that is either true or false, normally corresponding to the normal HTML focus. You'll often want to hide the results when the input loses focus.
   * The input also has a **value** ('uni' in the example). When this changes, the list of suggestions will be refreshed.
   * A **suggestion** can be anything. Your results view just needs to know how to display it. In the example, each suggestion contains the flag and country name.
@@ -47,12 +47,11 @@
 
 (defn- input-view [_ owner {:keys [placeholder id on-key-down]}]
   (reify
-    om/IWillMount
-    (will-mount [_]
-                (let [{:keys [input-focus-ch]} (om/get-state owner)]
-                  (when input-focus-ch (wait-on-channel input-focus-ch #(.focus (om/get-node owner "input"))))))
+    om/IDidUpdate
+    (did-update [this _ _]
+                (when-not (om/get-state owner :focused?) (.blur (om/get-node owner "input"))))
     om/IRenderState
-    (render-state [_ {:keys [focus-ch value-ch highlight-ch select-ch value highlighted-index mouse? displayed?]}]
+    (render-state [_ {:keys [focus-ch value-ch highlight-ch select-ch value highlighted-index mouse? displayed? focused?]}]
                   (dom/input
                     #js {:id id
                          :className "autocomplete-input"
@@ -66,9 +65,10 @@
                                     (put! focus-ch true)
                                     (.preventDefault e))
                          :onBlur (fn [e]
-                                   (when (not mouse?)
-                                     (put! focus-ch false))
-                                   (.preventDefault e))
+                                   (do
+                                     (when (not mouse?)
+                                       (put! focus-ch false))
+                                     true))
                          :onKeyDown (fn [e]
                                       (let [handler-fn (fn [e]
                                                          (let [keyCode (.-keyCode e)]
@@ -77,19 +77,26 @@
                                                              38 (put! highlight-ch (dec highlighted-index)) ;; down
                                                              13 (when displayed? (put! select-ch highlighted-index)) ;; enter
                                                              9  (when displayed? (put! select-ch highlighted-index)) ;; tab
+                                                             27 (when displayed? 
+                                                                  (put! focus-ch false)) ;; esc
                                                              nil)
-                                                           (when (contains? #{40 38 13 9} keyCode) (.preventDefault e))))]
+                                                           (when (contains? #{40 38 13 9 27} keyCode) (.preventDefault e))))]
                                         (if on-key-down (on-key-down e value handler-fn) (handler-fn e))))
                          :onChange (fn [e]
                                      (put! value-ch (.. e -target -value))
                                      (.preventDefault e))}))))
 
-(defn- loading-default [_ owner {:keys [render-loading]}]
+(defn- loading-default [_ owner]
   (reify
     om/IRender
     (render [_]
             (dom/li nil (dom/a nil "Loading...")))))
 
+(defn- no-results-default [{:keys [value]} owner]
+  (reify
+    om/IRender
+    (render [_]
+            (dom/li nil (dom/a nil "No results found for " (dom/i nil value))))))
 
 (defn- result-item-default [app owner {:keys [result-text-fn]}]
   (reify
@@ -97,9 +104,9 @@
     (did-mount [this]
                (let [{:keys [index highlight-ch select-ch]} (om/get-state owner)
                      node (om/get-node owner)]
-                 (gevents/listen node (.-MOUSEOVER gevents/EventType) #(put! highlight-ch index))
+                 (gevents/listen node (.-MOUSEMOVE gevents/EventType) #(put! highlight-ch index))
                  (gevents/listen node (.-CLICK gevents/EventType) #(put! select-ch index))))
-
+    
     om/IRenderState
     (render-state [_ {:keys [item index highlighted-index]}]
                   (let [highlighted? (= index highlighted-index)
@@ -113,6 +120,7 @@
   (reify
     om/IRenderState
     (render-state [_ {:keys [highlight-ch select-ch value loading? focused? mouse-ch suggestions highlighted-index]}]
+                  (println loading?)
                   (let [display?         (and focused? value (not= value ""))
                         display-style    (if display? "block" "none")
                         attrs               #js {:className    "autocomplete-results"
@@ -124,7 +132,7 @@
                                                                  (put! mouse-ch false)
                                                                  (.preventDefault e))}]
                     (cond
-                      loading?
+                      (and loading? (empty? suggestions))
                       (dom/ul attrs (om/build loading-default app {:opts loading-opts}))
                       (not (empty? suggestions))
                       (apply dom/ul attrs
@@ -137,7 +145,7 @@
                                                                                  :highlighted-index highlighted-index}
                                                                     :opts       result-item-opts}))
                                suggestions))
-                      :otherwise (dom/ul #js {:style #js {:display "none"}}))))))
+                      :otherwise (dom/ul attrs (om/build no-results-default {:value value} {:opts loading-opts})))))))
 
 (defn autocomplete
   [cursor owner {:keys [result-ch suggestions-fn result-text-fn container-opts input-opts results results-opts]}]
@@ -177,9 +185,9 @@
                                      (om/update-state! owner (fn [s] (assoc s
                                                                        :suggestions suggestions
                                                                        :loading?    false))))))
-
+                          
                           (suggestions-fn new-value new-suggestions-ch new-cancel-ch)
-
+                          
                           (assoc (update-in state [:channels]
                                             #(assoc %
                                                :suggestions-ch new-suggestions-ch
@@ -201,17 +209,19 @@
                              highlighted-index loading? focused? mouse? suggestions]}]
                   (dom/div nil
                            (dom/div #js {:className "autocomplete-input-container"}
+                                    (dom/a #js {:className (str "autocomplete-input-load " (when-not loading? "hidden"))}
+                                           (dom/i #js {:className "fa fa-spinner fa-spin"}))
                                     (om/build input-view cursor
                                               {:init-state {:focus-ch       focus-ch
                                                             :value-ch       value-ch
                                                             :highlight-ch   highlight-ch
-                                                            :select-ch      select-ch
-                                                            :input-focus-ch (:input-focus-ch input-opts)}
+                                                            :select-ch      select-ch}
                                                :state {:value             value
                                                        :highlighted-index highlighted-index
                                                        :displayed?        (> (count suggestions) 0)
-                                                       :mouse?            mouse?}
-                                               :opts (dissoc input-opts :input-focus-ch)})
+                                                       :mouse?            mouse?
+                                                       :focused?          focused?}
+                                               :opts input-opts})
                                     (dom/a #js {:className (str "autocomplete-input-delete " (when (str/blank? value) "hidden"))
                                                 :href "#"
                                                 :onClick (fn [e]

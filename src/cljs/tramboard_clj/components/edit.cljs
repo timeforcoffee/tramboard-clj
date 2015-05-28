@@ -25,16 +25,16 @@
     om/IRenderState
     (render-state [_ {:keys [result-ch input-ch value-ch]}]
                   (om/build autocomplete {}
-                            {:init-state {:value-ch value-ch}
+                            {:init-state {:value-ch value-ch }
                              :opts
                              {:suggestions-fn (fn [value suggestions-ch cancel-ch]
                                                 (if (str/blank? value)
                                                   (do
-                                                    (put! suggestions-ch [])
-                                                    (put! input-ch false))
+                                                    (put! input-ch false)
+                                                    (put! suggestions-ch []))
                                                   (do
-                                                    (fetch-suggestions value suggestions-ch cancel-ch identity)
-                                                    (put! input-ch true))))
+                                                    (put! input-ch true)
+                                                    (fetch-suggestions value suggestions-ch cancel-ch identity))))
                               :result-ch      result-ch
                               :result-text-fn (fn [item _] (:name item))
                               :input-opts     {:placeholder    input-placeholder
@@ -86,7 +86,7 @@
                   (wait-on-channel
                     show-edit-ch
                     (fn [show-edit]
-                      (om/set-state! owner :show-edit show-edit)))))
+                        (om/set-state! owner :show-edit show-edit)))))
     om/IWillUnmount
     (will-unmount [this]
                   (let [{:keys [show-edit-ch value-ch]} (om/get-state owner)]
@@ -108,7 +108,7 @@
                                                  :opts {:input-id             "stopInput"
                                                         :input-placeholder    "Enter a stop"
                                                         :results-class-name   "edit-form-results no-link"}})
-
+                                      
                                       (dom/div #js {:className (str "text-right ultra-thin credits " (when-not display-credits "hidden"))}
                                                "brought to you by "
                                                (dom/a #js {:target "_blank" :href "/about"} "Time for Coffee team"))))))))
