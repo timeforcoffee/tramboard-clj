@@ -34,7 +34,7 @@
   [owner value]
   (do
     (om/set-state! owner :value value)
-    (when (= value "")
+    (when (str/blank? value)
       (om/set-state! owner :highlighted-index 0))))
 
 (defn- handle-select

@@ -396,11 +396,11 @@
             (dom/h1 #js {:className "ultra-thin welcome-banner text-center"}
                     (dom/div nil
                              "Relax and don't wait at the stop for your next "
-                             (strong "bus")   " " (om/build transport-icon {:type "bus"})   ", "
-                             (strong "tram")  " " (om/build transport-icon {:type "tram"})  ", "
-                             (strong "train") " " (om/build transport-icon {:type "train"}) ", "
-                             (strong "boat")  " " (om/build transport-icon {:type "boat"})  " or "
-                             (strong "cable car") " " (om/build transport-icon {:type "cable-car"}) ".")
+                             (dom/span #js {:className "no-wrap"} (strong "bus")   " " (om/build transport-icon {:type "bus"})) ", "
+                             (dom/span #js {:className "no-wrap"} (strong "tram")  " " (om/build transport-icon {:type "tram"}))  ", "
+                             (dom/span #js {:className "no-wrap"} (strong "train") " " (om/build transport-icon {:type "train"})) ", "
+                             (dom/span #js {:className "no-wrap"} (strong "boat")  " " (om/build transport-icon {:type "boat"}))  " or "
+                             (dom/span #js {:className "no-wrap"} (strong "cable car") " " (om/build transport-icon {:type "cable-car"}) "."))
                     (dom/div nil "Enter any stop in "
                              (dom/div #js {:className "phoca-flagbox"}
                                       ; TODO Check this accessibility
