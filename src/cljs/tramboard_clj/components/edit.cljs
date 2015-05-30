@@ -108,7 +108,6 @@
                           (om/set-state! owner :show-edit false)))))
     om/IRenderState
     (render-state [_ {:keys [has-input-ch buttons-width input-width add-stop-ch remove-stop-ch show-edit-ch show-edit value-ch has-focus-ch]}]
-                  (println show-edit always-show)
                   (let [no-stops (= (count stops) 0)]
                     (dom/div #js {:className "edit-form"}
                              (dom/div #js {:className (when no-stops "hidden")}
