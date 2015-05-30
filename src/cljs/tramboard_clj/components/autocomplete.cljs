@@ -213,7 +213,7 @@
     om/IRenderState
     (render-state [_ {:keys [focus-ch value-ch highlight-ch select-ch mouse-ch value
                              highlighted-index loading? focused? mouse? suggestions]}]
-                  (dom/div nil
+                  (dom/div #js {:className "autocomplete-input-wrapper"}
                            (dom/div #js {:className "autocomplete-input-container"}
                                     (dom/a #js {:className (str "autocomplete-input-load " (when-not loading? "hidden"))}
                                            (dom/i #js {:className "fa fa-spinner fa-spin"}))

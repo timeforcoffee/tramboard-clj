@@ -1,6 +1,16 @@
 @dark-gray: #BBBBBB;
 
 .autocomplete-input-container {
+	height: 0px;
+	position: relative;
+	overflow: hidden;
+}
+
+.visible .autocomplete-input-container {
+	height: auto;
+}
+
+.autocomplete-input-wrapper {
 	position: relative;
 }
 
@@ -51,7 +61,12 @@
 }
 
 ul.autocomplete-results {
+	z-index: 3;
 	list-style: none;
+	position: absolute;
+	width: 100%;
+	background-color: white;
+
 	padding: 0;
 	border-left: 1px solid @dark-gray;
 	border-right: 1px solid @dark-gray;
@@ -85,16 +100,6 @@ ul.autocomplete-results {
 	}
 
 }
-
-.edit-form-container {
-	height: 0px;
-	overflow: hidden;
-
-	&.visible {
-		height: auto;
-	}
-}
-
 
 .edit-stop-heading-title {
 	margin: 0;
