@@ -479,10 +479,10 @@
   (reify
     om/IInitState
     (init-state [_]
-                {:add-stop-ch (chan) :remove-stop-ch (chan) :input-ch (chan) :value-ch (chan) :has-input false :hide-welcome false})
+                {:add-stop-ch (chan) :remove-stop-ch (chan) :has-input-ch (chan) :value-ch (chan) :hide-welcome false})
     om/IWillMount
     (will-mount [_]
-                (let [{:keys [add-stop-ch remove-stop-ch input-ch]} (om/get-state owner)]
+                (let [{:keys [add-stop-ch remove-stop-ch has-focus-ch has-input-ch]} (om/get-state owner)]
                   ; TODO allow the children here to modify their views directly
                   ; and listen on those view changes, see board.cljs and above for comment
                   (wait-on-channel
@@ -494,20 +494,23 @@
                     (fn [{:keys [stop-id]}]
                       (transact-remove-stop app stop-id)))
                   (wait-on-channel
-                    input-ch
+                    has-input-ch
                     (fn [has-input]
-                        (when has-input (om/set-state! owner :hide-welcome true))
-                        (om/set-state! owner :has-input has-input)))))
+                        (when has-input (om/set-state! owner :hide-welcome true))))))
     om/IWillUnmount
     (will-unmount [this]
-                  (let [{:keys [hide-ch value-ch add-stop-ch remove-stop-ch input-ch]} (om/get-state owner)]
+                  (let [{:keys [hide-ch value-ch add-stop-ch remove-stop-ch has-input-ch]} (om/get-state owner)]
                     (close! add-stop-ch)
                     (close! value-ch)
                     (close! remove-stop-ch)
-                    (close! input-ch)
+                    (close! has-input-ch)
                     (when hide-ch (close! hide-ch))))
+    om/IDidUpdate
+    (did-update [this prev-props _]
+                (let [is-home (is-home current-state)]
+                  (when-not is-home (om/set-state! owner :hide-welcome false))))
     om/IRenderState
-    (render-state [this {:keys [activity activity-ch add-stop-ch remove-stop-ch input-ch value-ch has-input hide-welcome]}]
+    (render-state [this {:keys [activity activity-ch add-stop-ch remove-stop-ch has-input-ch value-ch has-input hide-welcome]}]
                   ; those all depend on the screen that's displayed
                   (let [current-view     (current-view current-state configured-views)
                         recent-views     (get-recent-board-views configured-views)
@@ -517,9 +520,8 @@
                                                    {:state {:icon-class "glyphicon-home"
                                                             :hidden-text "go back"}
                                                     :opts  {:on-click (fn [e]
-                                                                        (om/transact! current-state #(go-home %))
-                                                                        (om/set-state! owner :hide-welcome false)
                                                                         (put! value-ch "")
+                                                                        (om/transact! current-state #(go-home %))
                                                                         (.preventDefault e))}})
                         title            (if is-home (build-title-home ) (build-title-edit (:last-updated current-view)))]
                     
@@ -537,10 +539,10 @@
                                                  :display-credits is-home}
                                                 {:init-state {:add-stop-ch add-stop-ch
                                                               :remove-stop-ch remove-stop-ch
-                                                              :input-ch input-ch
-                                                              :value-ch value-ch}
-                                                 :state {:show-edit (or is-home has-input)
-                                                         :value ""}})
+                                                              :has-input-ch has-input-ch
+                                                              :value-ch value-ch
+                                                              :show-edit is-home}
+                                                 :state {:always-show is-home}})
                                       (dom/div #js {:className (str "responsive-display " (when (or (not is-home) (empty? recent-views)) "hidden"))}
                                                (om/build recent-boards {:recent-views recent-views :current-state current-state} {:init-state {:value-ch value-ch}})))
                              (when-not is-home

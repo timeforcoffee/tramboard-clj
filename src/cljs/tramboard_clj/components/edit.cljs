@@ -23,17 +23,18 @@
                         (when (not (nil? result))
                           (put! add-stop-ch {:stop result})))))))
     om/IRenderState
-    (render-state [_ {:keys [result-ch input-ch value-ch]}]
+    (render-state [_ {:keys [result-ch has-input-ch value-ch has-focus-ch]}]
                   (om/build autocomplete {}
-                            {:init-state {:value-ch value-ch }
+                            {:init-state {:value-ch value-ch
+                                          :has-focus-ch has-focus-ch}
                              :opts
                              {:suggestions-fn (fn [value suggestions-ch cancel-ch]
                                                 (if (str/blank? value)
                                                   (do
-                                                    (put! input-ch false)
+                                                    (put! has-input-ch false)
                                                     (put! suggestions-ch []))
                                                   (do
-                                                    (put! input-ch true)
+                                                    (put! has-input-ch true)
                                                     (fetch-suggestions value suggestions-ch cancel-ch identity))))
                               :result-ch      result-ch
                               :result-text-fn (fn [item _] (:name item))
@@ -74,25 +75,40 @@
                                                                       (put! show-edit-ch true)
                                                                       (.stopPropagation e))}  "add a stop"))))))))
 
-(defn edit-pane [{:keys [stops display-credits]} owner]
+(defn edit-pane [{:keys [stops display-credits] :as state} owner]
   "This shows the edit pane to add stops and stuff"
   (reify
     om/IInitState
     (init-state [_]
-                {:show-edit false :show-edit-ch (chan)})
+                {:show-edit false :show-edit-ch (chan) :has-focus-ch (chan)})
     om/IWillMount
     (will-mount  [_]
-                (let [{:keys [remove-stop-ch show-edit-ch]} (om/get-state owner)]
+                (let [{:keys [remove-stop-ch show-edit-ch has-focus-ch]} (om/get-state owner)]
                   (wait-on-channel
                     show-edit-ch
                     (fn [show-edit]
-                        (om/set-state! owner :show-edit show-edit)))))
+                        (om/set-state! owner :show-edit show-edit)))
+                  (wait-on-channel
+                    has-focus-ch
+                    (fn [has-focus]
+                      (println has-focus)
+                      (when-not (or has-focus (om/get-state owner :always-show))
+                        (om/set-state! owner :show-edit false))))))
     om/IWillUnmount
     (will-unmount [this]
-                  (let [{:keys [show-edit-ch value-ch]} (om/get-state owner)]
+                  (let [{:keys [show-edit-ch has-focus-ch value-ch]} (om/get-state owner)]
+                    (close! has-focus-ch)
                     (close! show-edit-ch)))
+    om/IDidUpdate
+    (did-update [this _ {old-always-show :always-show}]
+                    (let [{always-show :always-show} (om/get-state owner)]
+                      (when (not= old-always-show always-show)
+                        (if always-show 
+                          (om/set-state! owner :show-edit true)
+                          (om/set-state! owner :show-edit false)))))
     om/IRenderState
-    (render-state [_ {:keys [input-ch buttons-width input-width add-stop-ch remove-stop-ch show-edit-ch show-edit value-ch]}]
+    (render-state [_ {:keys [has-input-ch buttons-width input-width add-stop-ch remove-stop-ch show-edit-ch show-edit value-ch has-focus-ch]}]
+                  (println show-edit always-show)
                   (let [no-stops (= (count stops) 0)]
                     (dom/div #js {:className "edit-form"}
                              (dom/div #js {:className (when no-stops "hidden")}
@@ -103,8 +119,9 @@
                              (dom/div #js {:className (str "edit-form-container no-link " (when show-edit "visible"))}
                                       (om/build edit-input nil
                                                 {:init-state {:add-stop-ch add-stop-ch
-                                                              :input-ch input-ch
-                                                              :value-ch value-ch}
+                                                              :has-input-ch has-input-ch
+                                                              :value-ch value-ch
+                                                              :has-focus-ch has-focus-ch}
                                                  :opts {:input-id             "stopInput"
                                                         :input-placeholder    "Enter a stop"
                                                         :results-class-name   "edit-form-results no-link"}})

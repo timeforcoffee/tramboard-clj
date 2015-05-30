@@ -30,6 +30,12 @@
         idx (max idx -1)]
     (om/set-state! owner :highlighted-index idx)))
 
+(defn- handle-focus
+  [owner has-focus-ch value]
+  (do
+    (om/set-state! owner :focused? value)
+    (when has-focus-ch (put! has-focus-ch value))))
+
 (defn- handle-value
   [owner value]
   (do
@@ -38,10 +44,11 @@
       (om/set-state! owner :highlighted-index 0))))
 
 (defn- handle-select
-  [owner result-ch value-ch idx]
+  [owner result-ch value-ch has-focus-ch idx]
   (let [suggestions (om/get-state owner :suggestions)
         item        (get (vec suggestions) idx)]
     (do
+      (handle-focus owner has-focus-ch false)
       (put! result-ch [idx item])
       (put! value-ch ""))))
 
@@ -120,7 +127,6 @@
   (reify
     om/IRenderState
     (render-state [_ {:keys [highlight-ch select-ch value loading? focused? mouse-ch suggestions highlighted-index]}]
-                  (println loading?)
                   (let [display?         (and focused? value (not= value ""))
                         display-style    (if display? "block" "none")
                         attrs               #js {:className    "autocomplete-results"
@@ -158,11 +164,11 @@
                  :channels {} :highlighted-index 0})
     om/IWillMount
     (will-mount [_]
-                (let [{:keys [focus-ch value-ch highlight-ch select-ch mouse-ch]} (om/get-state owner)]
-                  (wait-on-channel focus-ch     #(om/set-state! owner :focused? %))
+                (let [{:keys [focus-ch value-ch highlight-ch select-ch mouse-ch has-focus-ch]} (om/get-state owner)]
+                  (wait-on-channel focus-ch     #(handle-focus owner has-focus-ch %))
                   (wait-on-channel value-ch     #(handle-value owner %))
                   (wait-on-channel highlight-ch #(handle-highlight owner %))
-                  (wait-on-channel select-ch    #(handle-select owner result-ch value-ch %))
+                  (wait-on-channel select-ch    #(handle-select owner result-ch value-ch has-focus-ch %))
                   (wait-on-channel mouse-ch     #(om/set-state! owner :mouse? %))))
     om/IDidUpdate
     (did-update [_ _ old]
