@@ -2,12 +2,15 @@
   (:require-macros [cljs.core.async.macros :refer [go]])
   (:require [om.core :as om :include-macros true]
             [om.dom :as dom :include-macros true]
+            [clojure.string :as str]
             [cljs-time.core :refer [now]]
             [cljs.core.async :refer [put! chan <! >! close! timeout]]
             [tramboard-clj.components.icon :refer [number-icon transport-icon]]
             [tramboard-clj.script.util :refer [edit-or-add-destination get-destination init-destinations wait-on-channel ga]]
             [tramboard-clj.script.client :refer [fetch-stationboard-data]]
             [tramboard-clj.script.util :refer [wait-on-channel]]))
+
+(def analytics-refresh-rate 60000)
 
 (defn- display-in-minutes [in-minutes]
   (if (< in-minutes 60) (str in-minutes "’") "..."))
@@ -92,11 +95,11 @@
     om/IInitState
     (init-state [_]
                 (println (str "Resetting state"))
-                {:station-data {} :arrival-channels {} :view-change-ch (chan)})
+                {:station-data {} :arrival-channels {} :view-change-ch (chan) :analytics-ch (chan)})
     om/IWillMount
     (will-mount [_]
                 ; the is the control channel loop
-                (let [{:keys [view-change-ch]} (om/get-state owner)]
+                (let [{:keys [view-change-ch analytics-ch]} (om/get-state owner)]
                   (wait-on-channel
                     view-change-ch
                     (fn [stop-ids]
@@ -155,8 +158,6 @@
                               new-fetch-ch
                               (fn [stop-id]
                                 (println (str "Received fetch message for stop: " stop-id))
-                                (ga "send" "event" "stop" "query" {:dimension1 stop-id
-                                                                   "nonInteraction" 1})
                                 (fetch-stationboard-data stop-id new-incoming-ch
                                                          new-incoming-ch new-cancel-ch
                                                          transform-stationboard-data)
@@ -164,12 +165,25 @@
                                     (println (str "Putting onto fetch channel: " stop-id))
                                     (put! new-fetch-ch stop-id))))
                             
+                            (ga "send" "event" "stop" "start-query" {:dimension1 (str/join "," stop-ids) :dimension2 (str (count stop-ids))})
                             (doseq [stop-id stop-ids]
                               (println (str "Initializing fetch loop for: " stop-id))
                               (put! new-fetch-ch stop-id)))))))
                   
+                  (wait-on-channel 
+                    analytics-ch
+                    (fn [stop-ids]
+                      (println "Sending data to GA" stop-ids)
+                      (ga "send" "event" "view" "idle" {:dimension1 (str/join "," stop-ids) :dimension2 (str (count stop-ids)) "nonInteraction" 1})))
+                  
                   (println (str "Initializing on WillMount"))
-                  (put! view-change-ch (set (keys (:stops current-view))))))
+                  (put! view-change-ch (set (keys (:stops current-view))))
+                  
+                  (go 
+                    (loop [] 
+                      (<! (timeout analytics-refresh-rate))
+                      (put! analytics-ch (keys (om/get-state owner :station-data)))
+                      (recur)))))
     om/IWillReceiveProps
     (will-receive-props [_ {:keys [current-view]}]
                         (put! (om/get-state owner :view-change-ch) (set (keys (:stops current-view)))))
@@ -177,11 +191,12 @@
     (will-unmount [_]
                   (println "Closing all channels on WillUnmount")
                   ; we kill the channel
-                  (let [{:keys [view-change-ch arrival-channels]} (om/get-state owner)]
+                  (let [{:keys [view-change-ch arrival-channels analytics-ch]} (om/get-state owner)]
                     (close! view-change-ch)
-                    (let [cancel-ch   (:cancel-ch arrival-channels)
-                          incoming-ch (:incoming-ch arrival-channels)
-                          fetch-ch    (:fetch-ch arrival-channels)]
+                    (close! analytics-ch)
+                    (let [cancel-ch    (:cancel-ch arrival-channels)
+                          incoming-ch  (:incoming-ch arrival-channels)
+                          fetch-ch     (:fetch-ch arrival-channels)]
                       (when cancel-ch (close! cancel-ch))
                       (when incoming-ch (close! incoming-ch))
                       (when fetch-ch (close! fetch-ch)))))

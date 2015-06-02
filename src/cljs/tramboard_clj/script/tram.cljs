@@ -358,6 +358,7 @@
     (render-state [this {:keys [value-ch]}]
                   (dom/div #js {:className "recent-board"}
                            (let [on-click (fn [e]
+                                            (ga "send" "event" "navigation" "recent-board")
                                             (om/transact! current-state #(go-edit % (:view-id view)))
                                             (put! value-ch "")
                                             (.preventDefault e))]
@@ -482,7 +483,7 @@
                 {:add-stop-ch (chan) :remove-stop-ch (chan) :has-input-ch (chan) :value-ch (chan) :hide-welcome false})
     om/IWillMount
     (will-mount [_]
-                (let [{:keys [add-stop-ch remove-stop-ch has-focus-ch has-input-ch]} (om/get-state owner)]
+                (let [{:keys [add-stop-ch remove-stop-ch has-input-ch]} (om/get-state owner)]
                   ; TODO allow the children here to modify their views directly
                   ; and listen on those view changes, see board.cljs and above for comment
                   (wait-on-channel
@@ -506,11 +507,12 @@
                     (close! has-input-ch)
                     (when hide-ch (close! hide-ch))))
     om/IDidUpdate
-    (did-update [this prev-props _]
-                (let [is-home (is-home current-state)]
-                  (when-not is-home (om/set-state! owner :hide-welcome false))))
+    (did-update [this _ _]
+                (let [is-home      (is-home current-state)
+                      hide-welcome (om/get-state owner :hide-welcome)]
+                  (when (and (not is-home) hide-welcome) (om/set-state! owner :hide-welcome false))))
     om/IRenderState
-    (render-state [this {:keys [activity activity-ch add-stop-ch remove-stop-ch has-input-ch value-ch has-input hide-welcome]}]
+    (render-state [this {:keys [add-stop-ch remove-stop-ch has-input-ch value-ch hide-welcome]}]
                   ; those all depend on the screen that's displayed
                   (let [current-view     (current-view current-state configured-views)
                         recent-views     (get-recent-board-views configured-views)
@@ -520,6 +522,7 @@
                                                    {:state {:icon-class "glyphicon-home"
                                                             :hidden-text "go back"}
                                                     :opts  {:on-click (fn [e]
+                                                                        (ga "send" "event" "navigation" "home")
                                                                         (put! value-ch "")
                                                                         (om/transact! current-state #(go-home %))
                                                                         (.preventDefault e))}})
