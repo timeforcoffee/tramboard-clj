@@ -58,9 +58,9 @@
   "Removes known-destinations and last-updated from the view"
   (dissoc (update-in view [:stops]
                      ; we remove :view-id :last-updated from the view and :known-destinations from each stop
-                     (fn [stops] (into {}  (map #(vector
-                                                   (key %)
-                                                   (dissoc (val %) :known-destinations)) stops))))
+                     (fn [stops] (into {}  (map (fn [stop] (vector
+                                                   (key stop)
+                                                   (assoc (val stop) :known-destinations (filter #(:excluded %) (:known-destinations (val stop)))))) stops))))
           :view-id :last-updated))
 
 (defn- export-string-from-view [view]
