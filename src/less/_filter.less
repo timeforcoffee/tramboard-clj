@@ -9,6 +9,7 @@
 	max-height: 0;
 	overflow: hidden;
 	transition: width 0.5s ease 0s;
+	padding-bottom: 20px;
 	z-index: 2;
 
 	&.visible {
@@ -23,11 +24,10 @@
 	width: @overlays-width;
 	margin-left: @overlays-margin;
 	box-shadow: -5px 0px 10px 0px rgba(0,0,0,0.3);
-	padding-top: 10px;
+	padding: 15px;
 }
 
 .filter-stop-container {
-	margin-left: 10px;
 	margin-bottom: 10px;
 }
 
@@ -41,7 +41,6 @@
 	display: flex;
 	flex-flow: column nowrap;
 	border-bottom: 0;
-	margin-bottom: 10px;
 }
 
 .filter-type-container {
@@ -147,7 +146,7 @@
 .smallest-device() {
 	.filter-type {
 		max-height: none;
-	}	
+	}
 
 	.filter-type-big {
 		height: auto;

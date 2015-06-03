@@ -36,10 +36,10 @@
     "boat"        "Boats"
     10))
 
-(defn- add-type-order [col] 
+(defn- add-type-order [col]
   (map #(assoc % :type-order (type-order (:type %))) col))
 
-(defn- get-types [col] 
+(defn- get-types [col]
   (distinct (map :type col)))
 
 (defn- destination-editor [{:keys [stop-id stop-idx destination]} owner]
@@ -54,16 +54,16 @@
                                                                             :number (:number destination)
                                                                             :to (:to destination)}}))]
                     (dom/div #js {:className (str "filter-destination" (when-not checked " disabled"))}
-                             (dom/a #js {:className "filter-destination-link" 
-                                         :href "#" 
-                                         :onClick on-click 
+                             (dom/a #js {:className "filter-destination-link"
+                                         :href "#"
+                                         :onClick on-click
                                          ; reactivate this to get fast click (but also click on scroll..)
                                          ; :onTouchEnd on-click
                                          }
                                     (dom/label #js {:className "filter-destination-label" :htmlFor checkbox-id :ref "test"}
                                                (dom/span #js {:className "filter-destination-number"} (om/build number-icon destination))
                                                (dom/span #js {:className "filter-destination-name"} (:to destination))
-                                               (om/build switch {:checkbox-id checkbox-id :checked checked} 
+                                               (om/build switch {:checkbox-id checkbox-id :checked checked}
                                                          {:opts {:on-click-action #()}}))))))))
 
 (defn- line-editor [{:keys [stop destinations-by-group]}]
@@ -103,10 +103,14 @@
                                                   {:init-state {:toggle-filter-ch toggle-filter-ch}})
                                        (partition-by :type (sort-by :type-order (add-type-order (add-counter (:known-destinations stop)))))))))))
 
-(defn c-filter-editor [view]
+(defn c-filter-editor [view owner {:keys [on-action]}]
   (reify
     om/IRenderState
     (render-state [this {:keys [toggle-filter-ch]}]
                   (apply dom/div #js {:className "filter-editor"}
-                         (map #(om/build stop-editor % {:init-state {:toggle-filter-ch toggle-filter-ch}}) (add-counter (map #(val %) (:stops view))))))))
+                         (conj
+                           (into [] (map #(om/build stop-editor % {:init-state {:toggle-filter-ch toggle-filter-ch}}) (add-counter (map #(val %) (:stops view)))))
+                           (dom/button #js {:className "btn btn-default btn-primary"
+                                            :onClick on-action
+                                            :onTouchStart on-action} "Done filtering" ))))))
 
