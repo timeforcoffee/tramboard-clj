@@ -17,6 +17,7 @@
     (.send xhr (str "/api/zvv/stationboard/" stop-id) "GET")
     (go
       (<! cancel-ch)
+      (println "Canceling stationboard call " stop-id) 
       (.abort xhr))))
 
 (defn fetch-suggestions [value suggestions-ch cancel-ch transformation-fn]

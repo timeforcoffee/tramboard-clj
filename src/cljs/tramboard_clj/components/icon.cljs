@@ -24,7 +24,7 @@
                                              (when white " number-border"))
                              :style #js {:backgroundColor bg-color :color fg-color}
                              :aria-label (str type " number " number)}
-                        (if too-big (apply str (take 4 number)) number))))))
+                        (dom/div #js {:className "number-inner"} (if too-big (apply str (take 4 number)) number)))))))
 
 (defn transport-icon [{:keys [type accessible-text]} owner]
   (reify
@@ -38,11 +38,25 @@
                                                   "bus"         "fa-bus"
                                                   "train"       "fa-subway"
                                                   "taxi"        "fa-taxi"
+                                                  "s-train"     "fa-subway"
                                                   "boat"        "fa-ship"
-
-                                                  "train"))
+                                                  
+                                                  "fa-subway"))
                   icon               (dom/i #js {:className (str "fa " (map-transport-icon type))
                                                  :aria-label accessible-text})]
               (if (or (= type "tram") (= type "cable-car"))
                 (dom/span #js {:className "span-fa"
                                :aria-label accessible-text} icon) icon)))))
+
+(defn switch [{:keys [checkbox-id checked]} owner {:keys [on-click-action]}]
+  (reify
+    om/IRender
+    (render [this]
+            (dom/div #js {:className "label-switch"} 
+                     (dom/input #js {:type "checkbox"
+                                     :id checkbox-id
+                                     :checked checked
+                                     :onClick on-click-action
+                                     :onTouchEnd on-click-action
+                                     })
+                     (dom/div #js {:className "checkbox"})))))

@@ -7,10 +7,9 @@
             [tramboard-clj.script.client :refer [fetch-suggestions]]
             [tramboard-clj.script.util :refer [wait-on-channel get-stops-in-order]]
             [tramboard-clj.components.util :refer [flag]]
-            [arosequist.om-autocomplete :as ac]
-            [arosequist.om-autocomplete.bootstrap :as acb]))
+            [tramboard-clj.components.autocomplete :refer [autocomplete]]))
 
-(defn- autocomplete [_ owner {:keys [input-id input-placeholder]}]
+(defn- edit-input [_ owner {:keys [input-id input-placeholder input-class-name results-class-name container-class-name]}]
   (reify
     om/IInitState
     (init-state [_]
@@ -25,102 +24,104 @@
                         (when (not (nil? result))
                           (put! add-stop-ch {:stop result})))))))
     om/IRenderState
-    (render-state [_ {:keys [result-ch backspace-ch input-style]}]
-                  (om/build ac/autocomplete {}
-                            (acb/add-bootstrap-m
-                              {:state {:input-state {:style input-style}}
-                               :opts
-                               {:suggestions-fn (fn [value suggestions-ch cancel-ch]
-                                                  (if (str/blank? value) (put! suggestions-ch [])
-                                                    (fetch-suggestions value suggestions-ch cancel-ch identity)))
-                                :result-ch      result-ch
-                                :result-text-fn (fn [item _] (:name item))
-                                :input-opts     {:placeholder    input-placeholder
-                                                 :id             input-id
-                                                 :on-key-down    (fn [e value handler]
-                                                                   (let [keyCode (.-keyCode e)]
-                                                                     (case (.-keyCode e)
-                                                                       8  (when (empty? value) (put! backspace-ch true))
-                                                                       (handler e))))}}})))))
+    (render-state [_ {:keys [result-ch has-input-ch value-ch has-focus-ch]}]
+                  (om/build autocomplete {}
+                            {:init-state {:value-ch value-ch
+                                          :has-focus-ch has-focus-ch}
+                             :opts
+                             {:suggestions-fn (fn [value suggestions-ch cancel-ch]
+                                                (if (str/blank? value)
+                                                  (do
+                                                    (put! has-input-ch false)
+                                                    (put! suggestions-ch []))
+                                                  (do
+                                                    (put! has-input-ch true)
+                                                    (fetch-suggestions value suggestions-ch cancel-ch identity))))
+                              :result-ch      result-ch
+                              :result-text-fn (fn [item _] (:name item))
+                              :input-opts     {:placeholder    input-placeholder
+                                               :id             input-id
+                                               :class-name     input-class-name}}}))))
 
 (defn- edit-remove-button [{:keys [current-stop]} owner]
   (reify
     om/IRenderState
     (render-state [this {:keys [remove-stop-ch]}]
-                  (let [stop-id (:id current-stop)
-                        name    (:name current-stop)]
-                    (dom/button #js {:className "btn btn-primary"
-                                     :type "button"
-                                     :aria-label (str "remove " name)
-                                     :onClick (fn [e]
-                                                (put! remove-stop-ch {:stop-id stop-id})
-                                                (.preventDefault e))}
-                                name
-                                (dom/span #js {:className "glyphicon glyphicon-remove"}))))))
+                  (let [stop-id  (:id current-stop)
+                        name     (:name current-stop)
+                        on-click (fn [e]
+                                   (put! remove-stop-ch {:stop-id stop-id})
+                                   (.preventDefault e))]
+                    (dom/a #js {:className "btn btn-default edit-stop-heading-remove"
+                                :aria-label (str "remove " name)
+                                :onClick on-click} name)))))
 
-(defn edit-pane [{:keys [stops location]} owner {:keys [display-credits]}]
+(defn edit-stop-heading [{:keys [stops]} owner]
+  "This displays all the links"
+  (reify
+    om/IRenderState
+    (render-state [this {:keys [remove-stop-ch show-edit-ch show-edit]}]
+                  (dom/div #js {:className "responsive-display edit-stop-heading"}
+                           (dom/h2 #js {:className "edit-stop-heading-title thin"} "Your next departures from: ")
+                           (apply dom/div #js {:className " edit-stop-heading-buttons thin"}
+                                  (conj
+                                    (into [] (map #(om/build edit-remove-button
+                                                             {:current-stop %}
+                                                             {:init-state {:remove-stop-ch remove-stop-ch}}) stops))
+                                    (dom/a #js {:href "#"
+                                                :className (when show-edit "hidden")}
+                                           (dom/label #js {:className "edit-stop-heading-add"
+                                                           :htmlFor "stopInput"
+                                                           :onClick (fn [e]
+                                                                      (put! show-edit-ch true)
+                                                                      (.stopPropagation e))}  "add a stop"))))))))
+
+(defn edit-pane [{:keys [stops location display-credits] :as state} owner]
   "This shows the edit pane to add stops and stuff"
-  (let [set-sizes
-        (fn [current-owner prev-state]
-          (println "Setting new sizes")
-          (let [button-padding     4   ; TODO link this to CSS somehow
-                min-input-width    200 ; TODO link this to CSS somehow
-                input-padding      42  ; TODO link this to CSS somehow
-                container          (om/get-node current-owner "container")
-                container-width    (.-offsetWidth container)
-                buttons            (g-array/toArray (.-children (om/get-node current-owner "buttons")))
-                buttons-width      (apply + (map #(+ button-padding (.-offsetWidth %)) buttons))
-                new-buttons-width  (if (< container-width buttons-width) container-width buttons-width)
-                prev-buttons-width (when prev-state (:buttons-width prev-state))
-                new-input-width    (- (if (< (- container-width new-buttons-width) min-input-width) container-width (- container-width new-buttons-width)) input-padding)
-                prev-input-width   (when prev-state (:input-width prev-state))]
-            (when (or (nil? prev-buttons-width) (not= prev-buttons-width new-buttons-width))
-              (println "setting new size for button")
-              (om/set-state! current-owner :buttons-width new-buttons-width))
-            (when (or (nil? prev-input-width) (not= prev-input-width new-input-width))
-              (println "setting new size for input" new-input-width)
-              (om/set-state! current-owner :input-width new-input-width))))]
-    (reify
-      om/IInitState
-      (init-state [_]
-                  {:backspace-ch (chan)})
-      om/IWillMount
-      (will-mount  [_]
-                  (let [{:keys [backspace-ch remove-stop-ch]} (om/get-state owner)]
-                    (wait-on-channel
-                      backspace-ch
-                      (fn [backspace]
-                        (when (not (nil? backspace))
-                          (put! remove-stop-ch {:stop-id nil}))))))
-      om/IWillUnmount
-      (will-unmount [_]
-                    (let [{:keys [backspace-ch]} (om/get-state owner)]
-                      (close! backspace-ch)))
-      om/IDidMount
-      (did-mount [_]
-                 (set-sizes owner (om/get-state owner)))
-      om/IDidUpdate
-      (did-update [_ _ prev-state]
-                  (set-sizes owner prev-state))
-      om/IRenderState
-      (render-state [_ {:keys [backspace-ch buttons-width input-width add-stop-ch remove-stop-ch]}]
-                    (println "Rendering edit-pane")
-                    (dom/form #js {:className "edit-form" :role "search"}
-                              (dom/div #js {:className "form-group form-group-lg"}
-                                       (dom/label #js {:className "control-label sr-only"
-                                                       :htmlFor   "stopInput"} "Enter a stop")
-                                       (dom/span #js {:className "form-control thin"
-                                                      :ref       "container"}
-                                                 (apply dom/span #js {:className "buttons"
-                                                                      :ref       "buttons"
-                                                                      :style     #js {:width (str buttons-width "px")}}
-                                                        (map #(om/build edit-remove-button
-                                                                        {:current-stop %}
-                                                                        {:init-state {:remove-stop-ch remove-stop-ch}}) stops))
-                                                 (om/build autocomplete nil
-                                                           {:init-state {:backspace-ch backspace-ch :add-stop-ch add-stop-ch}
-                                                            :state {:input-style #js {:width (str input-width "px")}}
-                                                            :opts {:input-id          "stopInput"
-                                                                   :input-placeholder "Enter a stop"}})
-                                                 (dom/span #js {:className ""}
-                                                           (om/build flag {:country (:flag-class location) :label (:short-label location)})))))))))
+  (reify
+    om/IInitState
+    (init-state [_]
+                {:show-edit false :show-edit-ch (chan) :has-focus-ch (chan)})
+    om/IWillMount
+    (will-mount  [_]
+                (let [{:keys [remove-stop-ch show-edit-ch has-focus-ch]} (om/get-state owner)]
+                  (wait-on-channel
+                    show-edit-ch
+                    (fn [show-edit]
+                        (om/set-state! owner :show-edit show-edit)))
+                  (wait-on-channel
+                    has-focus-ch
+                    (fn [has-focus]
+                      (println has-focus)
+                      (when-not (or has-focus (om/get-state owner :always-show))
+                        (om/set-state! owner :show-edit false))))))
+    om/IWillUnmount
+    (will-unmount [this]
+                  (let [{:keys [show-edit-ch has-focus-ch value-ch]} (om/get-state owner)]
+                    (close! has-focus-ch)
+                    (close! show-edit-ch)))
+    om/IDidUpdate
+    (did-update [this _ {old-always-show :always-show}]
+                    (let [{always-show :always-show} (om/get-state owner)]
+                      (when (not= old-always-show always-show)
+                        (if always-show 
+                          (om/set-state! owner :show-edit true)
+                          (om/set-state! owner :show-edit false)))))
+    om/IRenderState
+    (render-state [_ {:keys [has-input-ch buttons-width input-width add-stop-ch remove-stop-ch show-edit-ch show-edit value-ch has-focus-ch]}]
+                  (let [no-stops (= (count stops) 0)]
+                    (dom/div #js {:className "edit-form"}
+                             (dom/div #js {:className (when no-stops "hidden")}
+                                      (om/build edit-stop-heading {:stops stops}
+                                                {:init-state {:show-edit-ch show-edit-ch
+                                                              :remove-stop-ch remove-stop-ch}
+                                                 :state {:show-edit show-edit}}))
+                             (dom/div #js {:className (str "edit-form-container no-link " (when show-edit "visible"))}
+                                      (om/build edit-input nil
+                                                {:init-state {:add-stop-ch add-stop-ch
+                                                              :has-input-ch has-input-ch
+                                                              :value-ch value-ch
+                                                              :has-focus-ch has-focus-ch}
+                                                 :opts {:input-id             "stopInput"
+                                                        :input-placeholder    "Enter a stop"
+                                                        :results-class-name   "edit-form-results no-link"}})))))))

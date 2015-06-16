@@ -4,6 +4,7 @@
             [om.dom :as dom :include-macros true]
             [cljs.core.async :refer [put! chan <! >! close! timeout]]
             [clojure.string :as str]
+            [clojure.set :as set]
             [cljs-time.core :refer [now]]
             [cljs-time.coerce :refer [to-long from-long]]
             [cljs-uuid.core :as uuid]
@@ -18,9 +19,9 @@
             [tramboard-clj.components.util :refer [menu-bar menu-icon slogan flag credits]]
             [tramboard-clj.components.board :refer [arrival-tables-view]]
             [tramboard-clj.components.location :refer [choose-location-pane]]
-            [tramboard-clj.script.time :refer [display-time]]
-            [tramboard-clj.script.util :refer [is-in-destinations wait-on-channel ga get-stops-in-order]]
-            [tramboard-clj.script.state :refer [is-home is-split get-state go-home go-edit go-toggle-split modify-complete-state get-all-states reset-complete-state]])
+            [tramboard-clj.script.time :refer [display-time parse-from-date-time format-to-hour-minute minutes-from]]
+            [tramboard-clj.script.util :refer [edit-or-add-destination get-destination init-destinations wait-on-channel ga get-stops-in-order]]
+            [tramboard-clj.script.state :refer [is-home get-state go-home go-edit]])
   (:import goog.History))
 
 ; some global constants here
@@ -38,9 +39,7 @@
          ; views from local storage
          :configured-views (array-map)
          ; navigation state
-         :complete-state {:split-states {:state-1 {:state-id :state-1 :state :home :params {} :visible true}
-                                         :state-2 {:state-id :state-2 :state :home :params {} :visible false}}
-                          :order [:state-1 :state-2]}}))
+         :current-state {:state :home :params {}}}))
 
 (defn- get-location [location-id]
   (let [found-locations (filter #(= location-id (:id %)) locations)]
@@ -55,11 +54,8 @@
     (apply merge-with deep-merge vals)
     (last vals)))
 
-(defn- cap [string x letter]
-  (if (= 0 (- x (count string))) string (cap (str letter string) x letter)))
-
-(defn- reset-sharing-infos [view]
-  (assoc view :shared-view-id (uuid)))
+(defn- remove-sharing-infos [view]
+  (dissoc view :shared-view-hash))
 
 (defn- update-updated-date [view]
   (assoc view :last-updated (to-long (now))))
@@ -72,9 +68,9 @@
   "Removes known-destinations and last-updated from the view"
   (dissoc (update-in view [:stops]
                      ; we remove :view-id :last-updated from the view and :known-destinations from each stop
-                     (fn [stops] (into {}  (map #(vector
-                                                   (key %)
-                                                   (dissoc (val %) :known-destinations)) stops))))
+                     (fn [stops] (into {}  (map (fn [stop] (vector
+                                                   (key stop)
+                                                   (assoc (val stop) :known-destinations (filter #(:excluded %) (:known-destinations (val stop)))))) stops))))
           :view-id :last-updated))
 
 (defn- export-string-from-view [view]
@@ -91,22 +87,25 @@
         base64-string (apply str string (repeat (if (= 0 too-big-by) 0 (- num too-big-by)) "="))]
     base64-string))
 
+(defn- get-destinations-not-excluded [stop]
+  (remove #(:excluded %) (:known-destinations stop)))
+
 (defn- view-from-export-string [string]
   (reader/read-string (b64/decodeString (pad string 4 "="))))
 
-(defn get-destinations-not-excluded [stop]
-  (remove #(is-in-destinations (:excluded-destinations stop) %) (:known-destinations stop)))
+(defn check-if-new-visitor [app-state]
+  (let [new-visitor (if (empty? app-state) true false)]
+    (assoc app-state :new-visitor  new-visitor)))
 
-(defn get-recent-board-views [configured-views complete-state]
-  (let [views                 (map #(val %) configured-views)
-        selected-views-ids    (into #{} (map #(:view-id (:params (val %))) (:split-states complete-state)))
-        views-without-current (remove #(contains? selected-views-ids (:view-id %)) views)]
-    (take 10 (sort-by #(- (:last-updated %)) views-without-current))))
+(defn get-recent-board-views [configured-views]
+  (let [views        (map #(val %) configured-views)
+        recent-views (take 10 (sort-by #(- (:last-updated %)) views))]
+    recent-views))
 
 (defn- remove-stop-and-update-date [current-view stop-id]
   (let [new-stops        (dissoc (:stops current-view) stop-id)
         new-stops-order  (vec (remove #(= stop-id %) (:stops-order current-view)))
-        new-current-view (reset-sharing-infos
+        new-current-view (remove-sharing-infos
                            (update-updated-date (assoc current-view
                                                   :stops new-stops
                                                   :stops-order new-stops-order)))]
@@ -118,7 +117,7 @@
         existing-stop        (get existing-stops id)
         new-stops            (assoc existing-stops id (merge (or existing-stop {}) stop))
         new-stops-order      (if-not existing-stop (conj existing-stops-order id) existing-stops-order)
-        new-current-view     (reset-sharing-infos
+        new-current-view     (remove-sharing-infos
                                (update-updated-date (assoc current-view
                                                       :stops new-stops
                                                       :stops-order new-stops-order)))]
@@ -133,40 +132,37 @@
       configured-views)))
 
 (defn- create-new-view [view]
-  (let [view-id        (uuid)
-        shared-view-id (uuid)]
-    (update-updated-date (into {:view-id view-id :shared-view-id shared-view-id} view))))
+  (let [view-id        (uuid)]
+    (update-updated-date (into {:view-id view-id} view))))
 
-(defn- get-shared-view [shared-view-id configured-views]
-  (let [shared-view (first (filter #(= (:shared-view-id %) shared-view-id) (map val configured-views)))]
+(defn- get-shared-view [shared-view-hash configured-views]
+  (let [shared-view (first (filter #(= (:shared-view-hash %) shared-view-hash) (map val configured-views)))]
     (println shared-view)
     shared-view))
 
-(defn swap-import-and-display-view [app imported-view]
+(defn swap-import-and-display-view [app imported-view shared-view-hash]
   (swap!
     app (fn [app]
           (let [configured-views     (:configured-views app)
-                complete-state       (:complete-state app)
-                
-                shared-view-id       (:shared-view-id imported-view)
-                shared-view          (get-shared-view shared-view-id configured-views)
-                view                 (or shared-view (create-new-view imported-view))
+                current-state        (:current-state app)
+
+                shared-view          (get-shared-view shared-view-hash configured-views)
+                view                 (or shared-view (assoc (create-new-view imported-view) :shared-view-hash shared-view-hash))
                 view-id              (:view-id view)
                 ; TODO this is the same as in transact-add-stop, simplify
                 new-configured-views (assoc configured-views view-id view)
-                current-state        (get-state complete-state :state-1)
                 ; TODO this is the same as in transact-add-stop, simplify
-                new-complete-state   (modify-complete-state (reset-complete-state complete-state) current-state #(go-edit % view-id))
+                new-current-state    (go-edit current-state view-id)
                 new-app              (assoc app
                                        :configured-views new-configured-views
-                                       :complete-state new-complete-state)]
+                                       :current-state new-current-state)]
             new-app))))
 
 (secretary/set-config! :prefix "#")
 (defroute share-link "/link/*" {hash :*}
   (let [imported-view  (view-from-export-string hash)]
     (println "Got link with a view to display" imported-view)
-    (swap-import-and-display-view app-state imported-view)
+    (swap-import-and-display-view app-state imported-view hash)
     (.setToken (History.) "")))
 
 (defn- get-share-link [view]
@@ -174,148 +170,191 @@
 
 ; Those 4 methods modify the view and will remove the shared-view-id param
 ; TODO move to own namespace
-(defn transact-add-stop [app state stop]
+(defn transact-add-stop [app stop]
   (om/transact!
     app (fn [app]
           (let [configured-views     (:configured-views app)
-                complete-state       (:complete-state app)
-                current-state        (get-state complete-state (:state-id state))
+                current-state        (:current-state app)
                 is-new-view          (is-home current-state)
                 edit-view-id         (:view-id (:params current-state))
                 current-view         (if is-new-view (create-new-view nil) (get configured-views edit-view-id))
                 view-id              (:view-id current-view)
-                new-complete-state   (modify-complete-state complete-state current-state #(go-edit % view-id))
+                new-current-state    (go-edit current-state view-id)
                 new-view             (add-stop-and-update-date current-view stop)
                 new-configured-views (assoc configured-views view-id new-view)]
             (ga "send" "event" "stop" "add" {:dimension1 (:id stop)})
-            (assoc app :configured-views new-configured-views :complete-state new-complete-state)))))
+            (assoc app :configured-views new-configured-views :current-state new-current-state)))))
 
-(defn transact-remove-stop [app state stop-id]
+(defn transact-remove-stop [app stop-id]
   (om/transact!
     app (fn [app]
           (let [configured-views     (:configured-views app)
-                complete-state       (:complete-state app)
-                current-state        (get-state complete-state (:state-id state))
+                current-state        (:current-state app)
                 current-view         (current-view current-state configured-views)
                 view-id              (:view-id current-view)
                 stop-id              (if-not stop-id (last (:stops-order current-view)) stop-id)
                 new-view             (remove-stop-and-update-date current-view stop-id)
                 new-configured-views (delete-view-if-no-stops (assoc configured-views view-id new-view) view-id)
                 go-home?             (not (get new-configured-views view-id))
-                new-complete-state   (modify-complete-state complete-state current-state #(if go-home? (go-home %) %))]
+                new-current-state    (if go-home? (go-home current-state) current-state)]
             (ga "send" "event" "stop" "remove" {:dimension1 stop-id})
-            (assoc app :configured-views new-configured-views :complete-state new-complete-state)))))
+            (assoc app :configured-views new-configured-views :current-state new-current-state)))))
 
-(defn transact-add-filter [view arrival]
+(defn transact-toggle-filter [view arrival]
   (let [stop-id     (:stop-id arrival)
         number      (:number arrival)
-        destination (:to arrival)
-        colors      (:colors arrival)]
+        destination (:to arrival)]
     (om/transact!
       view (fn [view]
              ; we add the filter
              (let [stop                           (get (:stops view) stop-id)
-                   existing-excluded-destinations (or (:excluded-destinations stop) #{})
-                   new-excluded-destinations      (conj existing-excluded-destinations {:to destination :number number})
-                   new-current-view               (reset-sharing-infos
+                   existing-known-destinations    (:known-destinations stop)
+                   existing-destination           (get-destination existing-known-destinations arrival)
+                   is-already-excluded            (:excluded existing-destination)
+                   new-known-destinations         (edit-or-add-destination existing-known-destinations (assoc existing-destination :excluded (not is-already-excluded)))
+                   new-current-view               (remove-sharing-infos
                                                     (update-updated-date
-                                                      (assoc-in view [:stops stop-id :excluded-destinations] new-excluded-destinations)))]
+                                                      (assoc-in view [:stops stop-id :known-destinations] new-known-destinations)))]
+               (println new-known-destinations)
                new-current-view)))))
 
-(defn transact-remove-filters [view]
-  (om/transact! view
-                (fn [view]
-                  ; we remove all the filters
-                  (let [stops            (:stops view)
-                        new-stops-vector (map #(vector (first %) (dissoc (second %) :excluded-destinations)) stops)
-                        new-current-view (reset-sharing-infos
-                                           (update-updated-date
-                                             (assoc view :stops (apply assoc stops (flatten new-stops-vector)))))]
-                    new-current-view))))
-
 (defn transact-fullscreen [state]
-  (ga "send" "event" "fullscreen" "enter")
   (om/transact! state :params #(assoc % :display :expanded)))
 
 (defn transact-exit-fullscreen [state]
-  (ga "send" "event" "fullscreen" "exit")
   (om/transact! state :params #(dissoc % :display)))
 
-(defn stop-heading [current-view owner]
-  "This displays all the links"
-  (reify
-    om/IRender
-    (render [this]
-            (dom/div #js {:className "stop-heading"}
-                     (dom/h2 #js {:className "heading thin"} (str "Departures from " (str/join " / " (map #(:name %) (get-stops-in-order current-view)))))))))
+(defn- cap [string x letter]
+  (if (= 0 (- x (count string))) string (cap (str letter string) x letter)))
 
-; TODO remove current-state
-(defn control-bar [{:keys [current-state current-view]} owner]
+(defn- transform-stationboard-data [json-data]
+  (->> (:departures json-data)
+       (map
+         (fn [entry]
+           (let [scheduled-departure (:scheduled (:departure entry))
+                 is-realtime         (:realtime (:departure entry))
+                 realtime-departure  (or (:realtime (:departure entry)) scheduled-departure)
+                 departure-timestamp (parse-from-date-time realtime-departure)
+                 now                 (now)]
+             {:departure-timestamp departure-timestamp
+              :colors              (:colors entry)
+              :type                (:type entry)
+              :accessible          (:accessible entry)
+              :number              (:name entry)
+              :sort-string         (cap (:name entry) 20 "0")
+              :to                  (:to entry)
+              :in-minutes          (minutes-from departure-timestamp now)
+              :time                (format-to-hour-minute departure-timestamp)
+              :is-realtime         is-realtime
+              :undelayed-time      (when (not= realtime-departure scheduled-departure)
+                                     (let [scheduled-departure-timestamp (parse-from-date-time scheduled-departure)]
+                                       (format-to-hour-minute scheduled-departure-timestamp)))})))))
+
+(defn control-bar [{:keys [current-state current-view edit-filter-mode]} owner]
   (reify
+    om/IInitState
+    (init-state [_]
+                {:edit-filter-mode false})
     om/IDidUpdate
     (did-update [_ _ prev-state]
                 ; we set the focus here on share input if necessary
-                (let [share-input-visible (om/get-state owner :share-input-visible)]
-                  (when share-input-visible
-                    (when (not (:share-input-visible prev-state))
-                      (let [share-input (om/get-node owner "shareInput")]
+                (let [share-input-visible (om/get-state owner :share-input-visible)
+                      share-input (om/get-node owner "shareInput")]
+                  (if share-input-visible
+                    (do
+                      ; we recalculate the share string
+                      (let [prev-share-input-value (:share-input-value prev-state)
+                            new-share-input-value  (get-share-link current-view)]
+                        (when (not= prev-share-input-value new-share-input-value)
+                          (om/set-state! owner :share-input-value new-share-input-value)))
+                      (when (not (:share-input-visible prev-state))
                         (.focus share-input)))
-                    ; we recalculate the share string
-                    (let [prev-share-input-value (:share-input-value prev-state)
-                          new-share-input-value  (get-share-link current-view)]
-                      (when (not= prev-share-input-value new-share-input-value)
-                        (om/set-state! owner :share-input-value new-share-input-value))))))
+                    (when (:share-input-visible prev-state)
+                      (.blur share-input)))))
     om/IRenderState
-    (render-state [this {:keys [share-input-value share-input-visible remove-filter-ch]}]
-                  (let [excluded-destinations (remove nil? (flatten (map #(:excluded-destinations (val %)) (:stops current-view))))
-                        expanded              (= :expanded (:display (:params current-state)))
-                        fullscreen-text       (if expanded "exit fullscreen" "fullscreen")]
-                    (dom/div #js {:className "control-bar"}
-                             (dom/div #js {:className "first-cell"}
-                                      (dom/a #js {:href "#"
-                                                  :className (str "link-icon glyphicon " (if expanded "glyphicon-resize-small" "glyphicon-resize-full"))
-                                                  :aria-label fullscreen-text
-                                                  :onClick (fn [e]
-                                                             ; we change the state to hidden
-                                                             (if expanded
-                                                               (transact-exit-fullscreen current-state)
-                                                               (transact-fullscreen current-state))
-                                                             (.preventDefault e))}))
-                             (dom/div #js {:className "remove-filter-cell"}
-                                      (dom/a #js {:href "#"
-                                                  :className "remove-filter link-icon"
-                                                  :onClick (fn [e]
-                                                             (.preventDefault e)
-                                                             (put! remove-filter-ch {}))}
-                                             (dom/span #js {:className (when (empty? excluded-destinations) "hidden")}
-                                                       (dom/span #js {:className "remove-filter-image"} "✖") (dom/span #js {:className "remove-filter-text thin"} "remove filters"))))
-                             (dom/div #js {:className "input-cell"}
+    (render-state [this {:keys [share-input-value share-input-visible edit-filter-mode toggle-filter-ch]}]
+                  (let [expanded              (= :expanded (:display (:params current-state)))
+                        filter-text           "filter destinations"
+                        fullscreen-text       "fullscreen"
+                        share-text            "share this board"
+                        on-filter-action      (fn [e]
+                                                (let [edit-filter-mode (om/get-state owner :edit-filter-mode)]
+                                                (if-not edit-filter-mode
+                                                  (ga "send" "event" "filter" "enter")
+                                                  (ga "send" "event" "filter" "exit"))
+                                                (om/update-state! owner #(assoc %
+                                                                           :edit-filter-mode (not edit-filter-mode)
+                                                                           ; we exit the share buttom
+                                                                           :share-input-visible false)))
+                                                (.preventDefault e))
+                        on-share-action       (fn [e]
+                                                (.preventDefault e)
+                                                (om/update-state! owner
+                                                                  (fn [state]
+                                                                    (let [share-input-value   (or (:share-input-value state)
+                                                                                                  (get-share-link current-view))
+                                                                          share-input-visible (not (:share-input-visible state))]
+                                                                      (if share-input-visible
+                                                                        (ga "send" "event" "share" "enter")
+                                                                        (ga "send" "event" "share" "exit"))
+                                                                      (assoc state
+                                                                        :share-input-value share-input-value
+                                                                        :share-input-visible share-input-visible
+                                                                        ; we exit edit mode
+                                                                        :edit-filter-mode false)))))
+                        on-fullscreen-action  (fn [e]
+                                                ; we change the state to hidden
+                                                (if-not expanded
+                                                  (ga "send" "event" "fullscreen" "enter")
+                                                  (ga "send" "event" "fullscreen" "exit"))
+                                                (if expanded
+                                                  (transact-exit-fullscreen current-state)
+                                                  (transact-fullscreen current-state))
+                                                (.preventDefault e))]
+                    (dom/div #js {:className (str "control-bar " (when (or edit-filter-mode share-input-visible) "keep-bar"))}
+                             (dom/div #js {:className "filter-wrapper"}
+                                      (dom/div #js {:className (str "filter-container " (when edit-filter-mode "visible"))}
+                                               (om/build c-filter-editor current-view
+                                                         {:init-state {:toggle-filter-ch toggle-filter-ch}
+                                                          :opts {:on-action on-filter-action}})))
+                             (dom/div #js {:className "share-container"}
                                       (let [on-action (fn [e]
-                                                        ;(.select (om/get-node owner "shareInput"))
                                                         (let [share-input (om/get-node owner "shareInput")]
-                                                          (.setSelectionRange share-input 0 (count (.-value share-input)))))]
-                                        (dom/input #js {:aria-label "share URL"
-                                                        :className (str "share-input form-control " (when-not share-input-visible "hidden"))
-                                                        :ref "shareInput"
-                                                        :type "text"
-                                                        :value share-input-value
-                                                        :onClick on-action
-                                                        :onFocus on-action
-                                                        :onTouchStart on-action})))
-                             (dom/div #js {:className "share-link"}
-                                      (dom/a #js {:href "#"
-                                                  :className "link-icon glyphicon glyphicon-link"
-                                                  :aria-label "share"
-                                                  :onClick (fn [e]
-                                                             (.preventDefault e)
-                                                             (om/update-state! owner
-                                                                               (fn [state]
-                                                                                 (let [share-input-value   (or (:share-input-value state)
-                                                                                                               (get-share-link current-view))
-                                                                                       share-input-visible (not (:share-input-visible state))]
-                                                                                   (assoc state
-                                                                                     :share-input-value share-input-value
-                                                                                     :share-input-visible share-input-visible)))))})))))))
+                                                          (.setSelectionRange share-input 0 (count (.-value share-input))))
+                                                        (.preventDefault e))]
+                                        (dom/div #js {:className "share-input-container"}
+                                                 (dom/input #js {:aria-label "share URL"
+                                                                 :className (str "share-input form-control " (when-not share-input-visible "hidden"))
+                                                                 :ref "shareInput"
+                                                                 :type "text"
+                                                                 :value share-input-value
+                                                                 :onClick on-action
+                                                                 :onFocus on-action
+                                                                 :onTouchEnd on-action}))))
+
+                             (dom/div #js {:className "control-bar-buttons"}
+
+                                      (dom/button #js {:href "#"
+                                                       :type "button"
+                                                       :className (str "btn btn-sm btn-default " (when edit-filter-mode "active"))
+                                                       :aria-label filter-text
+                                                       :onClick on-filter-action
+                                                       :onTouchStart on-filter-action}
+                                                  (dom/span #js {:className "glyphicon glyphicon-filter"}) filter-text)
+                                      (dom/button #js {:href "#"
+                                                       :type "button"
+                                                       :aria-label share-text
+                                                       :className (str "share-link btn btn-sm btn-default " (when share-input-visible "active"))
+                                                       :onClick on-share-action
+                                                       :onTouchStart on-share-action}
+                                                  (dom/span #js {:className "glyphicon glyphicon-link"}) share-text)
+                                      (dom/button #js {:href "#"
+                                                       :type "button"
+                                                       :className (str "btn btn-sm btn-default " (when expanded "active"))
+                                                       :aria-label fullscreen-text
+                                                       :onClick on-fullscreen-action
+                                                       :onTouchStart on-fullscreen-action}
+                                                  (dom/span #js {:className "glyphicon glyphicon-resize-full"}) fullscreen-text)))))))
 
 (defn recent-board-item-stop [stop owner]
   (reify
@@ -330,53 +369,77 @@
             (dom/li nil
                     (om/build number-icon number-with-colors)))))
 
-(defn- get-all-excluded-destinations [view]
-  (remove nil? (flatten (map #(:excluded-destinations (val %)) (:stops view)))))
-
 (defn recent-board-item [{:keys [view current-state]} owner]
   (reify
-    om/IRender
-    (render [this]
-            (dom/div #js {:className "recent-board"}
-                     (dom/a #js {:href "#"
-                                 :onClick (fn [e]
+    om/IRenderState
+    (render-state [this {:keys [value-ch]}]
+                  (dom/div #js {:className "recent-board"}
+                           (let [on-click (fn [e]
+                                            (ga "send" "event" "navigation" "recent-board")
                                             (om/transact! current-state #(go-edit % (:view-id view)))
-                                            (.preventDefault e))}
-                            ; a list of all stops
-                            (dom/h2 #js {:className "thin"}
-                                    (str (str/join " / " (map #(:name %) (get-stops-in-order view)))))
-                            ; a thumbnail of all trams
-                            (dom/div #js {:className "number-list"}
-                                     (let [numbers         (->> (:stops view)
-                                                                (map #(get-destinations-not-excluded (val %)))
-                                                                (reduce into #{})
-                                                                (map #(select-keys % [:number :colors :type]))
-                                                                (distinct)
-                                                                (sort-by #(cap (:number %) 20 "0")))
-                                           too-big         (> (count numbers) 9)
-                                           numbers-to-show (if too-big (conj (vec (take 8 numbers)) {:number "..."}) numbers)]
-                                       (apply dom/ul #js {:className "list-inline"} (om/build-all recent-board-item-number numbers-to-show)))))))))
+                                            (put! value-ch "")
+                                            (.preventDefault e))]
+                             (dom/a #js {:href "#"
+                                         :onClick on-click}
+                                    ; a list of all stops
+                                    (dom/h2 #js {:className "thin"}
+                                            (str (str/join " / " (map #(:name %) (get-stops-in-order view)))))
+                                    ; a thumbnail of all trams
+                                    (dom/div #js {:className "number-list"}
+                                             (let [numbers         (->> (:stops view)
+                                                                        (map #(get-destinations-not-excluded (val %)))
+                                                                        (reduce into #{})
+                                                                        (map #(select-keys % [:number :colors :type :sort-string]))
+                                                                        (distinct)
+                                                                        (sort-by :sort-string))
+                                                   too-big         (> (count numbers) 9)
+                                                   numbers-to-show (if too-big (conj (vec (take 8 numbers)) {:number "..."}) numbers)]
+                                               (apply dom/ul #js {:className "list-inline"} (om/build-all recent-board-item-number numbers-to-show))))))))))
 
 ; TODO move to own namespace, remove current-state
 (defn recent-boards [{:keys [recent-views current-state]} owner]
   (reify
+    om/IRenderState
+    (render-state [this {:keys [value-ch]}]
+                  (apply dom/div nil
+                         (dom/div #js {:className "heading"}
+                                  (dom/h1 #js {:className "heading thin"} "Your recent boards"))
+                         (map #(om/build recent-board-item {:view % :current-state current-state} {:init-state {:value-ch value-ch}}) recent-views)))))
+
+(defn strong [text]
+  (dom/span #js {:className "thin"} text))
+
+(defn welcome-banner [_ owner]
+  (reify
     om/IRender
     (render [this]
-            (apply dom/div nil
-                   (dom/div #js {:className "heading"}
-                            (dom/h1 #js {:className "heading thin"} "Your recent boards"))
-                   (map #(om/build recent-board-item {:view % :current-state current-state}) recent-views)))))
+            (dom/h1 #js {:className "ultra-thin welcome-banner text-center"}
+                    (dom/div nil
+                             "Relax and don't wait at the stop for your next "
+                             (dom/span #js {:className "no-wrap"} (strong "bus")   " " (om/build transport-icon {:type "bus"})) ", "
+                             (dom/span #js {:className "no-wrap"} (strong "tram")  " " (om/build transport-icon {:type "tram"}))  ", "
+                             (dom/span #js {:className "no-wrap"} (strong "train") " " (om/build transport-icon {:type "train"})) ", "
+                             (dom/span #js {:className "no-wrap"} (strong "boat")  " " (om/build transport-icon {:type "boat"}))  " or "
+                             (dom/span #js {:className "no-wrap"} (strong "cable car") " " (om/build transport-icon {:type "cable-car"}) "."))))))
 
-; TODO move to own namespace, remove current-state
-(defn stationboard-pane [{:keys [current-view location current-state]} owner]
+(defn enter-stop-heading [{:keys [location]} owner]
+  (reify
+    om/IRender
+    (render [this]
+            (dom/h1 #js {:className "ultra-thin welcome-banner text-center"}
+                    (dom/div nil "Enter any stop in "
+                             (om/build flag {:country (:flag-class location) :label (:short-label location)})
+                             " to get started.")))))
+
+(defn stationboard-pane [{:keys [current-view current-state]} owner]
   (reify
     om/IInitState
     (init-state [_]
-                {:activity-ch (chan) :add-filter-ch (chan)})
+                {:activity-ch (chan) :toggle-filter-ch (chan)})
     om/IWillMount
     (will-mount [_]
                 (let [{:keys [activity-ch
-                              add-filter-ch remove-filter-ch]} (om/get-state owner)]
+                              toggle-filter-ch]} (om/get-state owner)]
                   (wait-on-channel
                     activity-ch
                     (fn [_] (om/update-state!
@@ -388,187 +451,133 @@
                                   
                                   (go (when-some [hide (<! new-hide-ch)]
                                                  (when hide (om/set-state! owner :activity :idle))))
-                                  
-                                  (go (<! (timeout 2000))
+
+                                  (go (<! (timeout 1500))
                                       (put! new-hide-ch true))
                                   
                                   (assoc s
                                     :activity :not-idle
                                     :hide-ch new-hide-ch))))))
                   (wait-on-channel
-                    add-filter-ch
+                    toggle-filter-ch
                     (fn [{:keys [destination]}]
-                      (transact-add-filter current-view destination)))
-                  (wait-on-channel
-                    remove-filter-ch
-                    (fn [_]
-                      (transact-remove-filters current-view)))))
+                      (transact-toggle-filter current-view destination)))))
     om/IWillUnmount
     (will-unmount [this]
                   (let [{:keys [hide-ch activity-ch
-                                add-filter-ch remove-filter-ch]} (om/get-state owner)]
+                                toggle-filter-ch]} (om/get-state owner)]
                     (close! activity-ch)
-                    (close! add-filter-ch)
+                    (close! toggle-filter-ch)
                     (when hide-ch (close! hide-ch))))
     om/IRenderState
-    (render-state [this {:keys [activity activity-ch add-filter-ch remove-filter-ch add-stop-ch remove-stop-ch]}]
-                  (println "Rendering stationboard pane")
-                  (dom/div #js {:className (str "pane container-fluid " (when (= activity :idle) "activity-idle"))}
-                           (om/build edit-pane
-                                     {:stops (get-stops-in-order current-view)
-                                      :location location}
-                                     {:opts {:display-credits false}
-                                      :init-state {:add-stop-ch add-stop-ch
-                                                   :remove-stop-ch remove-stop-ch}
-                                      ; forces re-render
-                                      :state {:random (rand)}})
-                           (dom/div #js {:className "responsive-display"}
-                                    (om/build c-filter-editor [])
-                                    (om/build stop-heading current-view)
-                                    (om/build control-bar
-                                              {:current-view current-view :current-state current-state}
-                                              {:init-state {:remove-filter-ch remove-filter-ch}})
-                                    (om/build arrival-tables-view
-                                              {:current-view current-view}
-                                              {:init-state {:activity-ch activity-ch :add-filter-ch add-filter-ch}
-                                               :opts {:refresh-rate refresh-rate}}))))))
+    (render-state [this {:keys [activity activity-ch toggle-filter-ch add-stop-ch remove-stop-ch]}]
+                  (let [on-action (fn [preventDefault e]
+                                    (put! activity-ch true)
+                                    (when preventDefault (.preventDefault e)))]
+                    (dom/div #js {:className (str "container-fluid " (when (= activity :idle) "activity-idle"))
+                                  :onMouseMove #(on-action true %)
+                                  :onClick #(on-action true %)
+                                  :onTouchEnd #(on-action false %)}
+                             (om/build control-bar
+                                       {:current-state current-state :current-view current-view}
+                                       {:init-state {:toggle-filter-ch toggle-filter-ch}})
+                             (om/build arrival-tables-view
+                                       {:current-view current-view}
+                                       {:init-state {:activity-ch activity-ch :toggle-filter-ch toggle-filter-ch}
+                                        :opts {:refresh-rate refresh-rate
+                                               :transform-stationboard-data transform-stationboard-data}}))))))
 
-(defn enter-stop-heading [{:keys [location]} owner]
-  (reify
-    om/IRender
-    (render [this]
-            (dom/h1 #js {:className "ultra-thin welcome-banner text-center"}
-                    (dom/div nil "Enter any stop in "
-                             (om/build flag {:country (:flag-class location) :label (:short-label location)})
-                             " to get started.")))))
-
-; TODO move to own namespace, remove current-state
-(defn welcome-pane [{:keys [recent-views location current-state]} owner]
-  (reify
-    om/IRenderState
-    (render-state [this {:keys [add-stop-ch remove-stop-ch display-banner display-credits]}]
-                  (println "Rendering welcome pane")
-                  (dom/div #js {:className "pane container-fluid"}
-                           (dom/div #js {:className "responsive-display"}
-                                    (dom/div #js {:className (when-not display-banner "hidden")}
-                                             (om/build slogan nil)
-                                             (om/build enter-stop-heading {:location location}))
-                                    (om/build edit-pane
-                                              {:stops [] :location location}
-                                              {:opts {:display-credits display-credits}
-                                               :init-state {:add-stop-ch add-stop-ch
-                                                            :remove-stop-ch remove-stop-ch}
-                                               ; forces re-render
-                                               :state {:random (rand)}})
-                                    (dom/div #js {:className (when (empty? recent-views) "hidden")}
-                                             (om/build recent-boards {:recent-views recent-views :current-state current-state})))))))
-
-(defn build-title-edit [is-split last-updated]
+(defn build-title-edit [last-updated]
   (dom/span nil
-            (if-not is-split (dom/div #js {:className "bold"} "Your current board")
-              (dom/div nil
-                       (dom/div #js {:className "bold title-split-1"} "Your left board")
-                       (dom/div #js {:className "bold title-split-2"} "Your right board")))
+            (dom/div #js {:className "bold"} "Your current board")
             (dom/div #js {:className "thin"} (str "saved "
                                                   (display-time last-updated)))))
 
-(defn build-title-home [is-split]
-  (dom/span #js {:className "text-middle bold"}
-            (if-not is-split "You've got Time for Coffee!"
-              (dom/div nil
-                       (dom/div #js {:className "title-split-1"} "Your left board")
-                       (dom/div #js {:className "title-split-2"} "Your right board")))))
+(defn build-title-home []
+  (dom/span #js {:className "text-middle bold"} "You've got Time for Coffee!"))
 
-(defn stationboard [{:keys [current-state app]} owner]
+(defn stationboard [{:keys [current-state configured-views] :as app} owner]
   "Takes the app (contains all views, selected view) and renders the whole page"
   (reify
     om/IInitState
     (init-state [_]
-                {:add-stop-ch (chan) :remove-stop-ch (chan) })
+                {:add-stop-ch (chan) :remove-stop-ch (chan) :has-input-ch (chan) :value-ch (chan) :hide-welcome false})
     om/IWillMount
     (will-mount [_]
-                (let [{:keys [add-stop-ch remove-stop-ch]} (om/get-state owner)]
+                (let [{:keys [add-stop-ch remove-stop-ch has-input-ch]} (om/get-state owner)]
                   ; TODO allow the children here to modify their views directly
                   ; and listen on those view changes, see board.cljs and above for comment
                   (wait-on-channel
                     add-stop-ch
                     (fn [{:keys [stop]}]
-                      (transact-add-stop app current-state stop)))
+                      (transact-add-stop app stop)))
                   (wait-on-channel
                     remove-stop-ch
                     (fn [{:keys [stop-id]}]
-                      (transact-remove-stop app current-state stop-id)))))
+                      (transact-remove-stop app stop-id)))
+                  (wait-on-channel
+                    has-input-ch
+                    (fn [has-input]
+                      (when has-input (om/set-state! owner :hide-welcome true))))))
     om/IWillUnmount
     (will-unmount [this]
-                  (let [{:keys [hide-ch
-                                add-stop-ch remove-stop-ch]} (om/get-state owner)]
+                  (let [{:keys [hide-ch value-ch add-stop-ch remove-stop-ch has-input-ch]} (om/get-state owner)]
                     (close! add-stop-ch)
+                    (close! value-ch)
                     (close! remove-stop-ch)
+                    (close! has-input-ch)
                     (when hide-ch (close! hide-ch))))
+    om/IDidUpdate
+    (did-update [this _ _]
+                (let [is-home      (is-home current-state)
+                      hide-welcome (om/get-state owner :hide-welcome)]
+                  (when (and (not is-home) hide-welcome) (om/set-state! owner :hide-welcome false))))
     om/IRenderState
-    (render-state [this {:keys [activity activity-ch add-filter-ch remove-filter-ch add-stop-ch remove-stop-ch]}]
+    (render-state [this {:keys [add-stop-ch remove-stop-ch has-input-ch value-ch hide-welcome]}]
                   ; those all depend on the screen that's displayed
                   (let [location         (get-location (:location-id app))
-                        configured-views (:configured-views app)
-                        complete-state   (:complete-state app)
                         current-view     (current-view current-state configured-views)
+                        recent-views     (get-recent-board-views configured-views)
                         display          (:display (:params current-state))
                         is-home          (is-home current-state)
-                        is-split         (is-split complete-state)
-                        display-banner   (and is-home (not is-split))
-                        split-icon       (om/build menu-icon nil
-                                                   {:state {:icon-class (if-not is-split "fa fa-columns" "glyphicon-remove-circle")
-                                                            :hidden-text "split screen"}
-                                                    :opts  {:on-click (fn [e]
-                                                                        (om/transact! complete-state #(go-toggle-split % current-state))
-                                                                        (.preventDefault e))}})
                         home-icon        (om/build menu-icon nil
                                                    {:state {:icon-class "glyphicon-home"
                                                             :hidden-text "go back"}
                                                     :opts  {:on-click (fn [e]
+                                                                        (ga "send" "event" "navigation" "home")
+                                                                        (put! value-ch "")
                                                                         (om/transact! current-state #(go-home %))
                                                                         (.preventDefault e))}})
-                        title            (if is-home (build-title-home is-split) (build-title-edit is-split (:last-updated current-view)))]
-                    
+                        title            (if is-home (build-title-home ) (build-title-edit (:last-updated current-view)))]
+
                     (println "Rendering stationboard")
-                    (dom/div (clj->js {:className
-                                       (str (when-not (:visible current-state) "hidden") " "
-                                            (when (= display :expanded) "display-expanded") " "
-                                            (name (:state-id current-state)))})
-                             
-                             (om/build menu-bar nil {:state {:right-icon split-icon
-                                                             :left-icon (when-not is-home home-icon)
+                    (dom/div (clj->js {:className (str "pane " (when (= display :expanded) "display-expanded"))})
+
+                             (om/build menu-bar nil {:state {:left-icon (when-not is-home home-icon)
                                                              :title title}})
-                             (if
-                               is-home
-                               (om/build welcome-pane
-                                         {:recent-views (get-recent-board-views configured-views complete-state)
-                                          :location location
-                                          :current-state current-state}
-                                         {:init-state {:add-stop-ch add-stop-ch :remove-stop-ch remove-stop-ch}
-                                          :state {:display-banner display-banner
-                                                  :display-credits (not is-split)}})
+                             (dom/div #js {:className "container-fluid"}
+                                      ; TODO review this
+                                      (dom/div #js {:className (str "responsive-display " (when (or hide-welcome (not is-home)) "hidden"))}
+                                               (om/build welcome-banner nil)
+                                               (om/build enter-stop-heading {:location location}))
+                                      (om/build edit-pane
+                                                {:stops (get-stops-in-order current-view)
+                                                 :display-credits is-home
+                                                 :location location}
+                                                {:init-state {:add-stop-ch add-stop-ch
+                                                              :remove-stop-ch remove-stop-ch
+                                                              :has-input-ch has-input-ch
+                                                              :value-ch value-ch
+                                                              :show-edit is-home}
+                                                 :state {:always-show is-home}})
+                                      (dom/div #js {:className (str "responsive-display " (when (or (not is-home) (empty? recent-views)) "hidden"))}
+                                               (om/build recent-boards {:recent-views recent-views :current-state current-state} {:init-state {:value-ch value-ch}})))
+                             (when-not is-home
                                (om/build stationboard-pane
                                          {:current-view current-view
                                           :location location
                                           :current-state current-state}
                                          {:init-state {:add-stop-ch add-stop-ch :remove-stop-ch remove-stop-ch}})))))))
-
-(defn split-stationboard [{:keys [complete-state] :as app} owner]
-  (reify
-    om/IRender
-    (render [this]
-            (let [states (get-all-states complete-state)
-                  order  (:order complete-state)]
-              (println "Rendering split stationboard")
-              (apply dom/div (when (is-split complete-state)
-                               (clj->js {:className (str "split-board " (name (get order 0)) "-" (name (get order 1)))}))
-                     (map #(om/build stationboard {:current-state % :app app}) states))))))
-
-(defn check-if-new-visitor [app-state]
-  (let [new-visitor (if (empty? app-state) true false)]
-    (assoc app-state :new-visitor  new-visitor)))
-
 
 (defn choose-location [{:keys [complete-state] :as app} owner]
   (reify
@@ -605,7 +614,7 @@
                      (let [new-visitor (:new-visitor app-state)]
                        (if new-visitor
                          (om/build choose-location app-state)
-                         (om/build split-stationboard app-state)))
+                         (om/build stationboard app-state)))
                      (dom/footer #js {:className "text-center"} (om/build credits nil))))))
 
 (defn hook-browser-navigation! []
@@ -616,17 +625,41 @@
         (secretary/dispatch! (.-token event))))
     (.setEnabled true)))
 
-(defn debug-app-state [app-state]
-  (let [complete-state  (:complete-state app-state)
-        state-1         (get-state complete-state :state-1)
-        state-2         (get-state complete-state :state-2)]
-    (if-not (or (:visible state-1) (:visible state-2))
-      (assoc app-state :complete-state (reset-complete-state complete-state))
-      app-state)))
+(defn- debug-corrupt-view [view]
+  (let [stops-with-to (into {} (filter #(contains? (val %) :name) (:stops view)))
+        stop-ids      (map #(key %) stops-with-to)
+        stops-order   (:stops-order view)
+        stops-to-add  (set/difference (into #{} stop-ids) stops-order)
+        new-view      (assoc view
+                        :stops-order (into [] (concat stops-order stops-to-add))
+                        :stops stops-with-to)]
+    new-view))
+
+(defn- debug-corrupt-views [app-state]
+  "This removes the views that might have been corrupted with the bug that kept destinations
+  displayed even though they were removed."
+  (if-not (nil? (:configured-views app-state))
+    (let [configured-views  (:configured-views app-state)
+          new-clean-views   (into {} (map #(vector (key %) (debug-corrupt-view (val %))) configured-views))
+          new-views         (into {} (remove #(empty? (:stops (val %))) new-clean-views))
+          current-state     (:current-state app-state)
+          new-current-state (if (> (count configured-views) (count new-views)) (go-home current-state) current-state)]
+      (assoc app-state :configured-views new-views :current-state new-current-state))
+    app-state))
+
+(defn- debug-app-state [app-state]
+  "This removes the complete-state if there is one and takes state number 1 as current state."
+  (if-not (nil? (:complete-state app-state))
+    (let [complete-state  (:complete-state app-state)
+          state-1         (get-state complete-state :state-1)
+          state-2         (get-state complete-state :state-2)]
+      (dissoc (assoc app-state :current-state (dissoc state-1 :state-id :visible)) :complete-state))
+    app-state))
 
 (defn init! []
   (let [saved-state (or (try (reader/read-string (. js/localStorage (getItem "views"))) (catch :default e (println e) {})) {})]
-    (swap! app-state deep-merge ((comp debug-app-state check-if-new-visitor) saved-state))
+    (swap! app-state deep-merge ((comp debug-corrupt-views debug-app-state check-if-new-visitor) saved-state))
+    (println app-state)
     (hook-browser-navigation!)))
 
 (defn main []

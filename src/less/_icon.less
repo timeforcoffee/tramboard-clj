@@ -1,0 +1,168 @@
+@switch-width: 32px;
+@switch-padding: 2px;
+@switch-height: 20px;
+@switch-radius: @switch-height;
+@knob-size: @switch-height - (@switch-padding * 2);
+@knob-radius: @switch-height - (@switch-padding * 2);
+@knob-width: @knob-size;
+@switch-border-background: #E8E8E8;
+@switch-shadow: 0px 2px 5px rgba(0, 0, 0, 0.4);
+
+.label-switch {  
+	margin-bottom: 0px;
+	border-radius: @switch-radius;
+	cursor: pointer;
+	display: inline-block;
+	height: @switch-height;
+	position: relative;
+	width: @switch-width;
+
+	input[type="checkbox"] {
+		display: none;
+
+		+ .checkbox {
+			transition: all 0.3s ease 0s;
+			background: @switch-border-background;
+			border-radius: @switch-radius;
+			border: none;
+			cursor: pointer;
+			height: @switch-height;
+			margin: 0;
+			padding: 0;
+			position: relative;
+			width: @switch-width;
+			z-index: 0;
+
+			&:before {
+				position: absolute;
+				top: 2px;
+				left: 0;
+				right: 0;
+				bottom: 2px;
+				transform: scale(1);
+				transition: all 0.3s ease 0s;
+				background: white;
+				border-radius: @switch-radius;
+				content: "";
+				height: @knob-radius;
+				width: @switch-width - (@switch-padding * 2);
+				z-index: 1;
+			}
+
+			&:after {
+				position: absolute;
+				top: 2px;
+				left: 0;
+				right: 0;
+				bottom: 2px;
+				transition: all 0.3s ease 0s;
+				height: @knob-size;
+				width: @knob-size;
+				background: white;
+				border-radius: @knob-radius;
+				box-shadow: @switch-shadow;
+				content: "";
+				z-index: 2;
+			}
+		}
+
+		&:checked {
+			+ .checkbox {
+				background: @action-color;
+
+				&:before {
+					transform: scale(0);
+				}
+
+				&:after {
+					left: @switch-width - @knob-width - (@switch-padding);
+				}
+			}
+		}
+	}
+}
+
+
+
+.span-fa {
+	position: relative;
+	height: 1.2em;
+	width: 0.75em;
+	display: inline-block;
+
+	.fa.fa-tram {
+		background: transparent url('/images/tram.png') no-repeat 0 0px;
+		background-size: 1.25em 1.25em;
+		top: 0.2em;
+		right: 0.05em;
+	}
+
+	.fa.fa-cable-car {
+		background: transparent url('/images/cable-car.png') no-repeat 0 0px;
+		background-size: 0.75em 1em;
+		top: 0.25em;
+		right: -0.3em;
+	}
+
+	.fa.fa-tram, .fa.fa-cable-car {
+		position: absolute;
+		height: 1.2em;
+		width: 1em;
+	}
+
+}
+
+.number-generic {
+	border-radius: 4px;
+	text-align: center;
+	color: black;
+	background: white;
+	display: inline-block;
+	font-size: @biggest-font-size;
+	width: 1.5em;
+	height: 1.5em;
+	line-height: 1.5em;
+	padding: 1px;
+	box-sizing: content-box;
+}
+
+.number-big .number-inner {
+	font-size: 0.6em;
+}
+
+.number-border {
+	border: 1px solid #ddd;
+	padding: 0;
+}
+
+
+/* switzerland */
+.ch {
+ background: url('data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAzMjAgMzIwIj4NCjxwYXRoIGZpbGw9IiNkNTJiMWUiIGQ9Im0wLDBoMzIwdjMyMGgtMzIweiIvPg0KPGcgZmlsbD0iI2ZmZiI+DQo8cGF0aCBkPSJtNjAsMTMwaDIwMHY2MGgtMjAweiIvPg0KPHBhdGggZD0ibTEzMCw2MGg2MHYyMDBoLTYweiIvPg0KPC9nPg0KPC9zdmc+DQo=');
+ width: 100%;
+ height: 100%;
+ background-size: 100% 100%;
+}
+
+.phoca-flag {
+	position: absolute;
+    top: 0;
+    bottom: 0;
+    left: 0;
+    right: 0;
+
+    margin: auto;
+	display: inline-block;
+	vertical-align: middle;
+	border: 1px solid #e5e5e5;
+	-webkit-box-shadow: inset 0px 0px 0px 2px #fff;
+	box-shadow: inset 0px 0px 0px 2px #fff;
+}
+
+.phoca-flagbox {
+    width: 1em;
+    height: 1em;
+    display: inline-block;
+    vertical-align: middle;
+    position: relative;
+}

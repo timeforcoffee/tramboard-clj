@@ -8,7 +8,9 @@ pom.xml.asc
 /.lein-*
 /.nrepl-port
 /resources/public/out
-/resources/public/js
+/resources/public/js/*
 /resources/public/css
 .repl*
 .DS_Store
+node_modules/
+npm-debug.log
