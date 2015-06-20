@@ -10,29 +10,21 @@
 	height: auto;
 }
 
-.autocomplete-input-wrapper {
-	position: relative;
-}
-
 .autocomplete-input, .autocomplete-input[type=text] {
 	-webkit-appearance: none;
 	-moz-appearance: none;
 	outline: none;
 	color: black;
-	border: none;
+
+	padding-left: 25px;
+	padding-right: 15px;
 
 	width: 100%;
-	padding-left: 25px;
-	padding-right: 25px;
-	padding-top: 15px;
-	padding-bottom: 15px;
 	border-radius: 0;
 	box-shadow: 0;
-	border: 1px solid @dark-gray;
 }
 
 .autocomplete-input-delete {
-	-webkit-appearance: searchfield-cancel-button;
 	display: inline-block;
 	width: 20px;
 	height: 20px;
@@ -60,45 +52,74 @@
 	margin-left: 8px;
 }
 
-ul.autocomplete-results {
-	z-index: 3;
-	list-style: none;
-	position: absolute;
-	width: 100%;
-	background-color: white;
+.edit-form {
+	display: flex;
+	align-items: stretch;
+}
 
-	padding: 0;
-	border-left: 1px solid @dark-gray;
-	border-right: 1px solid @dark-gray;
-	border-bottom: 1px solid @dark-gray;
+.edit-item {
+	padding-top: 15px;
+	padding-bottom: 15px;
+	border: 1px solid @dark-gray;
+}
 
-	box-shadow: -5px 0px 10px 0px rgba(0,0,0,0.3);
+.edit-form-location-container, 
+.edit-form-stop-container {
+	flex-flow: row;
+}
 
-	&.no-link a {
-		color: black;
+.edit-form-location-container {
+	display: flex;
+	border-right: 0;
+	align-items: center;
+	cursor: pointer;
+
+	.dropdown-wrapper {
+		margin-right: -1px;
 	}
 
-	> li {
-		cursor: pointer;
-		line-height: 40px;
-		border-bottom: 1px solid @dark-gray;
+	li.dropdown-results-item {
+		padding-left: 15px;
+
+		&.highlighted, &:hover {
+			padding-left: 12px;
+		}
+	}
+
+}
+
+.edit-form-location {
+	border-right: 0;
+
+	.caret {
+		margin-left: 8px;
+		margin-right: 8px;
+	}
+
+	.phoca-flagbox {
+		width: 16px;
+		height: 16px;
+		bottom: 2px;
+	}
+}
+
+.edit-form-location-name {
+	display: inline-block;
+	min-width: 120px;
+	text-align: center;
+	margin-left: -16px;
+}
+
+.edit-form-stop-container {
+	flex-grow: 1;
+
+	li.dropdown-results-item {
 		padding-left: 25px;
 
-		&:last-child {
-			border: 0;
-		}
-
-		&.highlighted {
-			background-color: @light-gray;
-			border-left: 3px solid @action-color;
+		&.highlighted, &:hover {
 			padding-left: 22px;
 		}
-
-		&.highlighted a {
-			color: black;
-		}
 	}
-
 }
 
 .edit-stop-heading-title {

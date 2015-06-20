@@ -13,4 +13,4 @@ pom.xml.asc
 .repl*
 .DS_Store
 node_modules/
-npm-debug.log
+*.log

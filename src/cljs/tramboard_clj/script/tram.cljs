@@ -402,9 +402,8 @@
     om/IRenderState
     (render-state [this {:keys [value-ch]}]
                   (apply dom/div nil
-                         (dom/div #js {:className "heading"}
-                                  (dom/h1 #js {:className "heading thin"} "Your recent boards"))
-                         (map #(om/build recent-board-item {:view % :current-state current-state} {:init-state {:value-ch value-ch}}) recent-views)))))
+                         (conj (dom/h1 #js {:className "heading thin"} "Your recent boards"))
+                         (into [] (map #(om/build recent-board-item {:view % :current-state current-state} {:init-state {:value-ch value-ch}}) recent-views))))))
 
 (defn strong [text]
   (dom/span #js {:className "thin"} text))
@@ -563,7 +562,8 @@
                                       (om/build edit-pane
                                                 {:stops (get-stops-in-order current-view)
                                                  :display-credits is-home
-                                                 :location location}
+                                                 :location location
+                                                 :locations locations}
                                                 {:init-state {:add-stop-ch add-stop-ch
                                                               :remove-stop-ch remove-stop-ch
                                                               :has-input-ch has-input-ch

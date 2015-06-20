@@ -7,6 +7,7 @@
             [tramboard-clj.script.client :refer [fetch-suggestions]]
             [tramboard-clj.script.util :refer [wait-on-channel get-stops-in-order]]
             [tramboard-clj.components.util :refer [flag]]
+            [tramboard-clj.components.location :refer [location-item]]
             [tramboard-clj.components.autocomplete :refer [autocomplete]]))
 
 (defn- edit-input [_ owner {:keys [input-id input-placeholder input-class-name results-class-name container-class-name]}]
@@ -76,7 +77,22 @@
                                                                       (put! show-edit-ch true)
                                                                       (.stopPropagation e))}  "add a stop"))))))))
 
-(defn edit-pane [{:keys [stops location display-credits] :as state} owner]
+(defn location-picker [{:keys [location locations]} owner]
+  (reify
+    om/IRenderState
+    (render-state [this {:keys [open]}]
+                  (println "test" locations)
+                  (dom/div #js {:className "dropdown-wrapper"}
+                           (dom/div #js {:className "edit-item edit-form-location"}
+                                    (dom/span #js {:className "caret"}) 
+                                    (dom/span #js {:className "edit-form-location-name"} (:short-label location) " "
+                                              (om/build flag {:country (:flag-class location) :label (:short-label location)})))
+                           (apply dom/ul #js {:className "dropdown-results"} 
+                                   (om/build-all location-item locations {:opts {:class-name "dropdown-results-item"
+                                                                                 :use-short-label true}}))))))
+
+
+(defn edit-pane [{:keys [stops location display-credits locations] :as state} owner]
   "This shows the edit pane to add stops and stuff"
   (reify
     om/IInitState
@@ -88,7 +104,7 @@
                   (wait-on-channel
                     show-edit-ch
                     (fn [show-edit]
-                        (om/set-state! owner :show-edit show-edit)))
+                      (om/set-state! owner :show-edit show-edit)))
                   (wait-on-channel
                     has-focus-ch
                     (fn [has-focus]
@@ -102,11 +118,11 @@
                     (close! show-edit-ch)))
     om/IDidUpdate
     (did-update [this _ {old-always-show :always-show}]
-                    (let [{always-show :always-show} (om/get-state owner)]
-                      (when (not= old-always-show always-show)
-                        (if always-show 
-                          (om/set-state! owner :show-edit true)
-                          (om/set-state! owner :show-edit false)))))
+                (let [{always-show :always-show} (om/get-state owner)]
+                  (when (not= old-always-show always-show)
+                    (if always-show 
+                      (om/set-state! owner :show-edit true)
+                      (om/set-state! owner :show-edit false)))))
     om/IRenderState
     (render-state [_ {:keys [has-input-ch buttons-width input-width add-stop-ch remove-stop-ch show-edit-ch show-edit value-ch has-focus-ch]}]
                   (let [no-stops (= (count stops) 0)]
@@ -116,12 +132,13 @@
                                                 {:init-state {:show-edit-ch show-edit-ch
                                                               :remove-stop-ch remove-stop-ch}
                                                  :state {:show-edit show-edit}}))
-                             (dom/div #js {:className (str "edit-form-container no-link " (when show-edit "visible"))}
+                             (dom/div #js {:className "edit-form-location-container no-link"}
+                                      (om/build location-picker {:location location :locations locations}))
+                             (dom/div #js {:className (str "edit-form-stop-container no-link " (when show-edit "visible"))}
                                       (om/build edit-input nil
                                                 {:init-state {:add-stop-ch add-stop-ch
                                                               :has-input-ch has-input-ch
                                                               :value-ch value-ch
                                                               :has-focus-ch has-focus-ch}
                                                  :opts {:input-id             "stopInput"
-                                                        :input-placeholder    "Enter a stop"
-                                                        :results-class-name   "edit-form-results no-link"}})))))))
+                                                        :input-placeholder    "Enter a stop"}})))))))

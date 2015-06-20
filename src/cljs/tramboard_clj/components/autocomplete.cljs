@@ -61,7 +61,7 @@
     (render-state [_ {:keys [focus-ch value-ch highlight-ch select-ch value highlighted-index mouse? displayed? focused?]}]
                   (dom/input
                     #js {:id id
-                         :className "autocomplete-input"
+                         :className "autocomplete-input edit-item"
                          :placeholder placeholder
                          :type "text"
                          :autoComplete "off"
@@ -97,13 +97,13 @@
   (reify
     om/IRender
     (render [_]
-            (dom/li nil (dom/a nil "Loading...")))))
+            (dom/li #js {:className "dropdown-results-item"} (dom/a nil "Loading...")))))
 
 (defn- no-results-default [{:keys [value]} owner]
   (reify
     om/IRender
     (render [_]
-            (dom/li nil (dom/a nil "No results found for " (dom/i nil value))))))
+            (dom/li #js {:className "dropdown-results-item"} (dom/a nil "No results found for " (dom/i nil value))))))
 
 (defn- result-item-default [app owner {:keys [result-text-fn]}]
   (reify
@@ -118,7 +118,7 @@
     (render-state [_ {:keys [item index highlighted-index]}]
                   (let [highlighted? (= index highlighted-index)
                         text-fn      (if-not (nil? result-text-fn) result-text-fn identity)]
-                    (dom/li #js {:className (when highlighted? (str "highlighted "))}
+                    (dom/li #js {:className (str "dropdown-results-item" (when highlighted? " highlighted"))}
                             (dom/a #js {:href "#" :onClick (fn [e] (.preventDefault e))}
                                    (text-fn item index)))))))
 
@@ -129,7 +129,7 @@
     (render-state [_ {:keys [highlight-ch select-ch value loading? focused? mouse-ch suggestions highlighted-index]}]
                   (let [display?         (and focused? value (not= value ""))
                         display-style    (if display? "block" "none")
-                        attrs               #js {:className    "autocomplete-results"
+                        attrs               #js {:className    "dropdown-results"
                                                  :style        #js {:display display-style}
                                                  :onMouseEnter (fn [e]
                                                                  (put! mouse-ch true)
@@ -213,7 +213,7 @@
     om/IRenderState
     (render-state [_ {:keys [focus-ch value-ch highlight-ch select-ch mouse-ch value
                              highlighted-index loading? focused? mouse? suggestions]}]
-                  (dom/div #js {:className "autocomplete-input-wrapper"}
+                  (dom/div #js {:className "dropdown-wrapper"}
                            (dom/div #js {:className "autocomplete-input-container"}
                                     (dom/a #js {:className (str "autocomplete-input-load " (when-not loading? "hidden"))}
                                            (dom/i #js {:className "fa fa-spinner fa-spin"}))
