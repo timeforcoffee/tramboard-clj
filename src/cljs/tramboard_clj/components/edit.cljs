@@ -10,7 +10,7 @@
             [tramboard-clj.components.location :refer [location-item]]
             [tramboard-clj.components.autocomplete :refer [autocomplete]]))
 
-(defn- edit-input [_ owner {:keys [input-id input-placeholder input-class-name results-class-name container-class-name]}]
+(defn- edit-input [{:keys [location]} owner {:keys [input-id input-placeholder input-class-name results-class-name container-class-name]}]
   (reify
     om/IInitState
     (init-state [_]
@@ -26,9 +26,11 @@
                           (put! add-stop-ch {:stop result})))))))
     om/IRenderState
     (render-state [_ {:keys [result-ch has-input-ch value-ch has-focus-ch]}]
-                  (om/build autocomplete {}
+                  (om/build autocomplete nil
                             {:init-state {:value-ch value-ch
                                           :has-focus-ch has-focus-ch}
+                             :state {:suggestions []
+                                     :value ""}
                              :opts
                              {:suggestions-fn (fn [value suggestions-ch cancel-ch]
                                                 (if (str/blank? value)
@@ -37,7 +39,7 @@
                                                     (put! suggestions-ch []))
                                                   (do
                                                     (put! has-input-ch true)
-                                                    (fetch-suggestions value suggestions-ch cancel-ch identity))))
+                                                    (fetch-suggestions value #(:api location) suggestions-ch cancel-ch identity))))
                               :result-ch      result-ch
                               :result-text-fn (fn [item _] (:name item))
                               :input-opts     {:placeholder    input-placeholder
@@ -77,21 +79,6 @@
                                                                       (put! show-edit-ch true)
                                                                       (.stopPropagation e))}  "add a stop"))))))))
 
-(defn location-picker [{:keys [location locations]} owner]
-  (reify
-    om/IRenderState
-    (render-state [this {:keys [open]}]
-                  (println "test" locations)
-                  (dom/div #js {:className "dropdown-wrapper"}
-                           (dom/div #js {:className "edit-item edit-form-location"}
-                                    (dom/span #js {:className "caret"}) 
-                                    (dom/span #js {:className "edit-form-location-name"} (:short-label location) " "
-                                              (om/build flag {:country (:flag-class location) :label (:short-label location)})))
-                           (apply dom/ul #js {:className "dropdown-results"} 
-                                   (om/build-all location-item locations {:opts {:class-name "dropdown-results-item"
-                                                                                 :use-short-label true}}))))))
-
-
 (defn edit-pane [{:keys [stops location display-credits locations] :as state} owner]
   "This shows the edit pane to add stops and stuff"
   (reify
@@ -108,7 +95,6 @@
                   (wait-on-channel
                     has-focus-ch
                     (fn [has-focus]
-                      (println has-focus)
                       (when-not (or has-focus (om/get-state owner :always-show))
                         (om/set-state! owner :show-edit false))))))
     om/IWillUnmount
@@ -120,22 +106,20 @@
     (did-update [this _ {old-always-show :always-show}]
                 (let [{always-show :always-show} (om/get-state owner)]
                   (when (not= old-always-show always-show)
-                    (if always-show 
+                    (if always-show
                       (om/set-state! owner :show-edit true)
                       (om/set-state! owner :show-edit false)))))
     om/IRenderState
-    (render-state [_ {:keys [has-input-ch buttons-width input-width add-stop-ch remove-stop-ch show-edit-ch show-edit value-ch has-focus-ch]}]
+    (render-state [_ {:keys [has-input-ch buttons-width input-width add-stop-ch remove-stop-ch show-edit-ch location-ch show-edit value-ch has-focus-ch]}]
                   (let [no-stops (= (count stops) 0)]
-                    (dom/div #js {:className "edit-form"}
+                    (dom/div nil
                              (dom/div #js {:className (when no-stops "hidden")}
                                       (om/build edit-stop-heading {:stops stops}
                                                 {:init-state {:show-edit-ch show-edit-ch
                                                               :remove-stop-ch remove-stop-ch}
                                                  :state {:show-edit show-edit}}))
-                             (dom/div #js {:className "edit-form-location-container no-link"}
-                                      (om/build location-picker {:location location :locations locations}))
                              (dom/div #js {:className (str "edit-form-stop-container no-link " (when show-edit "visible"))}
-                                      (om/build edit-input nil
+                                      (om/build edit-input {:location location}
                                                 {:init-state {:add-stop-ch add-stop-ch
                                                               :has-input-ch has-input-ch
                                                               :value-ch value-ch

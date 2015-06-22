@@ -1,7 +1,6 @@
 (ns tramboard-clj.core.views
   (:use [hiccup core page element]
         [tramboard-clj.core.include])
-  (:require [tramboard-clj.core.zvv :as zvv])
   (:import com.newrelic.api.agent.Trace))
 
 (defn- content-page [content]
@@ -16,16 +15,16 @@
             [:meta {:name "viewport" :content "width=device-width, initial-scale=1"}]
             [:meta {:name "language" :content lang}]
             [:meta {:name "og:locale" :content lang}]
-            
+
             [:meta {:name "description" :content description}]
             [:meta {:name "og:description" :content description}]
-            
+
             [:title "Time for Coffee!"]
             [:meta {:name "og:title" :content title}]
             [:meta {:name "og:url" :content "http://www.timeforcoffee.ch/"}]
-            
+
             [:link {:rel "icon" :type "image/png" :href "/favicon.png"}]
-            
+
             (include-css "//netdna.bootstrapcdn.com/bootstrap/3.3.2/css/bootstrap.min.css")
             (include-css "//maxcdn.bootstrapcdn.com/font-awesome/4.3.0/css/font-awesome.min.css")
             (include-css "/css/styles.css")
@@ -63,39 +62,37 @@
       [:h3 {:class "ultra-thin text-center"} "Kristina Bagdonaite" " - web UX"]
       [:h3 {:class "ultra-thin text-center"} [:a {:href "http://twitter.com/chregu"} "Christian Stocker"] " - iOS app & Apple watch programming"]
       [:h3 {:class "ultra-thin text-center"} [:a {:href "http://twitter.com/gabac"} "Cyril Gabathuler"] " - iOS app & Apple watch programming"]
-      
+
       [:h1 {:class "ultra-thin text-center"} "Special Thanks"]
       [:h3 {:class "ultra-thin text-center"} [:a {:href "http://transport.opendata.ch/"} "OpenData Transport API"] " / " [:a {:href "http://www.liip.ch/"} "Liip AG"]]
-      
+
       [:h2 {:class "thin text-center"} [:a {:href "http://twitter.com/time4coffeeApp"} "Get in touch "] " & " [:a {:href "http://github.com/timeforcoffee/"} "contribute!"] ]]]))
 
-
-
-(defn- station* [id]
+(defn- station* [api id]
   {:headers {"Content-Type" "application/json; charset=utf-8"}
-   :body (zvv/station id)})
+   :body ((resolve (symbol (str "tramboard-clj.api." api "/station"))) id)})
 
-(defn- query-stations* [query]
+(defn- query-stations* [api query]
   {:headers {"Content-Type" "application/json; charset=utf-8"}
-   :body (zvv/query-stations query)})
+   :body ((resolve (symbol (str "tramboard-clj.api." api "/query-stations"))) query)})
 
 (definterface INR
   (indexPage     [])
   (aboutPage     [])
-  (station       [id])
-  (queryStations [query]))
+  (station       [api id])
+  (queryStations [api query]))
 
 (deftype NR []
   INR
   ;; @Trace maps to Trace {} metadata:
   (^{Trace {}} indexPage     [_]       (index-page*))
   (^{Trace {}} aboutPage     [_]       (about-page*))
-  (^{Trace {}} station       [_ id]    (station* id))
-  (^{Trace {}} queryStations [_ query] (query-stations* query)))
+  (^{Trace {}} station       [_ api id]    (station* api id))
+  (^{Trace {}} queryStations [_ api query] (query-stations* api query)))
 
 (def ^:private nr (NR.))
 
 (defn index-page     []      (.indexPage nr))
 (defn about-page     []      (.aboutPage nr))
-(defn station        [id]    (.station nr id))
-(defn query-stations [query] (.queryStations nr query))
+(defn station        [api id]    (.station nr api id))
+(defn query-stations [api query] (.queryStations nr api query))

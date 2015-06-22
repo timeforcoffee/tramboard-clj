@@ -25,8 +25,8 @@
 
 (defroutes api-routes
   (context "/api" []
-    (wrap-routes (wrap-routes (GET "/zvv/stationboard/:id{[0-9]+}" [id] (station id)) wrap-json-response) wrap-no-cache)
-    (wrap-routes (wrap-routes (GET "/zvv/stations/:query{.+}" [query] (query-stations query)) wrap-json-response) wrap-no-cache)))
+    (wrap-routes (wrap-routes (GET "/:api/stationboard/:id{.+}" [api id] (station api id)) wrap-json-response) wrap-no-cache)
+    (wrap-routes (wrap-routes (GET "/:api/stations/:query{.+}" [api query] (query-stations api query)) wrap-json-response) wrap-no-cache)))
 
 (defroutes app-routes
   (wrap-routes (GET "/"      [] (index-page)) wrap-cache)

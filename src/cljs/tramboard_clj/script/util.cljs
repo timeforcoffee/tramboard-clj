@@ -1,6 +1,16 @@
 (ns tramboard-clj.script.util
   (:require-macros [cljs.core.async.macros :refer [go]]))
 
+(defonce locations
+  [{:id :ch_zh  :name "Zurich City & Canton" :short-label "Zurich"      :flag-class "ch_zh" :api "zvv" :active true}
+   {:id :ch_ge  :name "Geneva City & Canton" :short-label "Geneva"      :flag-class "ch_ge" :api "gva" :active true}
+   {:id :ch     :name "Rest of Switzerland"  :short-label "Switzerland" :flag-class "ch"    :api "zvv" :active true}])
+
+(defn get-location [location-id]
+  (let [found-locations (filter #(= location-id (:id %)) locations)]
+    (if (empty? found-locations) (get-location :ch) (first found-locations))))
+
+
 (defn wait-on-channel [channel function]
   (go
     (loop []
@@ -10,17 +20,17 @@
         (recur)))))
 
 
-(defn arrival-equal [arrival1 arrival2] 
+(defn arrival-equal [arrival1 arrival2]
   (and (= (:to arrival1) (:to arrival2)) (= (:number arrival1) (:number arrival2))))
 
-(defn- clean-arrival [arrival] 
+(defn- clean-arrival [arrival]
   (select-keys arrival [:to :number :colors :type :sort-string :excluded]))
 
 (defn edit-or-add-destination [destinations arrival]
   (if (set? destinations) (edit-or-add-destination (into [] destinations) arrival)
     (if (empty? destinations) [(clean-arrival arrival)]
-      (let [[head & tail] destinations]  
-        (if (arrival-equal arrival head) 
+      (let [[head & tail] destinations]
+        (if (arrival-equal arrival head)
           (conj tail (merge head (clean-arrival arrival)))
           (conj (edit-or-add-destination tail arrival) head))))))
 

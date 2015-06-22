@@ -5,7 +5,7 @@
             [cljs.core.async :refer [put! chan <! >! close! timeout]])
   (:import [goog.net XhrIo]))
 
-(defn fetch-stationboard-data [stop-id complete-ch error-ch cancel-ch transformation-fn]
+(defn fetch-stationboard-data [stop-id api complete-ch error-ch cancel-ch transformation-fn]
   (let [xhr (XhrIo.)]
     (.setTimeoutInterval xhr 10000)
     (goog.events/listen
@@ -14,13 +14,13 @@
     (goog.events/listen
       xhr goog.net.EventType.ERROR
       (fn [e] (put! error-ch {:stop-id stop-id :data [] :error (.getLastError xhr)})))
-    (.send xhr (str "/api/zvv/stationboard/" stop-id) "GET")
+    (.send xhr (str "/api/" (api) "/stationboard/" stop-id) "GET")
     (go
       (<! cancel-ch)
-      (println "Canceling stationboard call " stop-id) 
+      (println "Canceling stationboard call " stop-id)
       (.abort xhr))))
 
-(defn fetch-suggestions [value suggestions-ch cancel-ch transformation-fn]
+(defn fetch-suggestions [value api suggestions-ch cancel-ch transformation-fn]
   (let [xhr        (XhrIo.)
         abort-chan (chan)]
     ; we introduce some timeout here
@@ -34,7 +34,7 @@
         (goog.events/listen
           xhr goog.net.EventType.ERROR
           (fn [e] (println "ERROR")))
-        (.send xhr (str "/api/zvv/stations/" value) "GET")))
+        (.send xhr (str "/api/" (api) "/stations/" value) "GET")))
     (go
       (<! cancel-ch)
       (do

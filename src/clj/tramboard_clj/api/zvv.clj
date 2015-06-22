@@ -1,4 +1,4 @@
-(ns tramboard-clj.core.zvv
+(ns tramboard-clj.api.zvv
   (:require [cheshire.core :as json]
             [ring.util.codec :as codec]
             [clj-time.core :as t]
@@ -6,17 +6,10 @@
             [clojure.string :as str]
             [org.httpkit.client :as http]))
 
-;(def http-options {:timeout 200             ; ms
-;              :basic-auth ["user" "pass"]
-;              :query-params {:param "value" :param2 ["value1" "value2"]}
-;              :user-agent "User-Agent-string"
-;              :headers {"X-Header" "Value"}})
-
 (def query-stations-base-url        "http://online.fahrplan.zvv.ch/bin/ajax-getstop.exe/dny?start=1&tpl=suggest2json&REQ0JourneyStopsS0A=7&getstop=1&noSession=yes&REQ0JourneyStopsB=25&REQ0JourneyStopsS0G=")
 (def station-base-url               "http://online.fahrplan.zvv.ch/bin/stboard.exe/dn?L=vs_stbzvv&boardType=dep&productsFilter=1:1111111111111111&additionalTime=0&disableEquivs=false&maxJourneys=40&start=yes&monitor=1&requestType=0&view=preview&input=")
 
 (def zvv-timezone (t/time-zone-for-id "Europe/Zurich"))
-
 (def zvv-date-formatter (f/with-zone (f/formatter "dd.MM.yy HH:mm") zvv-timezone))
 
 (defn- zvv-parse-datetime [date time]
@@ -69,8 +62,7 @@
   (let [colors          (vec (remove str/blank? (str/split (zvv-journey "lc") #" ")))
         zvv-date-parser (partial zvv-parse-datetime (zvv-journey "da"))
         departure-name  (sanitize (zvv-journey "pr"))]
-    {;:meta zvv-journey
-     :zvv_id (zvv-journey "id")
+    {:zvv_id (zvv-journey "id")
      :name departure-name
      :type (map-category (zvv-journey "productCategory"))
      :accessible (zvv-journey "isNF")
@@ -81,8 +73,7 @@
                  :realtime (zvv-date-parser (get-in zvv-journey ["rt" "dlt"]))}}))
 
 ; TODO tests (=> capture some data from zvv api)
-(defn transform-station-response [response-body]
-  ;(spit "fixtures/zvv_responses/new.txt" response-body)
+(defn- transform-station-response [response-body]
   (let [unparsed   (clojure.string/replace-first response-body "journeysObj = " "")
         replace-bs (clojure.string/replace (clojure.string/replace unparsed "{label:" "{\"label\":") ",url:" ",\"url\":")
         data       (json/parse-string replace-bs)
@@ -101,7 +92,7 @@
      :name  (zvv-station "value")
      :location {:lat (to-coordinate (zvv-station "ycoord")) :lng (to-coordinate (zvv-station "xcoord"))}}))
 
-(defn transform-query-stations-response [response-body]
+(defn- transform-query-stations-response [response-body]
   (let [unparsed (reduce #(clojure.string/replace-first %1 %2 "") response-body [";SLs.showSuggestion();" "SLs.sls="])
         data     (json/parse-string unparsed)
         stations (data "suggestions")]
@@ -119,14 +110,3 @@
 (defn query-stations [query]
   (let [request-url (str query-stations-base-url (codec/url-encode query))]
     (do-api-call request-url transform-query-stations-response)))
-
-
-; (def fixtures
-;   {:station-8588078 (slurp "fixtures/api_responses/8588078.json")
-;    :central         (slurp "fixtures/api_responses/central.json")})
-
-; (defn station [id]
-;   (:station-8588078 fixtures))
-
-; (defn query-stations [query]
-;   (:central fixtures))

@@ -52,66 +52,50 @@
 	margin-left: 8px;
 }
 
-.edit-form {
-	display: flex;
-	align-items: stretch;
-}
-
 .edit-item {
 	padding-top: 15px;
 	padding-bottom: 15px;
 	border: 1px solid @dark-gray;
 }
 
-.edit-form-location-container, 
-.edit-form-stop-container {
-	flex-flow: row;
-}
-
 .edit-form-location-container {
-	display: flex;
-	border-right: 0;
-	align-items: center;
+	display: inline-block;
 	cursor: pointer;
 
-	.dropdown-wrapper {
-		margin-right: -1px;
+	ul.dropdown-results {
+		text-align: left;
+		width: 290px;
 	}
 
 	li.dropdown-results-item {
-		padding-left: 15px;
+		line-height: 50px;
+		padding: 8px;
 
 		&.highlighted, &:hover {
-			padding-left: 12px;
+			padding-left: 5px;
+		}
+
+		.phoca-flagbox {
+			float: right;
 		}
 	}
 
 }
 
-.edit-form-location {
-	border-right: 0;
-
-	.caret {
-		margin-left: 8px;
-		margin-right: 8px;
-	}
+.edit-form-location-name {
+	padding-left: 4px;
+	padding-right: 4px;
 
 	.phoca-flagbox {
-		width: 16px;
-		height: 16px;
-		bottom: 2px;
+		bottom: 4px;
 	}
-}
 
-.edit-form-location-name {
-	display: inline-block;
-	min-width: 120px;
-	text-align: center;
-	margin-left: -16px;
+	.caret {
+		margin-left: 5px;
+	}
 }
 
 .edit-form-stop-container {
-	flex-grow: 1;
 
 	li.dropdown-results-item {
 		padding-left: 25px;

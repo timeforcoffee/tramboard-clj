@@ -18,20 +18,15 @@
             [tramboard-clj.components.edit :refer [edit-pane]]
             [tramboard-clj.components.util :refer [menu-bar menu-icon slogan flag credits]]
             [tramboard-clj.components.board :refer [arrival-tables-view]]
-            [tramboard-clj.components.location :refer [choose-location-pane]]
+            [tramboard-clj.components.location :refer [choose-location-pane location-picker]]
             [tramboard-clj.script.time :refer [display-time parse-from-date-time format-to-hour-minute minutes-from]]
-            [tramboard-clj.script.util :refer [edit-or-add-destination get-destination init-destinations wait-on-channel ga get-stops-in-order]]
+            [tramboard-clj.script.util :refer [locations get-location edit-or-add-destination get-destination init-destinations wait-on-channel ga get-stops-in-order]]
             [tramboard-clj.script.state :refer [is-home get-state go-home go-edit]])
   (:import goog.History))
 
 ; some global constants here
 (def refresh-rate 10000)
 (def current-version 1)
-
-(defonce locations
-  [{:id :ch_zh  :name "Zurich City & Canton" :short-label "Zurich"      :flag-class "ch_zh" :api "zvv" :active true}
-   {:id :ch_ge  :name "Geneva City & Canton" :short-label "Geneva"      :flag-class "ch_ge" :api "gva" :active true}
-   {:id :ch     :name "Rest of Switzerland"  :short-label "Switzerland" :flag-class "ch"    :api "zvv" :active true}])
 
 ; our initial app state
 (defonce app-state
@@ -41,9 +36,6 @@
          ; navigation state
          :current-state {:state :home :params {}}}))
 
-(defn- get-location [location-id]
-  (let [found-locations (filter #(= location-id (:id %)) locations)]
-    (if (empty? found-locations) (get-location :ch) (first found-locations))))
 
 (defn- uuid [] (str (uuid/make-random)))
 
@@ -69,8 +61,8 @@
   (dissoc (update-in view [:stops]
                      ; we remove :view-id :last-updated from the view and :known-destinations from each stop
                      (fn [stops] (into {}  (map (fn [stop] (vector
-                                                   (key stop)
-                                                   (assoc (val stop) :known-destinations (filter #(:excluded %) (:known-destinations (val stop)))))) stops))))
+                                                             (key stop)
+                                                             (assoc (val stop) :known-destinations (filter #(:excluded %) (:known-destinations (val stop)))))) stops))))
           :view-id :last-updated))
 
 (defn- export-string-from-view [view]
@@ -131,9 +123,12 @@
       (dissoc configured-views view-id)
       configured-views)))
 
-(defn- create-new-view [view]
+(defn- create-view-from-view [view]
   (let [view-id        (uuid)]
     (update-updated-date (into {:view-id view-id} view))))
+
+(defn- create-new-view [location-id]
+  (assoc (create-view-from-view nil) :location-id location-id))
 
 (defn- get-shared-view [shared-view-hash configured-views]
   (let [shared-view (first (filter #(= (:shared-view-hash %) shared-view-hash) (map val configured-views)))]
@@ -147,7 +142,7 @@
                 current-state        (:current-state app)
 
                 shared-view          (get-shared-view shared-view-hash configured-views)
-                view                 (or shared-view (assoc (create-new-view imported-view) :shared-view-hash shared-view-hash))
+                view                 (or shared-view (assoc (create-view-from-view imported-view) :shared-view-hash shared-view-hash))
                 view-id              (:view-id view)
                 ; TODO this is the same as in transact-add-stop, simplify
                 new-configured-views (assoc configured-views view-id view)
@@ -177,7 +172,7 @@
                 current-state        (:current-state app)
                 is-new-view          (is-home current-state)
                 edit-view-id         (:view-id (:params current-state))
-                current-view         (if is-new-view (create-new-view nil) (get configured-views edit-view-id))
+                current-view         (if is-new-view (create-new-view (:location-id app)) (get configured-views edit-view-id))
                 view-id              (:view-id current-view)
                 new-current-state    (go-edit current-state view-id)
                 new-view             (add-stop-and-update-date current-view stop)
@@ -279,13 +274,13 @@
                         share-text            "share this board"
                         on-filter-action      (fn [e]
                                                 (let [edit-filter-mode (om/get-state owner :edit-filter-mode)]
-                                                (if-not edit-filter-mode
-                                                  (ga "send" "event" "filter" "enter")
-                                                  (ga "send" "event" "filter" "exit"))
-                                                (om/update-state! owner #(assoc %
-                                                                           :edit-filter-mode (not edit-filter-mode)
-                                                                           ; we exit the share buttom
-                                                                           :share-input-visible false)))
+                                                  (if-not edit-filter-mode
+                                                    (ga "send" "event" "filter" "enter")
+                                                    (ga "send" "event" "filter" "exit"))
+                                                  (om/update-state! owner #(assoc %
+                                                                             :edit-filter-mode (not edit-filter-mode)
+                                                                             ; we exit the share buttom
+                                                                             :share-input-visible false)))
                                                 (.preventDefault e))
                         on-share-action       (fn [e]
                                                 (.preventDefault e)
@@ -423,12 +418,17 @@
 
 (defn enter-stop-heading [{:keys [location]} owner]
   (reify
-    om/IRender
-    (render [this]
-            (dom/h1 #js {:className "ultra-thin welcome-banner text-center"}
-                    (dom/div nil "Enter any stop in "
-                             (om/build flag {:country (:flag-class location) :label (:short-label location)})
-                             " to get started.")))))
+    om/IRenderState
+    (render-state [this {:keys [location-ch]}]
+                  (dom/h1 #js {:className "ultra-thin welcome-banner text-center"}
+                          (dom/div nil "Enter any stop in "
+
+                                   (dom/div #js {:className "edit-form-location-container"}
+                                            (om/build location-picker
+                                                      {:location location :locations locations}
+                                                      {:init-state {:location-ch location-ch}
+                                                       :state {:open false}}))
+                                   " to get started.")))))
 
 (defn stationboard-pane [{:keys [current-view current-state]} owner]
   (reify
@@ -447,13 +447,13 @@
                                 (let [old-hide-ch (:hide-ch s)
                                       new-hide-ch (chan)]
                                   (when old-hide-ch (close! old-hide-ch))
-                                  
+
                                   (go (when-some [hide (<! new-hide-ch)]
                                                  (when hide (om/set-state! owner :activity :idle))))
 
                                   (go (<! (timeout 1500))
                                       (put! new-hide-ch true))
-                                  
+
                                   (assoc s
                                     :activity :not-idle
                                     :hide-ch new-hide-ch))))))
@@ -532,7 +532,7 @@
                       hide-welcome (om/get-state owner :hide-welcome)]
                   (when (and (not is-home) hide-welcome) (om/set-state! owner :hide-welcome false))))
     om/IRenderState
-    (render-state [this {:keys [add-stop-ch remove-stop-ch has-input-ch value-ch hide-welcome]}]
+    (render-state [this {:keys [add-stop-ch remove-stop-ch has-input-ch value-ch location-ch hide-welcome]}]
                   ; those all depend on the screen that's displayed
                   (let [location         (get-location (:location-id app))
                         current-view     (current-view current-state configured-views)
@@ -556,9 +556,10 @@
                                                              :title title}})
                              (dom/div #js {:className "container-fluid"}
                                       ; TODO review this
-                                      (dom/div #js {:className (str "responsive-display " (when (or hide-welcome (not is-home)) "hidden"))}
-                                               (om/build welcome-banner nil)
-                                               (om/build enter-stop-heading {:location location}))
+                                      (dom/div #js {:className (str "responsive-display " (when-not is-home "hidden"))}
+                                               (dom/div #js {:className (when hide-welcome "hidden")}
+                                                  (om/build welcome-banner nil))
+                                               (om/build enter-stop-heading {:location location} {:init-state {:location-ch location-ch}}))
                                       (om/build edit-pane
                                                 {:stops (get-stops-in-order current-view)
                                                  :display-credits is-home
@@ -581,6 +582,18 @@
 
 (defn choose-location [{:keys [complete-state] :as app} owner]
   (reify
+    om/IRenderState
+    (render-state [this {:keys [location-ch]}]
+                  (dom/div nil
+                           (om/build menu-bar nil {:state {:right-icon nil
+                                                           :left-icon nil
+                                                           :title (dom/div #js {:className "text-middle bold"} "You've got Time for Coffee!")}})
+                           (om/build choose-location-pane
+                                     {:locations locations}
+                                     {:init-state {:location-ch location-ch}})))))
+
+(defn application [app owner]
+  (reify
     om/IInitState
     (init-state [_]
                 {:location-ch (chan)})
@@ -598,24 +611,11 @@
     om/IRenderState
     (render-state [this {:keys [location-ch]}]
                   (dom/div nil
-                           (om/build menu-bar nil {:state {:right-icon nil
-                                                           :left-icon nil
-                                                           :title (dom/div #js {:className "text-middle bold"} "You've got Time for Coffee!")}})
-                           (om/build choose-location-pane
-                                     {:locations locations}
-                                     {:init-state {:location-ch location-ch}})))))
-
-(defn application [app-state owner]
-  (reify
-    om/IRender
-    (render [this]
-            (println app-state)
-            (dom/div nil
-                     (let [new-visitor (:new-visitor app-state)]
-                       (if new-visitor
-                         (om/build choose-location app-state)
-                         (om/build stationboard app-state)))
-                     (dom/footer #js {:className "text-center"} (om/build credits nil))))))
+                           (let [new-visitor (:new-visitor app)]
+                             (if new-visitor
+                               (om/build choose-location app {:init-state {:location-ch location-ch}})
+                               (om/build stationboard app {:init-state {:location-ch location-ch}})))
+                           (dom/footer #js {:className "text-center"} (om/build credits nil))))))
 
 (defn hook-browser-navigation! []
   (doto (History.)

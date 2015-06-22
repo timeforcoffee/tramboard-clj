@@ -6,7 +6,7 @@
             [cljs-time.core :refer [now]]
             [cljs.core.async :refer [put! chan <! >! close! timeout]]
             [tramboard-clj.components.icon :refer [number-icon transport-icon]]
-            [tramboard-clj.script.util :refer [edit-or-add-destination get-destination init-destinations wait-on-channel ga]]
+            [tramboard-clj.script.util :refer [get-location edit-or-add-destination get-destination init-destinations wait-on-channel ga]]
             [tramboard-clj.script.client :refer [fetch-stationboard-data]]
             [tramboard-clj.script.util :refer [wait-on-channel]]))
 
@@ -22,10 +22,10 @@
     new-station-data))
 
 (defn- keep-non-excluded [number acc data]
-  (if 
+  (if
     (or (empty? data) (= number 0)) acc
     (let [[head & tail] data]
-      (if (:excluded head) 
+      (if (:excluded head)
         (keep-non-excluded number (conj acc head) tail)
         (keep-non-excluded (- number 1) (conj acc head) tail)))))
 
@@ -58,7 +58,7 @@
     om/IRender
     (render [this]
             (println "Rendering row")
-            
+
             (let [type        (:type arrival)
                   in-minutes  (:in-minutes arrival)
                   number      (:number arrival)
@@ -90,7 +90,7 @@
 
 (defn arrival-tables-view [{:keys [current-view]} owner {:keys [refresh-rate transform-stationboard-data]}]
   "Takes as input a set of views (station id) and the size of the pane and renders the table views."
-  
+
   (reify
     om/IInitState
     (init-state [_]
@@ -107,9 +107,9 @@
                             station-data (:station-data state)]
                         (when (not= stop-ids (set (keys station-data)))
                           (println (str "Initializing arrival tables with stops: " stop-ids))
-                          ; we ask the channel to fetch the new data                              
+                          ; we ask the channel to fetch the new data
                           (om/update-state! owner #(assoc % :station-data (merge-station-data-and-set-loading station-data stop-ids)))
-                          
+
                           (let [old-arrival-channels  (:arrival-channels state)
                                 old-cancel-ch         (:cancel-ch old-arrival-channels)
                                 old-incoming-ch       (:incoming-ch old-arrival-channels)
@@ -120,17 +120,17 @@
                             (when old-cancel-ch   (close! old-cancel-ch))
                             (when old-incoming-ch (close! old-incoming-ch))
                             (when old-fetch-ch    (close! old-fetch-ch))
-                            
+
                             (om/update-state!
                               owner
                               (fn [state]
-                                ; we ask the channel to fetch the new data                              
+                                ; we ask the channel to fetch the new data
                                 (update-in state [:arrival-channels]
                                            #(assoc %
                                               :incoming-ch new-incoming-ch
                                               :cancel-ch   new-cancel-ch
                                               :fetch-ch    new-fetch-ch))))
-                            
+
                             ; we initialize the incoming channel loop
                             (wait-on-channel
                               new-incoming-ch
@@ -138,7 +138,7 @@
                                 (let [{:keys [data stop-id error]} output
                                       station-data                 (om/get-state owner :station-data)]
                                   (println (str "Received data for stop: " stop-id))
-                                  
+
                                   ; we just validate here the stop id
                                   (if (and (not error) stop-id (get station-data stop-id))
                                     (do
@@ -158,29 +158,30 @@
                               new-fetch-ch
                               (fn [stop-id]
                                 (println (str "Received fetch message for stop: " stop-id))
-                                (fetch-stationboard-data stop-id new-incoming-ch
-                                                         new-incoming-ch new-cancel-ch
+                                (fetch-stationboard-data stop-id
+                                                         #(:api (get-location (:location-id current-view)))
+                                                         new-incoming-ch new-incoming-ch new-cancel-ch
                                                          transform-stationboard-data)
                                 (go (<! (timeout refresh-rate))
                                     (println (str "Putting onto fetch channel: " stop-id))
                                     (put! new-fetch-ch stop-id))))
-                            
+
                             (ga "send" "event" "stop" "start-query" {:dimension1 (str/join "," stop-ids) :dimension2 (str (count stop-ids))})
                             (doseq [stop-id stop-ids]
                               (println (str "Initializing fetch loop for: " stop-id))
                               (put! new-fetch-ch stop-id)))))))
-                  
-                  (wait-on-channel 
+
+                  (wait-on-channel
                     analytics-ch
                     (fn [stop-ids]
                       (println "Sending data to GA" stop-ids)
                       (ga "send" "event" "view" "idle" {:dimension1 (str/join "," stop-ids) :dimension2 (str (count stop-ids)) "nonInteraction" 1})))
-                  
+
                   (println (str "Initializing on WillMount"))
                   (put! view-change-ch (set (keys (:stops current-view))))
-                  
-                  (go 
-                    (loop [] 
+
+                  (go
+                    (loop []
                       (<! (timeout analytics-refresh-rate))
                       (put! analytics-ch (keys (om/get-state owner :station-data)))
                       (recur)))))
@@ -202,12 +203,12 @@
                       (when fetch-ch (close! fetch-ch)))))
     om/IRenderState
     (render-state [this {:keys [station-data add-filter-ch]}]
-                  
+
                   (let [arrivals     (arrivals-from-station-data station-data current-view)
                         all-excluded (all-excluded arrivals)
                         loading      (are-all-loading station-data)
                         error        (are-all-error-or-empty station-data)]
-                    (println "Rendering arrival table")                      
+                    (println "Rendering arrival table")
                     (dom/div #js {:className "responsive-display board-table"}
                              (dom/div #js {:className (str "text-center ultra-thin loading " (when-not loading "hidden"))} "Your departures are loading...")
                              (dom/div #js {:className (str "text-center ultra-thin loading " (when (or (not error) loading) "hidden"))} "Sorry, no departures are available at this time...")
