@@ -8,7 +8,9 @@
 (def query-stations-base-url        "http://rtpi.data.tpg.ch/v1/GetStops?key=21a25080-9bbc-11e4-bc99-0002a5d5c51b&stopName=")
 (def station-base-url               "http://rtpi.data.tpg.ch/v1/GetNextDepartures?key=21a25080-9bbc-11e4-bc99-0002a5d5c51b&stopCode=")
 
+(def line-colors-fetched (atom false))
 (def line-colors-url "http://rtpi.data.tpg.ch/v1/GetLinesColors?key=21a25080-9bbc-11e4-bc99-0002a5d5c51b")
+(def line-colors (promise))
 
 (def gva-timezone (t/time-zone-for-id "Europe/Zurich"))
 (def gva-date-formatter (f/with-zone (f/formatter "yyyy-MM-dd'T'HH:mm:ssZ") gva-timezone))
@@ -18,50 +20,30 @@
     nil
     (str (f/parse gva-date-formatter timestamp))))
 
-; (defn- map-category [text]
-;   (case text
-;     "Trm-NF" "tram"
-;     "Trm"    "tram"
-;     "Tro"    "tram"
-;     "M"      "subway"
-;     "Bus"    "bus"
-;     "Bus-NF" "bus"
-;     "KB"     "bus"
-;     "ICB"    "bus"
-;     "N"      "bus"
-;     "S"      "s-train"
-;     "ICN"    "train"
-;     "IC"     "train"
-;     "IR"     "train"
-;     "RE"     "train"
-;     "R"      "train"
-;     "EC"     "train"
-;     "TER"    "train"
-;     "ICE"    "train"
-;     "BEX"    "train"
-;     "SLB"    "train"
-;     "LSB"    "train"
-;     "D"      "train"
-;     "VAE"    "train"
-;     "ATZ"    "train"
-;     "TGV"    "train"
-;     "RB"     "train"
-;     "TX"     "taxi"
-;     "Schiff" "boat"
-;     "Fun"    "rack-train"
-;     "GB"     "cable-car"
+(def black-line-codes #{"Z" "F" "G" "Y" "D" "Dn" "M" "K" "T" "O" "19" "61" "12" "28" "4" "6" "34" "45" "43" "42" "53" "57" "72"})
 
-;     "train"))
+(defn- map-category [text]
+  (case text
+    "ABA" "bus"
+    "TW7" "tram"
+    "TW6" "tram"
+    "TBA" "bus"
+    "train"))
+
+(defn- get-color [line-code]
+  (get (deref line-colors) line-code))
 
 (defn- gva-departure [gva-journey]
-  (let [timestamp (gva-parse-datetime (gva-journey "timestamp"))]
-  {:type "train"
-   :name ((gva-journey "line") "lineCode")
-   :accessible (= (gva-journey "characteristics") "PMR")
-   :colors nil
-   :to ((gva-journey "line") "destinationName")
-   :departure {:scheduled timestamp
-               :realtime timestamp}}))
+  (let [timestamp  (gva-parse-datetime (gva-journey "timestamp"))
+        line-code  ((gva-journey "line") "lineCode")
+        line-color (get-color line-code)]
+    {:type (map-category (gva-journey "vehiculeType"))
+     :name line-code
+     :accessible (= (gva-journey "characteristics") "PMR")
+     :colors {:fg (if (contains? black-line-codes line-code) "#000000" "#FFFFFF") :bg line-color}
+     :to ((gva-journey "line") "destinationName")
+     :departure {:scheduled timestamp
+                 :realtime timestamp}}))
 
 ; TODO tests (=> capture some data from zvv api)
 (defn- transform-station-response [response-body]
@@ -73,10 +55,6 @@
             :station_name (station "stopName")}
      :departures (map gva-departure (remove #(= (% "waitingTime") "no more") journeys))}
     ))
-
-; (defn- to-coordinate [string]
-;   (if (nil? string) nil
-;     (double (/ (read-string string) 1000000))))
 
 (defn- gva-station [gva-station]
   {:id    (gva-station "stopCode")
@@ -94,6 +72,16 @@
 
 (defn station [id]
   (let [request-url (str station-base-url id)]
+    (when (compare-and-set! line-colors-fetched false true)
+      (http/get line-colors-url 
+                {}
+                (fn [{:keys [status headers body error]}] 
+                  (if error
+                    (println "Failed, exception is " error)
+                    (let [data        (json/parse-string body)
+                          colors      (data "colors")
+                          colors-map  (into {} (map #(vector (% "lineCode") (str "#" (% "hexa"))) colors))]
+                      (deliver line-colors colors-map))))))
     (do-api-call request-url transform-station-response)))
 
 (defn query-stations [query]
