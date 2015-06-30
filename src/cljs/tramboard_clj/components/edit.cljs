@@ -59,7 +59,7 @@
                                 :aria-label (str "remove " name)
                                 :onClick on-click} name)))))
 
-(defn edit-stop-heading [{:keys [stops]} owner]
+(defn edit-stop-heading [{:keys [stops location]} owner]
   "This displays all the links"
   (reify
     om/IRenderState
@@ -77,7 +77,7 @@
                                                            :htmlFor "stopInput"
                                                            :onClick (fn [e]
                                                                       (put! show-edit-ch true)
-                                                                      (.stopPropagation e))}  "add a stop"))))))))
+                                                                      (.stopPropagation e))}  "add a stop in "(om/build flag {:country (:flag-class location) :label (:name location)})))))))))
 
 (defn edit-pane [{:keys [stops location display-credits locations] :as state} owner]
   "This shows the edit pane to add stops and stuff"
@@ -114,7 +114,7 @@
                   (let [no-stops (= (count stops) 0)]
                     (dom/div nil
                              (dom/div #js {:className (when no-stops "hidden")}
-                                      (om/build edit-stop-heading {:stops stops}
+                                      (om/build edit-stop-heading {:stops stops :location location}
                                                 {:init-state {:show-edit-ch show-edit-ch
                                                               :remove-stop-ch remove-stop-ch}
                                                  :state {:show-edit show-edit}}))

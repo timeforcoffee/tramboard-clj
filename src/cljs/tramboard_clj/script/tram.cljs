@@ -16,7 +16,7 @@
             [tramboard-clj.components.icon :refer [number-icon transport-icon]]
             [tramboard-clj.components.filter :refer [c-filter-editor]]
             [tramboard-clj.components.edit :refer [edit-pane]]
-            [tramboard-clj.components.util :refer [menu-bar menu-icon slogan flag credits]]
+            [tramboard-clj.components.util :refer [menu-bar menu-icon slogan credits]]
             [tramboard-clj.components.board :refer [arrival-tables-view]]
             [tramboard-clj.components.location :refer [choose-location-pane location-picker]]
             [tramboard-clj.script.time :refer [display-time parse-from-date-time format-to-hour-minute minutes-from]]
@@ -587,7 +587,7 @@
                   (dom/div nil
                            (om/build menu-bar nil {:state {:right-icon nil
                                                            :left-icon nil
-                                                           :title (dom/div #js {:className "text-middle bold"} "You've got Time for Coffee!")}})
+                                                           :title (build-title-home)}})
                            (om/build choose-location-pane
                                      {:locations locations}
                                      {:init-state {:location-ch location-ch}})))))

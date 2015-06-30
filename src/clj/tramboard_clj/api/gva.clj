@@ -28,7 +28,7 @@
     "TW7" "tram"
     "TW6" "tram"
     "TBA" "bus"
-    "train"))
+    "bus"))
 
 (defn- get-color [line-code]
   (get (deref line-colors) line-code))
@@ -70,6 +70,7 @@
   (let [response    (http/get url)]
     (transform-fn (:body @response))))
 
+; TODO error handling
 (defn station [id]
   (let [request-url (str station-base-url id)]
     (when (compare-and-set! line-colors-fetched false true)
