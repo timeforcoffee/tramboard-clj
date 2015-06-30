@@ -536,6 +536,7 @@
                   ; those all depend on the screen that's displayed
                   (let [location         (get-location (:location-id app))
                         current-view     (current-view current-state configured-views)
+                        view-location    (get-location (:location-id current-view))
                         recent-views     (get-recent-board-views configured-views)
                         display          (:display (:params current-state))
                         is-home          (is-home current-state)
@@ -563,7 +564,7 @@
                                       (om/build edit-pane
                                                 {:stops (get-stops-in-order current-view)
                                                  :display-credits is-home
-                                                 :location location
+                                                 :location (if (nil? current-view) location view-location)
                                                  :locations locations}
                                                 {:init-state {:add-stop-ch add-stop-ch
                                                               :remove-stop-ch remove-stop-ch
