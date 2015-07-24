@@ -35,15 +35,18 @@ Alternatively you can use figwheel. That will run `cljsbuild auto` and refresh t
 
 ### Compile Less
 
-To compile the Less files, run:
+To compile and watch the Less files, run:
 
-    lein less once
-
-If you want to continuously deploy the changes, use:
-
-    lein less auto
+    lein gulp
 
 If `lein figwheel` is running at the same time, the CSS changes will be automatically reloaded by the browser.
+
+## Developer kick-start
+
+If you want to develop locally, you just need to run those 2 commands (in separate terminal windows):
+
+    lein ring serer
+    lein develop
 
 ## Production server setup
 
