@@ -45,7 +45,7 @@ If `lein figwheel` is running at the same time, the CSS changes will be automati
 
 If you want to develop locally, you just need to run those 2 commands (in separate terminal windows):
 
-    lein ring serer
+    lein ring server
     lein develop
 
 ## Production server setup
