@@ -14,6 +14,7 @@
                  [org.clojure/clojure "1.7.0-beta3"]
                  [org.clojure/clojurescript "0.0-3269"]
                  [org.clojure/core.async "0.1.346.0-17112a-alpha"]
+                 [clojure-tools "1.1.3"]
                  [org.omcljs/om "0.8.8"]
                  [ring/ring-defaults "0.1.2"]
                  [ring/ring-jetty-adapter "1.2.1"]

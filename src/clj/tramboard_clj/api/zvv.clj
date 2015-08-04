@@ -4,18 +4,14 @@
             [clj-time.core :as t]
             [clj-time.format :as f]
             [clojure.string :as str]
-            [org.httpkit.client :as http]))
+            [org.httpkit.client :as http]
+            [clojure.tools.html-utils :as html]))
 
-(def query-stations-base-url        "http://online.fahrplan.zvv.ch/bin/ajax-getstop.exe/dny?start=1&tpl=suggest2json&REQ0JourneyStopsS0A=7&getstop=1&noSession=yes&REQ0JourneyStopsB=25&REQ0JourneyStopsS0G=")
-(def station-base-url               "http://online.fahrplan.zvv.ch/bin/stboard.exe/dn?L=vs_stbzvv&boardType=dep&productsFilter=1:1111111111111111&additionalTime=0&disableEquivs=false&maxJourneys=40&start=yes&monitor=1&requestType=0&view=preview&input=")
+(def query-stations-base-url "http://online.fahrplan.zvv.ch/bin/ajax-getstop.exe/dny?start=1&tpl=suggest2json&REQ0JourneyStopsS0A=7&getstop=1&noSession=yes&REQ0JourneyStopsB=25&REQ0JourneyStopsS0G=")
+(def station-base-url        "http://online.fahrplan.zvv.ch/bin/stboard.exe/dny?dirInput=&maxJourneys=10&boardType=dep&start=1&tpl=stbResult2json&input=")
 
 (def zvv-timezone (t/time-zone-for-id "Europe/Zurich"))
 (def zvv-date-formatter (f/with-zone (f/formatter "dd.MM.yy HH:mm") zvv-timezone))
-
-(defn- zvv-parse-datetime [date time]
-  (if (nil? time)
-    nil
-    (str (f/parse zvv-date-formatter (str date " " time)))))
 
 (defn- sanitize [text]
   (reduce #(str/replace %1 (%2 0) (%2 1))
@@ -57,30 +53,33 @@
 
     "train"))
 
+(defn- zvv-date [input]
+  (str/trim (str (input "date")
+                 " "
+                 (input "time"))))
+
 ; TODO add 1 day to realtime if it is smaller than scheduled (scheduled 23h59 + 3min delay ...)
 (defn- zvv-departure [zvv-journey]
-  (let [colors          (vec (remove str/blank? (str/split (zvv-journey "lc") #" ")))
-        zvv-date-parser (partial zvv-parse-datetime (zvv-journey "da"))
-        departure-name  (sanitize (zvv-journey "pr"))]
-    {:zvv_id (zvv-journey "id")
-     :name departure-name
-     :type (map-category (zvv-journey "productCategory"))
-     :accessible (zvv-journey "isNF")
-     :colors {:fg (when (> (count colors) 0) (str "#" (colors 0)))
-              :bg (when (> (count colors) 1) (str "#" (colors 1)))}
-     :to (str/trim (zvv-journey "st"))
-     :departure {:scheduled (zvv-date-parser (zvv-journey "ti"))
-                 :realtime (zvv-date-parser (get-in zvv-journey ["rt" "dlt"]))}}))
+  (let [product         (zvv-journey "product")
+        main-location   (zvv-journey "mainLocation")
+        color           (product "color")]
+
+    {:name (sanitize (product "line"))
+     ;:type (map-category (zvv-journey "productCategory"))
+     ;:accessible (zvv-journey "isNF")
+     :colors {:fg (str "#" (color "fg"))
+              :bg (str "#" (color "bg"))}
+     :to (html/xml-decode (product "direction"))
+     :departure {:scheduled (str (f/parse zvv-date-formatter (zvv-date main-location)))
+                 :realtime (str (f/parse zvv-date-formatter (zvv-date (main-location "realTime"))))}}))
 
 ; TODO tests (=> capture some data from zvv api)
-(defn- transform-station-response [response-body]
-  (let [unparsed   (clojure.string/replace-first response-body "journeysObj = " "")
-        replace-bs (clojure.string/replace (clojure.string/replace unparsed "{label:" "{\"label\":") ",url:" ",\"url\":")
-        data       (json/parse-string replace-bs)
-        journeys   (data "journey")]
-    {:meta {:station_id (data "stationEvaId")
-            :station_name (data "stationName")}
-     :departures (map zvv-departure journeys)}))
+(defn- transform-station-response [id]
+  (fn [response-body]
+    (let [data        (json/parse-string response-body)]
+      {:meta {:station_id   id
+              :station_name (data ["station" "name"])}
+       :departures (map zvv-departure (data "connections"))})))
 
 (defn- to-coordinate [string]
   (if (nil? string) nil
@@ -105,7 +104,7 @@
 
 (defn station [id]
   (let [request-url (str station-base-url id)]
-    (do-api-call request-url transform-station-response)))
+    (do-api-call request-url (transform-station-response id))))
 
 (defn query-stations [query]
   (let [request-url (str query-stations-base-url (codec/url-encode query))]
