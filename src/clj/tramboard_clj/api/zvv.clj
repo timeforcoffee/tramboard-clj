@@ -8,7 +8,7 @@
             [clojure.tools.html-utils :as html]))
 
 (def query-stations-base-url "http://online.fahrplan.zvv.ch/bin/ajax-getstop.exe/dny?start=1&tpl=suggest2json&REQ0JourneyStopsS0A=7&getstop=1&noSession=yes&REQ0JourneyStopsB=25&REQ0JourneyStopsS0G=")
-(def station-base-url        "http://online.fahrplan.zvv.ch/bin/stboard.exe/dny?dirInput=&maxJourneys=10&boardType=dep&start=1&tpl=stbResult2json&input=")
+(def station-base-url        "http://online.fahrplan.zvv.ch/bin/stboard.exe/dny?dirInput=&maxJourneys=100&boardType=dep&start=1&tpl=stbResult2json&input=")
 
 (def zvv-timezone (t/time-zone-for-id "Europe/Zurich"))
 (def zvv-date-formatter (f/with-zone (f/formatter "dd.MM.yy HH:mm") zvv-timezone))
@@ -53,25 +53,29 @@
 
     "train"))
 
+(defn- format-date [date time]
+  (str (f/parse zvv-date-formatter (str date " " time))))
+
 (defn- zvv-date [input]
-  (str/trim (str (input "date")
-                 " "
-                 (input "time"))))
+  (let [date (input "date")
+        time (input "time")]
+    (when (not (or (empty? date) (empty? time)))
+      (format-date date time))))
 
 ; TODO add 1 day to realtime if it is smaller than scheduled (scheduled 23h59 + 3min delay ...)
 (defn- zvv-departure [zvv-journey]
   (let [product         (zvv-journey "product")
         main-location   (zvv-journey "mainLocation")
-        color           (product "color")]
-
-    {:name (sanitize (product "line"))
+        color           (product "color")
+        line            (or (product "line") (product "name"))]
+    {:name (sanitize line)
      ;:type (map-category (zvv-journey "productCategory"))
      ;:accessible (zvv-journey "isNF")
      :colors {:fg (str "#" (color "fg"))
               :bg (str "#" (color "bg"))}
      :to (html/xml-decode (product "direction"))
-     :departure {:scheduled (str (f/parse zvv-date-formatter (zvv-date main-location)))
-                 :realtime (str (f/parse zvv-date-formatter (zvv-date (main-location "realTime"))))}}))
+     :departure {:scheduled (zvv-date main-location)
+                 :realtime (zvv-date (main-location "realTime"))}}))
 
 ; TODO tests (=> capture some data from zvv api)
 (defn- transform-station-response [id]
