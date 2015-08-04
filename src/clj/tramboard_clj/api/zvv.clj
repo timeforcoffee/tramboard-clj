@@ -20,36 +20,15 @@
 
 (defn- map-category [text]
   (case text
-    "Trm-NF" "tram"
-    "Trm"    "tram"
-    "Tro"    "tram"
-    "M"      "subway"
-    "Bus"    "bus"
-    "Bus-NF" "bus"
-    "KB"     "bus"
-    "ICB"    "bus"
-    "N"      "bus"
-    "S"      "s-train"
-    "ICN"    "train"
-    "IC"     "train"
-    "IR"     "train"
-    "RE"     "train"
-    "R"      "train"
-    "EC"     "train"
-    "TER"    "train"
-    "ICE"    "train"
-    "BEX"    "train"
-    "SLB"    "train"
-    "LSB"    "train"
-    "D"      "train"
-    "VAE"    "train"
-    "ATZ"    "train"
-    "TGV"    "train"
-    "RB"     "train"
-    "TX"     "taxi"
-    "Schiff" "boat"
-    "Fun"    "rack-train"
-    "GB"     "cable-car"
+    "icon_tram"  "tram"
+    "icon_train" "train"
+    "icon_bus"   "bus"
+    "icon_boar"  "boat"
+
+    ;"M"      "subway"
+    ;"TX"     "taxi"
+    ;"Fun"    "rack-train"
+    ;"GB"     "cable-car"
 
     "train"))
 
@@ -67,10 +46,11 @@
   (let [product         (zvv-journey "product")
         main-location   (zvv-journey "mainLocation")
         color           (product "color")
-        line            (or (product "line") (product "name"))]
+        line            (or (product "line") (product "name"))
+        attributes-bfr  (zvv-journey "attributes_bfr")]
     {:name (sanitize line)
-     ;:type (map-category (zvv-journey "productCategory"))
-     ;:accessible (zvv-journey "isNF")
+     :type (map-category (product "icon"))
+     :accessible (not (empty? (filter #(contains? #{"6" "9"} (% "code")) attributes-bfr)))
      :colors {:fg (str "#" (color "fg"))
               :bg (str "#" (color "bg"))}
      :to (html/xml-decode (product "direction"))
