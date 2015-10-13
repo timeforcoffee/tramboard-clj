@@ -230,13 +230,14 @@
                  is-realtime         (:realtime (:departure entry))
                  realtime-departure  (or (:realtime (:departure entry)) scheduled-departure)
                  departure-timestamp (parse-from-date-time realtime-departure)
-                 now                 (now)]
+                 now                 (now)
+                 name                (:name entry)]
              {:departure-timestamp departure-timestamp
               :colors              (:colors entry)
               :type                (:type entry)
               :accessible          (:accessible entry)
-              :number              (:name entry)
-              :sort-string         (cap (:name entry) 20 "0")
+              :number              name
+              :sort-string         (cap (subs name 1 21) 20 "0")
               :to                  (:to entry)
               :in-minutes          (minutes-from departure-timestamp now)
               :time                (format-to-hour-minute departure-timestamp)
