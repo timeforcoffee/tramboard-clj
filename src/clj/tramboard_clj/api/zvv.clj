@@ -47,6 +47,7 @@
         main-location   (zvv-journey "mainLocation")
         color           (product "color")
         line            (or (product "line") (product "name"))
+        platform        (main-location "platform")
         attributes-bfr  (zvv-journey "attributes_bfr")]
     {:name (sanitize line)
      :type (map-category (product "icon"))
@@ -54,6 +55,7 @@
      :colors {:fg (str "#" (color "fg"))
               :bg (str "#" (color "bg"))}
      :to (html/xml-decode (product "direction"))
+     :platform (if (= platform "") nil platform)
      :departure {:scheduled (zvv-date main-location)
                  :realtime (zvv-date (main-location "realTime"))}}))
 
