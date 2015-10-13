@@ -50,6 +50,7 @@
      :accessible false
      :colors {:fg "#000000" :bg "#FFFFFF"}
      :to (xml1-> vbl-journey :m :des text)
+     :platform (xml1-> vbl-journey :r :pl text)
      :departure {:scheduled timestamp
                  :realtime timestamprt}}))
 
