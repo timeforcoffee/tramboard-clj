@@ -2,7 +2,9 @@
   (:use [hiccup core page element]
         [tramboard-clj.core.include])
   (:require [tramboard-clj.api.gva]
-            [tramboard-clj.api.zvv])
+            [tramboard-clj.api.zvv]
+            [tramboard-clj.api.vbl]
+            )
   (:import com.newrelic.api.agent.Trace))
 
 (defn- content-page [content]
