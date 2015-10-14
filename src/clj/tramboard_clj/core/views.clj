@@ -4,6 +4,10 @@
   (:require [tramboard-clj.api.gva]
             [tramboard-clj.api.zvv]
             [tramboard-clj.api.vbl]
+            [tramboard-clj.api.bvb]
+            [tramboard-clj.api.blt]
+            [tramboard-clj.api.ostwind]
+
             )
   (:import com.newrelic.api.agent.Trace))
 

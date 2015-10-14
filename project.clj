@@ -24,15 +24,19 @@
                  [bk/ring-gzip "0.1.1"]
                  [secretary "1.2.3"]
                  [org.clojure/data.zip "0.1.1"]
+                 [clj-luhn "0.1.3"]
                  [org.clojars.jws/ring-etag-middleware "0.1.2-SNAPSHOT"]
                  [com.newrelic.agent.java/newrelic-api "3.13.0"]]
 
   :plugins [[lein-cljsbuild "1.0.4"]
+            [lein-less "1.7.5"]
             [lein-shell "0.4.0"]]
 
   :uberjar-name "tramboard-clj.jar"
   :source-paths ["src/clj"]
   :cljsbuild {:builds {:app {:source-paths ["src/cljs"]}}}
+  :less {:source-paths ["src/less"]
+         :target-path "resources/public/css"}
 
   :profiles {:dev {:source-paths ["env/dev/src/clj"]
                    :dependencies [[figwheel-sidecar "0.3.3"]
