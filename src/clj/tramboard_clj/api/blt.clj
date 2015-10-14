@@ -60,6 +60,7 @@
 (defn- map-category [text]
   (case text
     "NFB"  "bus"
+    "NFT"  "tram"
     "train"))
 
 (defn- format-date [date time]
