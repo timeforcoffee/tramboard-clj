@@ -72,13 +72,16 @@
 
       [:h2 {:class "thin text-center"} [:a {:href "http://twitter.com/time4coffeeApp"} "Get in touch "] " & " [:a {:href "http://github.com/timeforcoffee/"} "contribute!"] ]]]))
 
+(defn- apikey-lookup [api]
+     (if (= api "all") "zvv" api))
+
 (defn- station* [api id]
-  (let [apikey (if (= api "all") "zvv" api)]
+  (let [apikey (apikey-lookup api)]
   {:headers {"Content-Type" "application/json; charset=utf-8"}
    :body ((resolve (symbol (str "tramboard-clj.api." apikey "/station"))) id)}))
 
 (defn- query-stations* [api query]
-  (let [apikey (if (= api "all") "zvv" api)]
+  (let [apikey (apikey-lookup api)]
   {:headers {"Content-Type" "application/json; charset=utf-8"}
    :body ((resolve (symbol (str "tramboard-clj.api." apikey "/query-stations"))) query)}))
 
