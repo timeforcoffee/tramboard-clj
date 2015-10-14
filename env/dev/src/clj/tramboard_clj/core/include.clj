@@ -1,5 +1,6 @@
 (ns tramboard-clj.core.include
-  (:use [hiccup core page element]))
+  (:require [hiccup.page :refer [include-js]]
+            [hiccup.element :refer [javascript-tag]]))
 
 (defn include-javascript []
   [(include-js "out/goog/base.js")

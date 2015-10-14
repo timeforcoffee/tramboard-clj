@@ -1,8 +1,10 @@
 (ns tramboard-clj.core.views
-  (:use [hiccup core page element]
-        [tramboard-clj.core.include])
   (:require [tramboard-clj.api.gva]
-            [tramboard-clj.api.zvv])
+            [tramboard-clj.api.zvv]
+            [tramboard-clj.api.ldn]
+            [tramboard-clj.core.include :refer [include-javascript]]
+            [hiccup.page :refer [html5 include-css]]
+            [hiccup.element :refer [javascript-tag]])
   (:import com.newrelic.api.agent.Trace))
 
 (defn- content-page [content]

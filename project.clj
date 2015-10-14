@@ -1,6 +1,6 @@
 (defproject tramboard-clj "0.1.0-SNAPSHOT"
-  :description "FIXME: write description"
-  :url "http://example.com/FIXME"
+  :description "Time for Coffee!"
+  :url "http://github.com/timeforcoffee/tramboard-clj"
   :min-lein-version "2.0.0"
 
   :dependencies [[cljs-uuid "0.0.4"]

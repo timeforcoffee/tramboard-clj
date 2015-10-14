@@ -4,7 +4,8 @@
 (defonce locations
   [{:id :ch_zh  :name "Zurich City & Canton" :short-label "Zurich"      :flag-class "ch_zh" :api "zvv" :active true}
    {:id :ch_ge  :name "Geneva City & Canton" :short-label "Geneva"      :flag-class "ch_ge" :api "gva" :active true}
-   {:id :ch     :name "Rest of Switzerland"  :short-label "Switzerland" :flag-class "ch"    :api "zvv" :active true}])
+   {:id :ch     :name "Rest of Switzerland"  :short-label "Switzerland" :flag-class "ch"    :api "zvv" :active true}
+   {:id :ldn     :name "City of London"      :short-label "London"      :flag-class "ldn"   :api "ldn" :active true}])
 
 (defn get-location [location-id]
   (let [found-locations (filter #(= location-id (:id %)) locations)]

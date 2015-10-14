@@ -1,6 +1,6 @@
 (ns tramboard-clj.core.zvv-tests
-  (:use midje.sweet)
-  (:require [tramboard-clj.core.zvv :as zvv]))
+  (:require [tramboard-clj.api.zvv :as zvv]
+            [midje.sweet :refer [facts fact contains just]]))
 
 (def fixtures
   {:central_2228   (slurp "fixtures/zvv_responses/central_2228.txt")

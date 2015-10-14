@@ -73,7 +73,7 @@
                  :realtime (zvv-date-parser (get-in zvv-journey ["rt" "dlt"]))}}))
 
 ; TODO tests (=> capture some data from zvv api)
-(defn- transform-station-response [response-body]
+(defn transform-station-response [response-body]
   (let [unparsed   (clojure.string/replace-first response-body "journeysObj = " "")
         replace-bs (clojure.string/replace (clojure.string/replace unparsed "{label:" "{\"label\":") ",url:" ",\"url\":")
         data       (json/parse-string replace-bs)
@@ -92,7 +92,7 @@
      :name  (zvv-station "value")
      :location {:lat (to-coordinate (zvv-station "ycoord")) :lng (to-coordinate (zvv-station "xcoord"))}}))
 
-(defn- transform-query-stations-response [response-body]
+(defn transform-query-stations-response [response-body]
   (let [unparsed (reduce #(clojure.string/replace-first %1 %2 "") response-body [";SLs.showSuggestion();" "SLs.sls="])
         data     (json/parse-string unparsed)
         stations (data "suggestions")]

@@ -31,7 +31,7 @@
     "bus"))
 
 (defn- get-color [line-code]
-  (get (deref line-colors) line-code))
+  (get (deref line-colors) line-code)) 
 
 (defn- gva-departure [gva-journey]
   (let [timestamp  (gva-parse-datetime (gva-journey "timestamp"))
@@ -42,7 +42,7 @@
      :accessible (= (gva-journey "characteristics") "PMR")
      :colors {:fg (if (contains? black-line-codes line-code) "#000000" "#FFFFFF") :bg line-color}
      :to ((gva-journey "line") "destinationName")
-     :departure {:scheduled timestamp
+     :departure {:scheduled timestamp 
                  :realtime timestamp}}))
 
 ; TODO tests (=> capture some data from zvv api)
@@ -56,6 +56,7 @@
      :departures (map gva-departure (remove #(= (% "waitingTime") "no more") journeys))}
     ))
 
+
 (defn- gva-station [gva-station]
   {:id    (gva-station "stopCode")
    :name  (gva-station "stopName")})
@@ -63,7 +64,7 @@
 (defn- transform-query-stations-response [response-body]
   (let [data     (json/parse-string response-body)
         stations (data "stops")]
-    {:stations (map gva-station stations)}))
+    {:stations (map gva-station stations)})) 
 
 ; TODO error handling
 (defn- do-api-call [url transform-fn]
@@ -75,7 +76,7 @@
   (let [request-url (str station-base-url id)]
     (when (compare-and-set! line-colors-fetched false true)
       (http/get line-colors-url 
-                {}
+                {} 
                 (fn [{:keys [status headers body error]}] 
                   (if error
                     (println "Failed, exception is " error)
