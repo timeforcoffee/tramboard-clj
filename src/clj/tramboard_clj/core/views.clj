@@ -89,9 +89,11 @@
    
 (defn- apikey-lookup-in-db [api id]
     (let [apikeys-result (get-api-key id)
-          apikey (if (or (nil? apikeys-result) (nil? (apikeys-result :apikey))) {:apikey fallback-api :apiid id} apikeys-result)
+          apikey (if (or (nil? apikeys-result) (nil? (apikeys-result :apikey))) fallback-api (apikeys-result :apikey))
+          apiid (if (or (nil? apikeys-result) (nil? (apikeys-result :apiid))) id (apikeys-result :apiid))
+          apikeys {:apikey apikey :apiid apiid}
     ]
-    apikey
+    apikeys
     ))
 
 (defn- apikey-lookup [api id] 
