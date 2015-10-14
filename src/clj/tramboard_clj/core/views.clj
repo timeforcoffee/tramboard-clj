@@ -4,8 +4,17 @@
   (:require [tramboard-clj.api.gva]
             [tramboard-clj.api.zvv]
             [tramboard-clj.api.vbl]
+            [clojure.java.jdbc :refer :all]
             )
   (:import com.newrelic.api.agent.Trace))
+
+(def fallback-api "zvv")
+
+(def db
+  {:classname   "org.sqlite.JDBC"
+   :subprotocol "sqlite"
+   :subname     "SingleViewCoreData.sqlite"
+   })
 
 (defn- content-page [content]
   (let [description "Real-time departures of public transport in Switzerland, for bus, train, tram, cable car..."
@@ -72,16 +81,29 @@
 
       [:h2 {:class "thin text-center"} [:a {:href "http://twitter.com/time4coffeeApp"} "Get in touch "] " & " [:a {:href "http://github.com/timeforcoffee/"} "contribute!"] ]]]))
 
-(defn- apikey-lookup [api]
-     (if (= api "all") "zvv" api))
+      
+
+(defn- get-api-key [id]
+  (let [stripped_id (clojure.string/replace id #"^0*" "")]
+  (first (query db (str "select zapikey as apikey, zapiid as apiid from ZTFCSTATIONMODEL where ZID = " stripped_id)))))
+   
+(defn- apikey-lookup-in-db [api id]
+    (let [apikeys-result (get-api-key id)
+          apikey (if (or (nil? apikeys-result) (nil? (apikeys-result :apikey))) {:apikey fallback-api :apiid id} apikeys-result)
+    ]
+    apikey
+    ))
+
+(defn- apikey-lookup [api id] 
+    (if (= api "all") (apikey-lookup-in-db api id) {:apikey api :apiid id}))
 
 (defn- station* [api id]
-  (let [apikey (apikey-lookup api)]
+  (let [apikey (apikey-lookup api id)]
   {:headers {"Content-Type" "application/json; charset=utf-8"}
-   :body ((resolve (symbol (str "tramboard-clj.api." apikey "/station"))) id)}))
+   :body ((resolve (symbol (str "tramboard-clj.api." (apikey :apikey) "/station"))) (apikey :apiid))}))
 
 (defn- query-stations* [api query]
-  (let [apikey (apikey-lookup api)]
+  (let [apikey (if (= api "all") fallback-api api)]
   {:headers {"Content-Type" "application/json; charset=utf-8"}
    :body ((resolve (symbol (str "tramboard-clj.api." apikey "/query-stations"))) query)}))
 
