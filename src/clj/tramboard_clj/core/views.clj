@@ -13,7 +13,7 @@
 (def db
   {:classname   "org.sqlite.JDBC"
    :subprotocol "sqlite"
-   :subname     "SingleViewCoreData.sqlite"
+   :subname     "stations.sqlite"
    })
 
 (defn- content-page [content]
