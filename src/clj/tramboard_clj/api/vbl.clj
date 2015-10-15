@@ -43,7 +43,7 @@
 
 (defn- name-category [text default]
   (case text
-    "InterCityNeigezug" "ICE"
+    "InterCityNeigezug" "ICN"
     "Regional-Express" "RE"
     "InterRegio" "IR"
     "Voralpen-Express" "VAE"
