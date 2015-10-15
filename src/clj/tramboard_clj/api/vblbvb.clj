@@ -21,7 +21,11 @@
 
 (defn zip-str [s]
   (zip/xml-zip 
-      (xml/parse (java.io.ByteArrayInputStream. (.getBytes s)))))
+  (try
+    (xml/parse (java.io.ByteArrayInputStream. (.getBytes s)))
+    (catch Exception e {:error"xml parse error"})))
+    )  
+      
 
 ; if the hash making fails due to too different names, fix it here
 (defn- map-station-name [text]
@@ -123,15 +127,17 @@
 
 (defn- combine-results [main sbb get-hash]
     (let [sbbhashmap (into {} (map #(hash-realtime-data % get-hash) (sbb :departures)))
-          newhashmap (get-new-hashmap main sbbhashmap get-hash)]
-    {:meta (main :meta)
+          newhashmap (get-new-hashmap main sbbhashmap get-hash)
+          meta (sbb :meta)
+          ]
+    {:meta (if (nil? meta) (main :meta) meta)
      :departures (vals (merge sbbhashmap newhashmap))}))
     
 ; TODO error handling
 (defn- do-api-call2 [url transform-fn url2 transform-fn2 get-hash]
-  (let [response    (http/get url)
+  (let [response    (http/get url {:socket-timeout 2000 :conn-timeout 3000})
         response2   (http/get url2)]
-    (combine-results (transform-fn (:body @response)) (transform-fn2 (:body @response2)) get-hash)))
+    (combine-results (if (= 200 (:status @response)) (transform-fn (:body @response)) {:error (:status @response)}) (transform-fn2 (:body @response2)) get-hash)))
 
 (defn- do-api-call [url transform-fn]
   (let [response    (http/get url)]
