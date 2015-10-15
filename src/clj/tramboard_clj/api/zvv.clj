@@ -48,7 +48,10 @@
         color           (product "color")
         line            (or (product "line") (product "name"))
         platform        (main-location "platform")
-        attributes-bfr  (zvv-journey "attributes_bfr")]
+        attributes-bfr  (zvv-journey "attributes_bfr")
+        timestamp       (zvv-date main-location)
+        timestamprt     (zvv-date (main-location "realTime"))
+        ]
     {:name (sanitize line)
      :type (map-category (product "icon"))
      :accessible (not (empty? (filter #(contains? #{"6" "9"} (% "code")) attributes-bfr)))
@@ -56,8 +59,9 @@
               :bg (str "#" (color "bg"))}
      :to (html/xml-decode (product "direction"))
      :platform (if (= platform "") nil platform)
-     :departure {:scheduled (zvv-date main-location)
-                 :realtime (zvv-date (main-location "realTime"))}}))
+     :dt (or timestamprt timestamp)
+     :departure {:scheduled timestamp
+                 :realtime timestamprt}}))
 
 ; TODO tests (=> capture some data from zvv api)
 (defn transform-station-response [id]

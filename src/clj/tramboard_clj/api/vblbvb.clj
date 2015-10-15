@@ -80,6 +80,7 @@
      :colors {:fg "#000000" :bg "#FFFFFF"}
      :to (xml1-> vbl-journey :m :des text)
      :platform (xml1-> vbl-journey :r :pl text)
+     :dt (or timestamprt timestamp)
      :departure {:scheduled timestamp
                  :realtime timestamprt}}))
 
@@ -88,7 +89,6 @@
   (let [data           (zip-str (clojure.string/replace  response-body "encoding=\"ISO-8859-1\"" ""))
         journeys       (xml-> data :dps :dp)
         station        (xml1-> data :dps :dp)]
-    ; {:meta data}
     {:meta {:station_id (xml1-> station :r :id text )
             :station_name (xml1-> station :n text )}
      :departures (map vbl-departure  journeys)}
@@ -131,7 +131,7 @@
           meta (sbb :meta)
           ]
     {:meta (if (nil? meta) (main :meta) meta)
-     :departures (vals (merge sbbhashmap newhashmap))}))
+     :departures (map #(dissoc % :dt) (sort-by (juxt :dt :name) (vals (merge sbbhashmap newhashmap))) )}))
     
 ; TODO error handling
 (defn- do-api-call2 [url transform-fn url2 transform-fn2 get-hash]
