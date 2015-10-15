@@ -64,7 +64,7 @@
   (fn [response-body]
     (let [data        (json/parse-string response-body)]
       {:meta {:station_id   id
-              :station_name (data ["station" "name"])}
+              :station_name ((data "station") "name")}
        :departures (map zvv-departure (data "connections"))})))
 
 (defn- to-coordinate [string]
