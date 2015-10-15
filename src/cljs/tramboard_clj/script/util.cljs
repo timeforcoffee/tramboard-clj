@@ -6,7 +6,7 @@
    {:id :ch_ge  :name "Geneva City & Canton" :short-label "Geneva"             :flag-class "ch_ge" :api "gva" :active true}
    {:id :ch_lu  :name "Lucerne and Central Switzerland" :short-label "Lucerne" :flag-class "ch_lu" :api "vbl" :active true}
 
-   {:id :ch     :name "All of Switzerland"  :short-label "Switzerland" :flag-class "ch"    :api "all" :active true}])
+   {:id :ch     :name "All of Switzerland"  :short-label "Switzerland" :flag-class "ch"    :api "ch" :active true}])
 
 (defn get-location [location-id]
   (let [found-locations (filter #(= location-id (:id %)) locations)]

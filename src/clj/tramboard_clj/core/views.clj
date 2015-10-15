@@ -97,10 +97,10 @@
     ))
 
 (defn- apikey-lookup [api id] 
-    (if (= api "all") (apikey-lookup-in-db api id) {:apikey api :apiid id}))
+    (if (= api "ch") (apikey-lookup-in-db api id) {:apikey api :apiid id}))
 
 (defn- sbb-id-lookup [api id]
-    (if (= api "all") id nil)
+    (if (= api "ch") id nil)
     )
 
 (defn station* [api id]
@@ -109,7 +109,7 @@
    :body ((resolve (symbol (str "tramboard-clj.api." (apikey :apikey) "/station"))) (apikey :apiid) (sbb-id-lookup api id))}))
    
 (defn- query-stations* [api query]
-  (let [apikey (if (= api "all") fallback-api api)]
+  (let [apikey (if (= api "ch") fallback-api api)]
   {:headers {"Content-Type" "application/json; charset=utf-8"}
    :body ((resolve (symbol (str "tramboard-clj.api." apikey "/query-stations"))) query)}))
 
