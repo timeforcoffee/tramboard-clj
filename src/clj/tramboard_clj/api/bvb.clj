@@ -27,6 +27,11 @@
   (zip/xml-zip 
       (xml/parse (java.io.ByteArrayInputStream. (.getBytes s)))))
     
+; if the hash making fails due to too different names, fix it here
+(defn- map-station-name [text]
+  (case text
+    "Basel St-Louis Grenze" "St-Louis Grenze"
+    text))
     
 (defn- map-category [text]
   (case text
@@ -35,6 +40,8 @@
     "InterCityNeigezug" "train"
     "Regional-Express" "train"
     "Voralpen-Express" "train"
+    "InterCityExpress" "train"
+    "InterCityNight" "train"
     "EuroCity" "train"
     "InterCity" "train"
     "InterRegio" "train"
@@ -48,6 +55,8 @@
 (defn- name-category [text default]
   (case text
     "InterCityNeigezug" "ICN"
+    "InterCityNight" "ICN"
+    "InterCityExpress" "ICE"
     "Regional-Express" "RE"
     "InterRegio" "IR"
     "Voralpen-Express" "VAE"
@@ -94,7 +103,7 @@
     {:stations (map vbl-station (xml-> stations :sf :p))}))
 
 (defn- get-hash [dept] 
-    (str "t" (digest/md5 (str (subs (dept :to) 1 3) (dept :name)((dept :departure) :scheduled)))))
+    (str "t" (digest/md5 (str (subs (clojure.string/replace (map-station-name (dept :to)) "^Basel " "" ) 1 3) (dept :name)((dept :departure) :scheduled)))))
 
 (defn- hash-realtime-data [dept]
     (let [departure (dept :departure)]
