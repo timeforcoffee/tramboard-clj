@@ -60,7 +60,7 @@
                  :realtime (zvv-date (main-location "realTime"))}}))
 
 ; TODO tests (=> capture some data from zvv api)
-(defn- transform-station-response [id]
+(defn transform-station-response [id]
   (fn [response-body]
     (let [data        (json/parse-string response-body)]
       {:meta {:station_id   id
@@ -77,7 +77,7 @@
      :name  (zvv-station "value")
      :location {:lat (to-coordinate (zvv-station "ycoord")) :lng (to-coordinate (zvv-station "xcoord"))}}))
 
-(defn- transform-query-stations-response [response-body]
+(defn transform-query-stations-response [response-body]
   (let [unparsed (reduce #(clojure.string/replace-first %1 %2 "") response-body [";SLs.showSuggestion();" "SLs.sls="])
         data     (json/parse-string unparsed)
         stations (data "suggestions")]
@@ -88,7 +88,7 @@
   (let [response    (http/get url)]
     (transform-fn (:body @response))))
 
-(defn station [id]
+(defn station [id sbbid]
   (let [request-url (str station-base-url id)]
     (do-api-call request-url (transform-station-response id))))
 
