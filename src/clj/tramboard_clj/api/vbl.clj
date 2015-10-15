@@ -38,6 +38,7 @@
     "EuroCity" "train"
     "InterRegio" "train"
     "Trolleybus" "bus"
+    "Schiff" "ship"
     "train"))
 
 (defn- name-category [text default]
@@ -47,7 +48,7 @@
     "InterRegio" "IR"
     "Voralpen-Express" "VAE"
     "EuroCity" "EC"
-    default))    
+    (if (= default "") text default)))    
     
 (defn- vbl-departure [vbl-journey]
   (let [timestamp  (vbl-parse-datetime (str (xml1-> vbl-journey :dt :da text) (xml1-> vbl-journey :dt :t text)))
@@ -92,21 +93,32 @@
 
 (defn- hash-realtime-data [dept]
     (let [departure (dept :departure)]
-    (if (nil? (departure :realtime))
-        nil
         {(keyword (get-hash dept)) dept}
-        )))
- 
-(defn- combine-results [main sbb]
-    (let [sbbhashmap (into {} (reduce into (map hash-realtime-data (sbb :departures))))]
-    {:meta (main :meta)
-     :departures 
-        (for [x (main :departures)
+        ))
+
+; this merges the two results from SBB and VBL
+;  If SBB has realtime, take that
+; Maybe way too complicated...
+
+(defn- combine-platform [x sbbentry]
+ (if (and (not (nil? sbbentry)) (not (nil? (sbbentry :platform))) (nil? (x :platform)))
+    (assoc-in x [:platform] (sbbentry :platform))
+     x
+))
+
+(defn- get-new-hashmap [main sbbhashmap] 
+    (into {} (for [x (main :departures)
             :let [sbbentry (sbbhashmap (keyword (get-hash x)))]]
-            (if (nil? sbbentry)
-                x
-                sbbentry
-                ))}))
+            (if (or (nil? sbbentry) (nil? ((sbbentry :departure) :realtime)))
+                {(keyword (get-hash x)) (combine-platform x sbbentry)}
+                {(keyword (get-hash x)) sbbentry}
+                ))))
+
+(defn- combine-results [main sbb]
+    (let [sbbhashmap (into {} (map hash-realtime-data (sbb :departures)))
+          newhashmap (get-new-hashmap main sbbhashmap)]
+    {:meta (main :meta)
+     :departures (vals (merge sbbhashmap newhashmap))}))
     
 ; TODO error handling
 (defn- do-api-call2 [url transform-fn url2 transform-fn2]
