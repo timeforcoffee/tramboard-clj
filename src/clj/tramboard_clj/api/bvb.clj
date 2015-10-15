@@ -36,9 +36,13 @@
     "Regional-Express" "train"
     "Voralpen-Express" "train"
     "EuroCity" "train"
+    "InterCity" "train"
     "InterRegio" "train"
     "Trolleybus" "bus"
     "Schiff" "ship"
+    "Tram BLT" "tram"
+    "Tram BVB" "tram"
+    "Bus BVB" "bus"
     "train"))
 
 (defn- name-category [text default]
@@ -48,6 +52,7 @@
     "InterRegio" "IR"
     "Voralpen-Express" "VAE"
     "EuroCity" "EC"
+    "InterCity" "IC"
     (if (= default "") text default)))    
     
 (defn- vbl-departure [vbl-journey]
