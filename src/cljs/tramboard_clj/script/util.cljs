@@ -4,8 +4,8 @@
 (defonce locations
   [{:id :ch_zh  :name "Zurich City & Canton" :short-label "Zurich"             :flag-class "ch_zh" :api "zvv" :active true}
    {:id :ch_ge  :name "Geneva City & Canton" :short-label "Geneva"             :flag-class "ch_ge" :api "gva" :active true}
-   {:id :ch_lu  :name "Lucerne and Central Switzerland" :short-label "Lucerne" :flag-class "ch_lu" :api "vbl" :active true}
-
+   {:id :ch_lu  :name "Lucerne and some Central Switzerland" :short-label "Lucerne" :flag-class "ch_lu" :api "vbl" :active true}
+   {:id :ch_bs  :name "Basel City" :short-label "Basel"   :flag-class "ch_bs" :api "bvb" :active true}
    {:id :ch     :name "All of Switzerland"  :short-label "Switzerland" :flag-class "ch"    :api "ch" :active true}])
 
 (defn get-location [location-id]

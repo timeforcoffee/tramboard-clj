@@ -4,6 +4,8 @@
   (:require [tramboard-clj.api.gva]
             [tramboard-clj.api.zvv]
             [tramboard-clj.api.vbl]
+            [tramboard-clj.api.bvb]
+
             [clojure.java.jdbc :refer :all]
             )
   (:import com.newrelic.api.agent.Trace))
