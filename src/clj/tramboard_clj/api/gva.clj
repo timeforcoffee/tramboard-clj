@@ -71,7 +71,7 @@
     (transform-fn (:body @response))))
 
 ; TODO error handling
-(defn station [id]
+(defn station [id sbbid]
   (let [request-url (str station-base-url id)]
     (when (compare-and-set! line-colors-fetched false true)
       (http/get line-colors-url 
