@@ -8,7 +8,7 @@
 (def station-base-url               "http://efa-bw.de/ios_bvb/XML_DM_REQUEST?type_dm=any&trITMOTvalue100=10&changeSpeed=normal&mergeDep=1&coordOutputFormat=NBWT&coordListOutputFormat=STRING&useAllStops=1&excludedMeans=checkbox&useRealtime=1&itOptionsActive=1&canChangeMOT=0&mode=direct&ptOptionsActive=1&imparedOptionsActive=1&depType=stopEvents&locationServerActive=1&useProxFootSearch=0&maxTimeLoop=2&includeCompleteStopSeq=0&name_dm=")
 
 (defn- get-hash [dept] 
-    (str "t" (digest/md5 (str (subs (clojure.string/replace (map-station-name (dept :to)) "^Basel " "" ) 1 3) (dept :name)((dept :departure) :scheduled)))))
+    (str "t" (digest/md5 (str (subs (clojure.string/replace (vblbvb/map-station-name (dept :to)) "^Basel " "" ) 1 3) (dept :name)((dept :departure) :scheduled)))))
 
 
 ; TODO error handling

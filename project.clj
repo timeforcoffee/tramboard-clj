@@ -28,8 +28,7 @@
                  [com.newrelic.agent.java/newrelic-api "3.13.0"]
                  [org.clojure/java.jdbc "0.4.2"]
                  [org.xerial/sqlite-jdbc "3.7.15-M1"]
-                 [digest "1.4.4"]
-                 ]
+                 [digest "1.4.4"]]
 
   :plugins [[lein-cljsbuild "1.0.4"]
             [lein-shell "0.4.0"]]
