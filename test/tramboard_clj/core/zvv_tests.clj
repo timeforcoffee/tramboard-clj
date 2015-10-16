@@ -1,6 +1,6 @@
 (ns tramboard-clj.core.zvv-tests
   (:use midje.sweet)
-  (:require [tramboard-clj.core.zvv :as zvv]))
+  (:require [tramboard-clj.api.zvv :as zvv]))
 
 (def fixtures
   {:central_2228   (slurp "fixtures/zvv_responses/central_2228.txt")
@@ -10,12 +10,11 @@
 
 (facts "transform zvv response for station call"
        (fact "extracts station information under meta key"
-             (zvv/transform-station-response (:central_2228 fixtures)) =>
+             ((zvv/transform-station-response "8588078") (:central_2228 fixtures)) =>
              (contains {:meta (contains {:station_id "8588078" :station_name "Zürich, Central"})}))
        (fact "also works when there are no color information"
-             (zvv/transform-station-response (:flughafen_xxxx fixtures)) =>
-             (contains {:departures (contains {:zvv_id "11484850"
-                                               :name "S2"
+             ((zvv/transform-station-response "") (:flughafen_xxxx fixtures)) =>
+             (contains {:departures (contains {:name "S2"
                                                :type "s-train"
                                                :accessible false
                                                :colors { :fg nil :bg nil }
@@ -24,9 +23,8 @@
                                                            :scheduled "2015-02-01T19:36:00.000+01:00"
                                                            :realtime "2015-02-01T19:36:00.000+01:00"}})}))
        (fact "returns a list of departures"
-             (zvv/transform-station-response (:central_2228 fixtures)) =>
-             (contains {:departures (contains {:zvv_id "32108510"
-                                               :name "31"
+             ((zvv/transform-station-response "") (:central_2228 fixtures)) =>
+             (contains {:departures (contains {:name "31"
                                                :type "bus"
                                                :accessible true
                                                :colors { :fg "#ffffff" :bg "#a5a2c6" }
