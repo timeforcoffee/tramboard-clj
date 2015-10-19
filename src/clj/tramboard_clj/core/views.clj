@@ -6,7 +6,7 @@
             [tramboard-clj.api.vbl]
             [tramboard-clj.api.bvb]
             [tramboard-clj.api.blt]
-            [tramboard-clj.api.ostwind]
+            [tramboard-clj.api.ost]
             [clojure.java.jdbc :refer :all]
             )
   (:import com.newrelic.api.agent.Trace))

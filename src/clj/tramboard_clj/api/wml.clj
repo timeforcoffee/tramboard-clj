@@ -56,7 +56,7 @@
       
 (defn- add-luhny-digit [s] 
    (let [ diff (luhny? (str s "0"))
-          digit (- 10 diff)
+          digit (if (= diff 0) diff (- 10 diff))
    ]
    (str s "-" digit)
    )

@@ -1,4 +1,4 @@
-(ns tramboard-clj.api.ostwind
+(ns tramboard-clj.api.ost
   (:require [cheshire.core :as json]
             [ring.util.codec :as codec]
             [clj-time.core :as t]

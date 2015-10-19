@@ -6,8 +6,8 @@
    {:id :ch_ge  :name "Geneva City & Canton" :short-label "Geneva"             :flag-class "ch_ge" :api "gva" :active true}
    {:id :ch_lu  :name "Lucerne & parts of Central Switzerland" :short-label "Lucerne" :flag-class "ch_lu" :api "vbl" :active true}
    {:id :ch_bs  :name "Basel City" :short-label "Basel"   :flag-class "ch_bs" :api "bvb" :active true}
-   {:id :ch_nw  :name "Nordwestschweiz" :short-label "Nordwestschweiz" :flag-class "ch_bs" :api "blt" :active true}
-   {:id :ch_os  :name "Ostschweiz" :short-label "Ostschweiz" :flag-class "ch_os" :api "ostwind" :active true}
+   ;{:id :ch_nw  :name "Nordwestschweiz" :short-label "Nordwestschweiz" :flag-class "ch_bs" :api "blt" :active true}
+   {:id :ch_os  :name "Ostschweiz" :short-label "Ostschweiz" :flag-class "ch_os" :api "ost" :active true}
    {:id :ch     :name "Rest of Switzerland"  :short-label "Switzerland" :flag-class "ch"    :api "ch" :active true}])
 
 
