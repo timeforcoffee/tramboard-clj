@@ -5,16 +5,34 @@
             [clj-time.format :as f]
             [clojure.string :as str]
             [org.httpkit.client :as http]
-            [clojure.tools.html-utils :as html]))
+            [tramboard-clj.api.zvv :as zvv]
+            [tramboard-clj.api.common :as c]
+            [digest] 
+            ))
+
+; if the hash making fails due to too different names, fix it here
+(defn map-station-name [text]
+  (case text
+    "Zürich, Zürich HB" "Zürich HB"
+    "Zürich, Flughafen" "Zürich Flughafen"
+    "St. Gallen AB, Bahnhof AB" "St. Gallen AB"
+    "Pfäffikon SZ, Pfäffikon" "Pfäffikon SZ"
+    text))
+    
+(defn- map-category [text]
+  (case text
+    "NFB"  "bus"
+    "3" "bus"
+    "VBSG" "bus"
+    "train"))
 
              
-(def wml-formatter (f/with-zone (f/formatter "yyyyMMdd'T'HHmm") blt-timezone))
-
-(def query-stations-base-url "http://online.fahrplan.zvv.ch/bin/ajax-getstop.exe/dny?start=1&tpl=suggest2json&REQ0JourneyStopsS0A=7&getstop=1&noSession=yes&REQ0JourneyStopsB=25&REQ0JourneyStopsS0G=")
-(def station-base-url        (str "http://data.wemlin.com/rest/v0/networks/blt/stations/DI-0000{{id}}/"  (f/unparse wml-formatter (t/now)) "/"  (f/unparse wml-formatter (t/plus (t/now) (t/hours 2)))))
-
-
 (def wml-timezone (t/time-zone-for-id "Europe/Zurich"))
+(def wml-formatter (f/with-zone (f/formatter "yyyyMMdd'T'HHmm") wml-timezone))
+
+(defn- get-hash [dept] 
+    (str "t" (digest/md5 (str (clojure.string/replace (dept :to) ", Bahnhof" "") (dept :name)((dept :departure) :scheduled)))))
+
 (def wml-date-formatter (f/with-zone (f/formatter "yyyyMMdd'T'HHmmss") wml-timezone))
 
 (defn- wml-parse-datetime [timestamp]
@@ -59,20 +77,21 @@
    (str s "-" digit)
    )
 )
-      
-(defn- map-category [text]
-  (case text
-    "NFB"  "bus"
-    "3" "bus"
-    "VBSG" "bus"
-    "train"))
 
 (defn- format-date [date time]
   (str (f/parse wml-date-formatter (str date " " time))))
 
 (defn- format-place [data]
-  (str (str (data "place") ", ") (data "name")))
-  
+  (let [place (data "place")
+        name  (data "name")
+        splitname (str/split name , #" ", 2)]
+  (if (= (splitname 0) place)
+        (if (> (count splitname) 1)
+            (str place ", " (splitname 1))
+            place)
+        (str place ", " name))))
+    
+
 ; TODO add 1 day to realtime if it is smaller than scheduled (scheduled 23h59 + 3min delay ...)
 (defn- wml-departure [wml-journey]
   (let [product         (wml-journey "line")
@@ -81,20 +100,25 @@
         colorbg         (color "bg")
         platform        (wml-journey "platform")
         line            (or (product "line") (product "name"))
-        attributes-bfr  (wml-journey "attributes_bfr")]
+        attributes-bfr  (wml-journey "attributes_bfr")
+        timestamprt     (if (true? (wml-journey "real_time")) 
+                                (wml-parse-datetime (wml-journey "iso8601_real_time_sec"))
+                                nil
+                                )
+        timestamp       (wml-parse-datetime (wml-journey "iso8601_time_sec"))]
     {:name (product "line_name")
      :type (map-category (or (product "transportMapping") ((product "agency") "id")))
      :accessible (not (empty? (filter #(contains? #{"6" "9"} (% "code")) attributes-bfr)))
      :colors {:fg (hexy colorfg)
               :bg (hexy colorbg)
             }
-     :to (format-place (wml-journey "end_station"))
+     :to (->> (clojure.string/replace (format-place (wml-journey "end_station")) "St.Gallen" "St. Gallen")
+              (map-station-name) 
+              )
      :platform (if (= platform "") nil platform)
-     :departure {:scheduled (wml-parse-datetime (wml-journey "iso8601_time_sec"))
-                 :realtime (if (true? (wml-journey "real_time")) 
-                                (wml-parse-datetime (wml-journey "iso8601_real_time_sec"))
-                                nil
-                                )
+     :dt (or timestamprt timestamp)
+     :departure {:scheduled timestamp
+                 :realtime timestamprt
                  }}))
 
 ; TODO tests (=> capture some data from blt api)
@@ -129,13 +153,17 @@
 (defn- replaceholder [input placeholder replace]
    (clojure.string/replace input (str "{{" placeholder "}}") replace))
 
-
-(defn station [id station-base-url]
+; TODO error handling
+(defn station [id sbbid station-base-url]
   (let [stripped_id (clojure.string/replace id #"^0*" "")
         newid (subs stripped_id 2 (count stripped_id))
-        request-url (replaceholder station-base-url "id" (add-luhny-digit newid))]
-    (do-api-call request-url (transform-station-response id))))
+        request-url (replaceholder station-base-url "id" (add-luhny-digit newid))
+        request-url-sbb (str zvv/station-base-url sbbid)]
+    (if (nil? sbbid)
+      (c/do-api-call request-url (transform-station-response id))
+      (c/do-api-call2 request-url (transform-station-response id)  request-url-sbb (zvv/transform-station-response sbbid) get-hash))))
 
 (defn query-stations [query query-stations-base-url]
   (let [request-url (str query-stations-base-url (codec/url-encode query))]
-    (do-api-call request-url transform-query-stations-response)))
+    (c/do-api-call request-url transform-query-stations-response)))  
+

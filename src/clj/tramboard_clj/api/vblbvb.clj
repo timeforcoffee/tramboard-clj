@@ -7,7 +7,8 @@
             [clojure.xml :as xml]
             [clojure.zip :as zip]
             [clojure.data.zip.xml :refer [text xml-> xml1->]]
-            [tramboard-clj.api.zvv :as zvv]))
+            [tramboard-clj.api.zvv :as zvv]
+            [tramboard-clj.api.common :as c]))
 
 (def vbl-timezone (t/time-zone-for-id "Europe/Zurich"))
 (def vbl-date-formatter (f/with-zone (f/formatter "dd.MM.YYYYHH:mm") vbl-timezone))
@@ -100,50 +101,12 @@
   (let [stations (zip-str (clojure.string/replace  response-body "encoding=\"ISO-8859-1\"" ""))]
     {:stations (map vbl-station (xml-> stations :sf :p))}))
 
-(defn- hash-realtime-data [dept get-hash]
-  (let [departure (dept :departure)]
-    {(keyword (get-hash dept)) dept}))
-
-; this merges the two results from SBB and VBL
-;  If SBB has realtime, take that
-; Maybe way too complicated...
-
-(defn- combine-platform [x sbbentry]
-  (if (and (not (nil? sbbentry)) (not (nil? (sbbentry :platform))) (nil? (x :platform)))
-    (assoc-in x [:platform] (sbbentry :platform))
-    x))
-
-(defn- get-new-hashmap [main sbbhashmap get-hash] 
-  (into {} (for [x (main :departures)
-                 :let [sbbentry (sbbhashmap (keyword (get-hash x)))]]
-             (if (or (nil? sbbentry) (nil? ((sbbentry :departure) :realtime)))
-               {(keyword (get-hash x)) (combine-platform x sbbentry)}
-               {(keyword (get-hash x)) sbbentry}))))
-
-(defn- combine-results [main sbb get-hash]
-  (let [sbbhashmap (into {} (map #(hash-realtime-data % get-hash) (sbb :departures)))
-        newhashmap (get-new-hashmap main sbbhashmap get-hash)
-        meta (sbb :meta)
-        ]
-    {:meta (if (nil? meta) (main :meta) meta)
-     :departures (map #(dissoc % :dt) (sort-by (juxt :dt :name) (vals (merge sbbhashmap newhashmap))) )}))
-
-; TODO error handling
-(defn- do-api-call2 [url transform-fn url2 transform-fn2 get-hash]
-  (let [response    (http/get url {:socket-timeout 2000 :conn-timeout 3000})
-        response2   (http/get url2)]
-    (combine-results (if (= 200 (:status @response)) (transform-fn (:body @response)) {:error (:status @response)}) (transform-fn2 (:body @response2)) get-hash)))
-
-(defn- do-api-call [url transform-fn]
-  (let [response    (http/get url)]
-    (transform-fn (:body @response))))
-
 ; TODO error handling
 (defn station [id sbbid request-url get-hash]
   (let [request-url-sbb (str zvv/station-base-url sbbid)]
     (if (nil? sbbid)
-      (do-api-call request-url transform-station-response)
-      (do-api-call2 request-url transform-station-response  request-url-sbb (zvv/transform-station-response sbbid) get-hash))))
+      (c/do-api-call request-url transform-station-response)
+      (c/do-api-call2 request-url transform-station-response  request-url-sbb (zvv/transform-station-response sbbid) get-hash))))
 
 (defn query-stations [query request-url]
-  (do-api-call request-url transform-query-stations-response))
+  (c/do-api-call request-url transform-query-stations-response))

@@ -17,7 +17,7 @@
 ; TODO error handling
 
 (defn station [id sbbid]
-  (wml/station id station-base-url))
+  (wml/station id sbbid station-base-url))
 
 (defn query-stations [query]
   (wml/query-stations query query-stations-base-url))
