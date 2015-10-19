@@ -63,6 +63,8 @@
 (defn- map-category [text]
   (case text
     "NFB"  "bus"
+    "3" "bus"
+    "VBSG" "bus"
     "train"))
 
 (defn- format-date [date time]
@@ -81,7 +83,7 @@
         line            (or (product "line") (product "name"))
         attributes-bfr  (wml-journey "attributes_bfr")]
     {:name (product "line_name")
-     :type (map-category (product "transportMapping"))
+     :type (map-category (or (product "transportMapping") ((product "agency") "id")))
      :accessible (not (empty? (filter #(contains? #{"6" "9"} (% "code")) attributes-bfr)))
      :colors {:fg (hexy colorfg)
               :bg (hexy colorbg)
