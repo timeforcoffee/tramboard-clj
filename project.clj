@@ -26,7 +26,10 @@
                  [org.clojure/data.zip "0.1.1"]
                  [clj-luhn "0.1.3"]
                  [org.clojars.jws/ring-etag-middleware "0.1.2-SNAPSHOT"]
-                 [com.newrelic.agent.java/newrelic-api "3.13.0"]]
+                 [com.newrelic.agent.java/newrelic-api "3.13.0"]
+                 [org.clojure/java.jdbc "0.4.2"]
+                 [org.xerial/sqlite-jdbc "3.7.15-M1"]
+                 [digest "1.4.4"]]
 
   :plugins [[lein-cljsbuild "1.0.4"]
             [lein-less "1.7.5"]

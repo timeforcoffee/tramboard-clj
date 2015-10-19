@@ -7,9 +7,17 @@
             [tramboard-clj.api.bvb]
             [tramboard-clj.api.blt]
             [tramboard-clj.api.ostwind]
-
+            [clojure.java.jdbc :refer :all]
             )
   (:import com.newrelic.api.agent.Trace))
+
+(def fallback-api "zvv")
+
+(def db
+  {:classname   "org.sqlite.JDBC"
+   :subprotocol "sqlite"
+   :subname     "stations.sqlite"
+   })
 
 (defn- content-page [content]
   (let [description "Real-time departures of public transport in Switzerland, for bus, train, tram, cable car..."
@@ -76,13 +84,37 @@
 
       [:h2 {:class "thin text-center"} [:a {:href "http://twitter.com/time4coffeeApp"} "Get in touch "] " & " [:a {:href "http://github.com/timeforcoffee/"} "contribute!"] ]]]))
 
-(defn- station* [api id]
-  {:headers {"Content-Type" "application/json; charset=utf-8"}
-   :body ((resolve (symbol (str "tramboard-clj.api." api "/station"))) id)})
+      
 
-(defn- query-stations* [api query]
+(defn- get-api-key [id]
+  (let [stripped_id (clojure.string/replace id #"^0*" "")]
+  (first (query db (str "select zapikey as apikey, zapiid as apiid from ZTFCSTATIONMODEL where ZID = " stripped_id)))))
+   
+(defn- apikey-lookup-in-db [api id]
+    (let [apikeys-result (get-api-key id)
+          apikey (if (or (nil? apikeys-result) (nil? (apikeys-result :apikey))) fallback-api (apikeys-result :apikey))
+          apiid (if (or (nil? apikeys-result) (nil? (apikeys-result :apiid))) id (apikeys-result :apiid))
+          apikeys {:apikey apikey :apiid apiid}
+    ]
+    apikeys
+    ))
+
+(defn- apikey-lookup [api id] 
+    (if (= api "ch") (apikey-lookup-in-db api id) {:apikey api :apiid id}))
+
+(defn- sbb-id-lookup [api id]
+    (if (= api "ch") id nil)
+    )
+
+(defn station* [api id]
+  (let [apikey (apikey-lookup api id)]
   {:headers {"Content-Type" "application/json; charset=utf-8"}
-   :body ((resolve (symbol (str "tramboard-clj.api." api "/query-stations"))) query)})
+   :body ((resolve (symbol (str "tramboard-clj.api." (apikey :apikey) "/station"))) (apikey :apiid) (sbb-id-lookup api id))}))
+   
+(defn- query-stations* [api query]
+  (let [apikey (if (= api "ch") fallback-api api)]
+  {:headers {"Content-Type" "application/json; charset=utf-8"}
+   :body ((resolve (symbol (str "tramboard-clj.api." apikey "/query-stations"))) query)}))
 
 (definterface INR
   (indexPage     [])
