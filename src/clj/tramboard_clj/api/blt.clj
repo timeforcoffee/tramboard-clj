@@ -5,133 +5,19 @@
             [clj-time.format :as f]
             [clojure.string :as str]
             [org.httpkit.client :as http]
-            [clojure.tools.html-utils :as html]))
+            [clojure.tools.html-utils :as html]
+            [tramboard-clj.api.wml :as wml]
+                        ))
 
-(def blt-timezone (t/time-zone-for-id "Europe/Zurich"))
-(def wml-formatter (f/with-zone (f/formatter "yyyyMMdd'T'HHmm") blt-timezone))
-(def blt-date-formatter (f/with-zone (f/formatter "yyyyMMdd'T'HHmmss") blt-timezone))
-
+;the code is in blt.clj
+            
 (def query-stations-base-url "http://online.fahrplan.zvv.ch/bin/ajax-getstop.exe/dny?start=1&tpl=suggest2json&REQ0JourneyStopsS0A=7&getstop=1&noSession=yes&REQ0JourneyStopsB=25&REQ0JourneyStopsS0G=")
-(def station-base-url        (str "http://data.wemlin.com/rest/v0/networks/blt/stations/DI-0000{{id}}/"  (f/unparse wml-formatter (t/now)) "/"  (f/unparse wml-formatter (t/plus (t/now) (t/hours 2)))))
-
-(defn- blt-parse-datetime [timestamp]
-  (if (nil? timestamp)
-    nil
-    (str (f/parse blt-date-formatter timestamp))))
-
-(defn hexy
-"This will convert the bytes to CSS RGB Value"
-  ([x] (hexy (nth x 0) (nth x 1) (nth x 2)))
-  ([r g b] (reduce str 
-              (cons "#" 
-                (map #(format "%02X" (bit-and 0xFF %)) [r g b])))))
-
-; calculate luhn number for the ID call                
-(defn str->ints [s]
-  (map #(Character/digit % 10) s))
-
-(defn double-every-second [coll]
-  (map #(%1 %2)
-       (cycle  [identity #(* % 2)])
-       (reverse coll)))
-
-(defn ints->digits [coll]
-  (mapcat #(str->ints (str %)) coll))
-
-(def add (partial reduce +))
-
-(defn luhny? [s]
-  (-> s
-      str->ints
-      double-every-second
-      ints->digits
-      add
-      (mod 10)
-      ))
-      
-(defn- add-luhny-digit [s] 
-   (let [ diff (luhny? (str s "0"))
-          digit (- 10 diff)
-   ]
-   (str s "-" digit)
-   )
-)
-      
-(defn- map-category [text]
-  (case text
-    "NFB"  "bus"
-    "NFT"  "tram"
-    "train"))
-
-(defn- format-date [date time]
-  (str (f/parse blt-date-formatter (str date " " time))))
-
-(defn- format-place [data]
-  (str (str (data "place") ", ") (data "name")))
-  
-; TODO add 1 day to realtime if it is smaller than scheduled (scheduled 23h59 + 3min delay ...)
-(defn- blt-departure [blt-journey]
-  (let [product         (blt-journey "line")
-        color           (product "colors")
-        colorfg         (color "fg")
-        colorbg         (color "bg")
-        platform        (blt-journey "platform")
-        line            (or (product "line") (product "name"))
-        attributes-bfr  (blt-journey "attributes_bfr")]
-    {:name (product "line_name")
-     :type (map-category (product "transportMapping"))
-     :accessible (not (empty? (filter #(contains? #{"6" "9"} (% "code")) attributes-bfr)))
-     :colors {:fg (hexy colorfg)
-              :bg (hexy colorbg)
-            }
-     :to (format-place (blt-journey "end_station"))
-     :platform (if (= platform "") nil platform)
-     :departure {:scheduled (blt-parse-datetime (blt-journey "iso8601_time_sec"))
-                 :realtime (if (true? (blt-journey "real_time")) 
-                                (blt-parse-datetime (blt-journey "iso8601_real_time_sec"))
-                                nil
-                                )
-                 }}))
-
-; TODO tests (=> capture some data from blt api)
-(defn- transform-station-response [id]
-  (fn [response-body]
-    (let [data        (json/parse-string response-body)]
-      {:meta {:station_id   id
-              :station_name (format-place data)}
-       :departures (map blt-departure (data "departures"))})))
-
-(defn- to-coordinate [string]
-  (if (nil? string) nil
-    (double (/ (read-string string) 1000000))))
-
-(defn- blt-station [blt-station]
-  (let [id nil]
-    {:id    (blt-station "extId")
-     :name  (blt-station "value")
-     :location {:lat (to-coordinate (blt-station "ycoord")) :lng (to-coordinate (blt-station "xcoord"))}}))
-
-(defn- transform-query-stations-response [response-body]
-  (let [unparsed (reduce #(clojure.string/replace-first %1 %2 "") response-body [";SLs.showSuggestion();" "SLs.sls="])
-        data     (json/parse-string unparsed)
-        stations (data "suggestions")]
-    {:stations (map blt-station (remove #(or (nil? (% "extId")) (not= "1" (% "type"))) stations))}))
+(def station-base-url        (str "http://data.wemlin.com/rest/v0/networks/blt/stations/DI-0000{{id}}/"  (f/unparse wml/wml-formatter (t/now)) "/"  (f/unparse wml/wml-formatter (t/plus (t/now) (t/hours 2)))))
 
 ; TODO error handling
-(defn- do-api-call [url transform-fn]
-  (let [response    (http/get url)]
-    (transform-fn (:body @response))))
 
-(defn- replaceholder [input placeholder replace]
-   (clojure.string/replace input (str "{{" placeholder "}}") replace))
-
-
-(defn station [id]
-  (let [stripped_id (clojure.string/replace id #"^0*" "")
-        newid (subs stripped_id 2 (count stripped_id))
-        request-url (replaceholder station-base-url "id" (add-luhny-digit newid))]
-    (do-api-call request-url (transform-station-response id))))
+(defn station [id sbbid]
+  (wml/station id station-base-url))
 
 (defn query-stations [query]
-  (let [request-url (str query-stations-base-url (codec/url-encode query))]
-    (do-api-call request-url transform-query-stations-response)))
+  (wml/query-stations query query-stations-base-url))
