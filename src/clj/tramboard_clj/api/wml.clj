@@ -8,9 +8,7 @@
             [clojure.tools.html-utils :as html]))
 
              
-(def blt-timezone (t/time-zone-for-id "Europe/Zurich"))
 (def wml-formatter (f/with-zone (f/formatter "yyyyMMdd'T'HHmm") blt-timezone))
-(def blt-date-formatter (f/with-zone (f/formatter "yyyyMMdd'T'HHmmss") blt-timezone))
 
 (def query-stations-base-url "http://online.fahrplan.zvv.ch/bin/ajax-getstop.exe/dny?start=1&tpl=suggest2json&REQ0JourneyStopsS0A=7&getstop=1&noSession=yes&REQ0JourneyStopsB=25&REQ0JourneyStopsS0G=")
 (def station-base-url        (str "http://data.wemlin.com/rest/v0/networks/blt/stations/DI-0000{{id}}/"  (f/unparse wml-formatter (t/now)) "/"  (f/unparse wml-formatter (t/plus (t/now) (t/hours 2)))))
@@ -22,7 +20,7 @@
 (defn- wml-parse-datetime [timestamp]
   (if (nil? timestamp)
     nil
-    (str (f/parse wml-date-formatter timestamp))))
+    (str (-> (f/parse wml-date-formatter timestamp) .secondOfMinute .withMinimumValue))))
 
 (defn hexy
 "This will convert the bytes to CSS RGB Value"
