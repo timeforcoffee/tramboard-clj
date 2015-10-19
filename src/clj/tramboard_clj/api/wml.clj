@@ -130,12 +130,12 @@
    (clojure.string/replace input (str "{{" placeholder "}}") replace))
 
 
-(defn station [id]
+(defn station [id station-base-url]
   (let [stripped_id (clojure.string/replace id #"^0*" "")
         newid (subs stripped_id 2 (count stripped_id))
         request-url (replaceholder station-base-url "id" (add-luhny-digit newid))]
     (do-api-call request-url (transform-station-response id))))
 
-(defn query-stations [query]
+(defn query-stations [query query-stations-base-url]
   (let [request-url (str query-stations-base-url (codec/url-encode query))]
     (do-api-call request-url transform-query-stations-response)))
