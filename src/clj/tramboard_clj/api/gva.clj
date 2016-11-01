@@ -5,11 +5,11 @@
             [cheshire.core :as json]
             [org.httpkit.client :as http]))
 
-(def query-stations-base-url        "http://rtpi.data.tpg.ch/v1/GetStops?key=21a25080-9bbc-11e4-bc99-0002a5d5c51b&stopName=")
-(def station-base-url               "http://rtpi.data.tpg.ch/v1/GetNextDepartures?key=21a25080-9bbc-11e4-bc99-0002a5d5c51b&stopCode=")
+(def query-stations-base-url        "http://prod.ivtr-od.tpg.ch/v1/GetStops?key=21a25080-9bbc-11e4-bc99-0002a5d5c51b&stopName=")
+(def station-base-url               "http://prod.ivtr-od.tpg.ch/v1/GetNextDepartures?key=21a25080-9bbc-11e4-bc99-0002a5d5c51b&stopCode=")
 
 (def line-colors-fetched (atom false))
-(def line-colors-url "http://rtpi.data.tpg.ch/v1/GetLinesColors?key=21a25080-9bbc-11e4-bc99-0002a5d5c51b")
+(def line-colors-url "http://prod.ivtr-od.tpg.ch/GetLinesColors?key=21a25080-9bbc-11e4-bc99-0002a5d5c51b")
 (def line-colors (promise))
 
 (def gva-timezone (t/time-zone-for-id "Europe/Zurich"))
